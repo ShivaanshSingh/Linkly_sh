@@ -1,0 +1,436 @@
+import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../models/post_model.dart';
+
+class PostService extends ChangeNotifier {
+  FirebaseFirestore? _firestore;
+  final String _collection = 'posts';
+  bool _isFirebaseAvailable = false;
+  
+  List<PostModel> _posts = [];
+  bool _isLoading = false;
+  String? _error;
+
+  PostService() {
+    try {
+      _firestore = FirebaseFirestore.instance;
+      _isFirebaseAvailable = true;
+      debugPrint('PostService initialized with Firebase');
+    } catch (e) {
+      debugPrint('PostService initialized without Firebase: $e');
+      _isFirebaseAvailable = false;
+      // Load mock posts immediately for demonstration
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _loadMockPosts();
+      });
+    }
+  }
+
+  List<PostModel> get posts => _posts;
+  bool get isLoading => _isLoading;
+  String? get error => _error;
+
+  // Get all posts ordered by creation date (newest first)
+  Future<void> getPosts() async {
+    if (!_isFirebaseAvailable) {
+      _loadMockPosts();
+      return;
+    }
+    
+    try {
+      _setLoading(true);
+      _error = null;
+      
+      debugPrint('PostService: Fetching posts from Firestore');
+      
+      final QuerySnapshot snapshot = await _firestore!
+          .collection(_collection)
+          .orderBy('createdAt', descending: true)
+          .get();
+
+      _posts = snapshot.docs
+          .map((doc) => PostModel.fromFirestore(doc))
+          .toList();
+      
+      debugPrint('PostService: Fetched ${_posts.length} posts');
+      notifyListeners();
+    } catch (e) {
+      _error = e.toString();
+      debugPrint('PostService: Error fetching posts: $e');
+      notifyListeners();
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  void _loadMockPosts() {
+    _posts = [
+      PostModel(
+        id: '1',
+        userId: 'user1',
+        userName: 'Sarah Connor',
+        userAvatar: 'S',
+        content: 'Excited to announce my new project focusing on sustainable tech solutions! It\'s been a challenging but rewarding journey. #SustainableTech #Innovation',
+        imageUrl: null,
+        likes: ['user2', 'user3'],
+        shares: ['user4'],
+        commentsCount: 5,
+        createdAt: DateTime.now().subtract(const Duration(hours: 2)),
+        updatedAt: DateTime.now().subtract(const Duration(hours: 2)),
+      ),
+      PostModel(
+        id: '2',
+        userId: 'user2',
+        userName: 'Michael Chen',
+        userAvatar: 'M',
+        content: 'Reflecting on the latest trends in AI and machine learning. The pace of change is incredible, and I\'m looking forward to the next breakthroughs. #AI #MachineLearning',
+        imageUrl: null,
+        likes: ['user1', 'user3', 'user4'],
+        shares: ['user5'],
+        commentsCount: 8,
+        createdAt: DateTime.now().subtract(const Duration(days: 1)),
+        updatedAt: DateTime.now().subtract(const Duration(days: 1)),
+      ),
+      PostModel(
+        id: '3',
+        userId: 'user3',
+        userName: 'Emily White',
+        userAvatar: 'E',
+        content: 'Attended an insightful webinar on remote work strategies. The future of work is definitely flexible! Sharing some key takeaways in my blog soon. #RemoteWork #FutureOfWork',
+        imageUrl: null,
+        likes: ['user1', 'user2'],
+        shares: [],
+        commentsCount: 3,
+        createdAt: DateTime.now().subtract(const Duration(days: 3)),
+        updatedAt: DateTime.now().subtract(const Duration(days: 3)),
+      ),
+    ];
+    notifyListeners();
+    debugPrint('PostService: Loaded ${_posts.length} mock posts');
+  }
+
+  // Stream posts for real-time updates
+  Stream<List<PostModel>> getPostsStream() {
+    if (!_isFirebaseAvailable) {
+      return Stream.value(_posts);
+    }
+    
+    return _firestore!
+        .collection(_collection)
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snapshot) {
+      return snapshot.docs
+          .map((doc) => PostModel.fromFirestore(doc))
+          .toList();
+    });
+  }
+
+  // Create a new post
+  Future<String?> createPost({
+    required String userId,
+    required String userName,
+    required String userAvatar,
+    required String content,
+    String? imageUrl,
+  }) async {
+    if (!_isFirebaseAvailable) {
+      // Mock post creation for demonstration
+      _setLoading(true);
+      await Future.delayed(const Duration(milliseconds: 500));
+      
+      final newPost = PostModel(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        userId: userId,
+        userName: userName,
+        userAvatar: userAvatar,
+        content: content,
+        imageUrl: imageUrl,
+        likes: [],
+        shares: [],
+        commentsCount: 0,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
+      
+      _posts.insert(0, newPost);
+      _setLoading(false);
+      notifyListeners();
+      debugPrint('PostService: Mock post created');
+      return newPost.id;
+    }
+    
+    try {
+      _setLoading(true);
+      _error = null;
+      
+      debugPrint('PostService: Creating new post for user: $userName');
+      
+      final postData = {
+        'userId': userId,
+        'userName': userName,
+        'userAvatar': userAvatar,
+        'content': content,
+        'imageUrl': imageUrl,
+        'likes': <String>[],
+        'shares': <String>[],
+        'commentsCount': 0,
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+
+      final docRef = await _firestore!.collection(_collection).add(postData);
+      
+      debugPrint('PostService: Post created with ID: ${docRef.id}');
+      return docRef.id;
+    } catch (e) {
+      _error = e.toString();
+      debugPrint('PostService: Error creating post: $e');
+      return null;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  // Like/Unlike a post
+  Future<void> toggleLike(String postId, String userId) async {
+    if (!_isFirebaseAvailable) {
+      // Mock like toggle
+      final postIndex = _posts.indexWhere((post) => post.id == postId);
+      if (postIndex != -1) {
+        final post = _posts[postIndex];
+        final newLikes = List<String>.from(post.likes);
+        
+        if (newLikes.contains(userId)) {
+          newLikes.remove(userId);
+        } else {
+          newLikes.add(userId);
+        }
+        
+        _posts[postIndex] = post.copyWith(
+          likes: newLikes,
+          updatedAt: DateTime.now(),
+        );
+        notifyListeners();
+        debugPrint('PostService: Mock like toggled for post: $postId');
+      }
+      return;
+    }
+    
+    try {
+      debugPrint('PostService: Toggling like for post: $postId, user: $userId');
+      
+      final postRef = _firestore!.collection(_collection).doc(postId);
+      
+      await _firestore!.runTransaction((transaction) async {
+        final postDoc = await transaction.get(postRef);
+        
+        if (!postDoc.exists) {
+          throw Exception('Post not found');
+        }
+        
+        final postData = postDoc.data()!;
+        final List<String> likes = List<String>.from(postData['likes'] ?? []);
+        
+        if (likes.contains(userId)) {
+          likes.remove(userId);
+        } else {
+          likes.add(userId);
+        }
+        
+        transaction.update(postRef, {
+          'likes': likes,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      });
+      
+      debugPrint('PostService: Like toggled successfully');
+    } catch (e) {
+      _error = e.toString();
+      debugPrint('PostService: Error toggling like: $e');
+      notifyListeners();
+    }
+  }
+
+  // Share a post
+  Future<void> sharePost(String postId, String userId) async {
+    if (!_isFirebaseAvailable) {
+      // Mock share for demonstration
+      final postIndex = _posts.indexWhere((post) => post.id == postId);
+      if (postIndex != -1) {
+        final post = _posts[postIndex];
+        final newShares = List<String>.from(post.shares);
+        
+        if (!newShares.contains(userId)) {
+          newShares.add(userId);
+          
+          _posts[postIndex] = post.copyWith(
+            shares: newShares,
+            updatedAt: DateTime.now(),
+          );
+          notifyListeners();
+          debugPrint('PostService: Mock post shared');
+        }
+      }
+      return;
+    }
+    
+    try {
+      debugPrint('PostService: Sharing post: $postId, user: $userId');
+      
+      final postRef = _firestore!.collection(_collection).doc(postId);
+      
+      await _firestore!.runTransaction((transaction) async {
+        final postDoc = await transaction.get(postRef);
+        
+        if (!postDoc.exists) {
+          throw Exception('Post not found');
+        }
+        
+        final postData = postDoc.data()!;
+        final List<String> shares = List<String>.from(postData['shares'] ?? []);
+        
+        if (!shares.contains(userId)) {
+          shares.add(userId);
+          
+          transaction.update(postRef, {
+            'shares': shares,
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
+        }
+      });
+      
+      debugPrint('PostService: Post shared successfully');
+    } catch (e) {
+      _error = e.toString();
+      debugPrint('PostService: Error sharing post: $e');
+      notifyListeners();
+    }
+  }
+
+  // Delete a post
+  Future<void> deletePost(String postId, String userId) async {
+    if (!_isFirebaseAvailable) {
+      // Mock delete for demonstration
+      _setLoading(true);
+      await Future.delayed(const Duration(milliseconds: 500));
+      
+      final postIndex = _posts.indexWhere((post) => post.id == postId);
+      if (postIndex != -1 && _posts[postIndex].userId == userId) {
+        _posts.removeAt(postIndex);
+        notifyListeners();
+        debugPrint('PostService: Mock post deleted');
+      }
+      
+      _setLoading(false);
+      return;
+    }
+    
+    try {
+      _setLoading(true);
+      _error = null;
+      
+      debugPrint('PostService: Deleting post: $postId');
+      
+      // First check if the user owns the post
+      final postDoc = await _firestore!.collection(_collection).doc(postId).get();
+      
+      if (!postDoc.exists) {
+        throw Exception('Post not found');
+      }
+      
+      final postData = postDoc.data()!;
+      if (postData['userId'] != userId) {
+        throw Exception('You can only delete your own posts');
+      }
+      
+      await _firestore!.collection(_collection).doc(postId).delete();
+      
+      // Remove from local list
+      _posts.removeWhere((post) => post.id == postId);
+      
+      debugPrint('PostService: Post deleted successfully');
+      notifyListeners();
+    } catch (e) {
+      _error = e.toString();
+      debugPrint('PostService: Error deleting post: $e');
+      notifyListeners();
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  // Get posts by a specific user
+  Future<List<PostModel>> getUserPosts(String userId) async {
+    if (!_isFirebaseAvailable) {
+      // Mock user posts for demonstration
+      final userPosts = _posts.where((post) => post.userId == userId).toList();
+      debugPrint('PostService: Mock fetched ${userPosts.length} posts for user');
+      return userPosts;
+    }
+    
+    try {
+      debugPrint('PostService: Fetching posts for user: $userId');
+      
+      final QuerySnapshot snapshot = await _firestore!
+          .collection(_collection)
+          .where('userId', isEqualTo: userId)
+          .orderBy('createdAt', descending: true)
+          .get();
+
+      final userPosts = snapshot.docs
+          .map((doc) => PostModel.fromFirestore(doc))
+          .toList();
+      
+      debugPrint('PostService: Fetched ${userPosts.length} posts for user');
+      return userPosts;
+    } catch (e) {
+      debugPrint('PostService: Error fetching user posts: $e');
+      return [];
+    }
+  }
+
+  // Search posts by content
+  Future<List<PostModel>> searchPosts(String query) async {
+    if (!_isFirebaseAvailable) {
+      // Mock search for demonstration
+      final searchResults = _posts.where((post) => 
+        post.content.toLowerCase().contains(query.toLowerCase())
+      ).toList();
+      debugPrint('PostService: Mock found ${searchResults.length} posts matching query');
+      return searchResults;
+    }
+    
+    try {
+      debugPrint('PostService: Searching posts with query: $query');
+      
+      final QuerySnapshot snapshot = await _firestore!
+          .collection(_collection)
+          .where('content', isGreaterThanOrEqualTo: query)
+          .where('content', isLessThan: query + 'z')
+          .orderBy('content')
+          .orderBy('createdAt', descending: true)
+          .get();
+
+      final searchResults = snapshot.docs
+          .map((doc) => PostModel.fromFirestore(doc))
+          .toList();
+      
+      debugPrint('PostService: Found ${searchResults.length} posts matching query');
+      return searchResults;
+    } catch (e) {
+      debugPrint('PostService: Error searching posts: $e');
+      return [];
+    }
+  }
+
+  void _setLoading(bool loading) {
+    _isLoading = loading;
+    notifyListeners();
+  }
+
+  void clearError() {
+    _error = null;
+    notifyListeners();
+  }
+}

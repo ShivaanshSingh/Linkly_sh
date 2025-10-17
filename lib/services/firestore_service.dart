@@ -1,16 +1,19 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+// import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/profile_model.dart';
 import '../models/connection_model.dart';
 import '../models/message_model.dart';
 
 class FirestoreService extends ChangeNotifier {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  // Temporarily disable Firebase Firestore
+  // final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   // Profile Management
   Future<void> createProfile(ProfileModel profile) async {
     try {
-      await _firestore.collection('profiles').doc(profile.userId).set(profile.toMap());
+      debugPrint('Mock: Creating profile for ${profile.userId}');
+      // Simulate network delay
+      await Future.delayed(const Duration(milliseconds: 500));
     } catch (e) {
       debugPrint('Error creating profile: $e');
       rethrow;
@@ -19,11 +22,9 @@ class FirestoreService extends ChangeNotifier {
 
   Future<ProfileModel?> getProfile(String userId) async {
     try {
-      final doc = await _firestore.collection('profiles').doc(userId).get();
-      if (doc.exists) {
-        return ProfileModel.fromMap(doc.data()!);
-      }
-      return null;
+      debugPrint('Mock: Getting profile for $userId');
+      await Future.delayed(const Duration(milliseconds: 300));
+      return null; // Mock: return null for now
     } catch (e) {
       debugPrint('Error getting profile: $e');
       return null;
@@ -32,7 +33,8 @@ class FirestoreService extends ChangeNotifier {
 
   Future<void> updateProfile(ProfileModel profile) async {
     try {
-      await _firestore.collection('profiles').doc(profile.userId).update(profile.toMap());
+      debugPrint('Mock: Updating profile for ${profile.userId}');
+      await Future.delayed(const Duration(milliseconds: 500));
     } catch (e) {
       debugPrint('Error updating profile: $e');
       rethrow;
@@ -42,7 +44,8 @@ class FirestoreService extends ChangeNotifier {
   // Connections Management
   Future<void> addConnection(ConnectionModel connection) async {
     try {
-      await _firestore.collection('connections').add(connection.toMap());
+      debugPrint('Mock: Adding connection');
+      await Future.delayed(const Duration(milliseconds: 500));
     } catch (e) {
       debugPrint('Error adding connection: $e');
       rethrow;
@@ -50,19 +53,15 @@ class FirestoreService extends ChangeNotifier {
   }
 
   Stream<List<ConnectionModel>> getConnections(String userId) {
-    return _firestore
-        .collection('connections')
-        .where('userId', isEqualTo: userId)
-        .orderBy('createdAt', descending: true)
-        .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => ConnectionModel.fromMap(doc.data()))
-            .toList());
+    debugPrint('Mock: Getting connections for $userId');
+    // Return empty stream for now
+    return Stream.value([]);
   }
 
   Future<void> deleteConnection(String connectionId) async {
     try {
-      await _firestore.collection('connections').doc(connectionId).delete();
+      debugPrint('Mock: Deleting connection $connectionId');
+      await Future.delayed(const Duration(milliseconds: 300));
     } catch (e) {
       debugPrint('Error deleting connection: $e');
       rethrow;
@@ -72,7 +71,8 @@ class FirestoreService extends ChangeNotifier {
   // Messages Management
   Future<void> sendMessage(MessageModel message) async {
     try {
-      await _firestore.collection('messages').add(message.toMap());
+      debugPrint('Mock: Sending message');
+      await Future.delayed(const Duration(milliseconds: 500));
     } catch (e) {
       debugPrint('Error sending message: $e');
       rethrow;
@@ -80,31 +80,21 @@ class FirestoreService extends ChangeNotifier {
   }
 
   Stream<List<MessageModel>> getMessages(String userId, String contactUserId) {
-    return _firestore
-        .collection('messages')
-        .where('senderId', isEqualTo: userId)
-        .where('receiverId', isEqualTo: contactUserId)
-        .orderBy('timestamp', descending: true)
-        .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => MessageModel.fromMap(doc.data()))
-            .toList());
+    debugPrint('Mock: Getting messages between $userId and $contactUserId');
+    // Return empty stream for now
+    return Stream.value([]);
   }
 
   Stream<List<MessageModel>> getConversations(String userId) {
-    return _firestore
-        .collection('messages')
-        .where('receiverId', isEqualTo: userId)
-        .orderBy('timestamp', descending: true)
-        .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => MessageModel.fromMap(doc.data()))
-            .toList());
+    debugPrint('Mock: Getting conversations for $userId');
+    // Return empty stream for now
+    return Stream.value([]);
   }
 
   Future<void> markMessageAsRead(String messageId) async {
     try {
-      await _firestore.collection('messages').doc(messageId).update({'isRead': true});
+      debugPrint('Mock: Marking message $messageId as read');
+      await Future.delayed(const Duration(milliseconds: 300));
     } catch (e) {
       debugPrint('Error marking message as read: $e');
     }
@@ -113,16 +103,9 @@ class FirestoreService extends ChangeNotifier {
   // Search Users
   Future<List<ProfileModel>> searchUsers(String query) async {
     try {
-      final snapshot = await _firestore
-          .collection('profiles')
-          .where('displayName', isGreaterThanOrEqualTo: query)
-          .where('displayName', isLessThan: query + 'z')
-          .limit(10)
-          .get();
-
-      return snapshot.docs
-          .map((doc) => ProfileModel.fromMap(doc.data()))
-          .toList();
+      debugPrint('Mock: Searching users with query: $query');
+      await Future.delayed(const Duration(milliseconds: 500));
+      return []; // Return empty list for now
     } catch (e) {
       debugPrint('Error searching users: $e');
       return [];
@@ -132,22 +115,12 @@ class FirestoreService extends ChangeNotifier {
   // Analytics
   Future<Map<String, int>> getProfileAnalytics(String userId) async {
     try {
-      final connectionsSnapshot = await _firestore
-          .collection('connections')
-          .where('userId', isEqualTo: userId)
-          .get();
-
-      final messagesSnapshot = await _firestore
-          .collection('messages')
-          .where('receiverId', isEqualTo: userId)
-          .get();
-
+      debugPrint('Mock: Getting analytics for $userId');
+      await Future.delayed(const Duration(milliseconds: 500));
       return {
-        'totalConnections': connectionsSnapshot.docs.length,
-        'totalMessages': messagesSnapshot.docs.length,
-        'unreadMessages': messagesSnapshot.docs
-            .where((doc) => !doc.data()['isRead'])
-            .length,
+        'totalConnections': 0,
+        'totalMessages': 0,
+        'unreadMessages': 0,
       };
     } catch (e) {
       debugPrint('Error getting analytics: $e');

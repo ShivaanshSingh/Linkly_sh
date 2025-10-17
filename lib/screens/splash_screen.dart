@@ -20,6 +20,7 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   void initState() {
     super.initState();
+    debugPrint('SplashScreen: initState called');
     _setupAnimations();
     _checkAuthStatus();
   }
@@ -50,16 +51,30 @@ class _SplashScreenState extends State<SplashScreen>
   }
 
   Future<void> _checkAuthStatus() async {
-    await Future.delayed(const Duration(seconds: 3));
+    debugPrint('SplashScreen: Starting auth check');
+    await Future.delayed(const Duration(seconds: 2));
     
     if (mounted) {
-      final authService = Provider.of<AuthService>(context, listen: false);
-      
-      if (authService.isAuthenticated) {
-        context.go('/home');
-      } else {
+      try {
+        debugPrint('SplashScreen: Checking auth service');
+        final authService = Provider.of<AuthService>(context, listen: false);
+        
+        if (authService.isAuthenticated) {
+          debugPrint('SplashScreen: User is authenticated, going to home');
+          context.go('/home');
+        } else {
+          debugPrint('SplashScreen: User not authenticated, going to onboarding');
+          // Always go to onboarding first, then user can choose login/register
+          context.go('/onboarding');
+        }
+      } catch (e) {
+        debugPrint('Auth check error: $e');
+        // If there's an error, go to onboarding anyway
+        debugPrint('SplashScreen: Error occurred, going to onboarding');
         context.go('/onboarding');
       }
+    } else {
+      debugPrint('SplashScreen: Widget not mounted, skipping navigation');
     }
   }
 

@@ -34,6 +34,20 @@ class UserModel {
     );
   }
 
+  factory UserModel.fromFirestore(DocumentSnapshot doc) {
+    Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+    return UserModel(
+      uid: data['uid'] ?? doc.id,
+      email: data['email'] ?? '',
+      fullName: data['fullName'] ?? '',
+      profileImageUrl: data['profileImageUrl'],
+      createdAt: (data['createdAt'] as Timestamp).toDate(),
+      lastSeen: (data['lastSeen'] as Timestamp).toDate(),
+      isOnline: data['isOnline'] ?? false,
+      fcmToken: data['fcmToken'],
+    );
+  }
+
   Map<String, dynamic> toMap() {
     return {
       'uid': uid,

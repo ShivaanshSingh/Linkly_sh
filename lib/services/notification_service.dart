@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+// import 'package:firebase_messaging/firebase_messaging.dart';
+// import 'package:cloud_firestore/cloud_firestore.dart';
 
 class NotificationService extends ChangeNotifier {
-  final FirebaseMessaging _messaging = FirebaseMessaging.instance;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  // Temporarily disable Firebase dependencies
+  // final FirebaseMessaging _messaging = FirebaseMessaging.instance;
+  // final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   String? _fcmToken;
   bool _isLoading = false;
@@ -15,27 +16,12 @@ class NotificationService extends ChangeNotifier {
   Future<void> initialize() async {
     try {
       _setLoading(true);
+      debugPrint('Mock: Initializing notifications');
       
-      // Request permission
-      final settings = await _messaging.requestPermission(
-        alert: true,
-        badge: true,
-        sound: true,
-      );
-
-      if (settings.authorizationStatus == AuthorizationStatus.authorized) {
-        // Get FCM token
-        _fcmToken = await _messaging.getToken();
-        
-        // Listen to token refresh
-        _messaging.onTokenRefresh.listen((token) {
-          _fcmToken = token;
-          notifyListeners();
-        });
-
-        // Handle background messages
-        FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-      }
+      // Simulate initialization delay
+      await Future.delayed(const Duration(seconds: 1));
+      
+      _fcmToken = 'mock_fcm_token';
     } catch (e) {
       debugPrint('Error initializing notifications: $e');
     } finally {
@@ -47,9 +33,8 @@ class NotificationService extends ChangeNotifier {
     if (_fcmToken == null) return;
 
     try {
-      await _firestore.collection('users').doc(userId).update({
-        'fcmToken': _fcmToken,
-      });
+      debugPrint('Mock: Saving FCM token for $userId');
+      await Future.delayed(const Duration(milliseconds: 300));
     } catch (e) {
       debugPrint('Error saving FCM token: $e');
     }
@@ -62,40 +47,23 @@ class NotificationService extends ChangeNotifier {
     Map<String, dynamic>? data,
   }) async {
     try {
-      // This would typically be done through a Cloud Function
-      // For now, we'll just store the notification in Firestore
-      await _firestore.collection('notifications').add({
-        'title': title,
-        'body': body,
-        'receiverId': receiverId,
-        'data': data ?? {},
-        'timestamp': FieldValue.serverTimestamp(),
-        'isRead': false,
-      });
+      debugPrint('Mock: Sending notification: $title to $receiverId');
+      await Future.delayed(const Duration(milliseconds: 500));
     } catch (e) {
       debugPrint('Error sending notification: $e');
     }
   }
 
   Stream<List<Map<String, dynamic>>> getNotifications(String userId) {
-    return _firestore
-        .collection('notifications')
-        .where('receiverId', isEqualTo: userId)
-        .orderBy('timestamp', descending: true)
-        .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => {
-                  'id': doc.id,
-                  ...doc.data(),
-                })
-            .toList());
+    debugPrint('Mock: Getting notifications for $userId');
+    // Return empty stream for now
+    return Stream.value([]);
   }
 
   Future<void> markNotificationAsRead(String notificationId) async {
     try {
-      await _firestore.collection('notifications').doc(notificationId).update({
-        'isRead': true,
-      });
+      debugPrint('Mock: Marking notification $notificationId as read');
+      await Future.delayed(const Duration(milliseconds: 300));
     } catch (e) {
       debugPrint('Error marking notification as read: $e');
     }
@@ -108,6 +76,6 @@ class NotificationService extends ChangeNotifier {
 }
 
 // Background message handler
-Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  debugPrint('Handling a background message: ${message.messageId}');
+Future<void> _firebaseMessagingBackgroundHandler(dynamic message) async {
+  debugPrint('Mock: Handling a background message: ${message.toString()}');
 }

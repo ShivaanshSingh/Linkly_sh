@@ -53,7 +53,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       );
       
       if (mounted) {
-        context.go('/profile-setup');
+        context.go('/home');
       }
     } catch (e) {
       if (mounted) {
@@ -73,7 +73,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       await authService.signInWithGoogle();
       
       if (mounted) {
-        context.go('/profile-setup');
+        context.go('/home');
       }
     } catch (e) {
       if (mounted) {
@@ -90,7 +90,24 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.backgroundLight,
+      backgroundColor: AppColors.white,
+      appBar: AppBar(
+        backgroundColor: AppColors.white,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: AppColors.grey900),
+          onPressed: () => context.go('/login'),
+        ),
+        title: const Text(
+          'Create Your Account',
+          style: TextStyle(
+            color: AppColors.grey900,
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        centerTitle: true,
+      ),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
@@ -101,45 +118,25 @@ class _RegisterScreenState extends State<RegisterScreen> {
               children: [
                 const SizedBox(height: 20),
                 
-                // Logo and title
-                Center(
-                  child: Column(
-                    children: [
-                      Container(
-                        width: 80,
-                        height: 80,
-                        decoration: BoxDecoration(
-                          color: AppColors.primary,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: const Icon(
-                          Icons.link,
-                          size: 40,
-                          color: AppColors.white,
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      const Text(
-                        'Create Account',
-                        style: TextStyle(
-                          fontSize: 28,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.grey900,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        'Join Linkly and start networking',
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: AppColors.grey600,
-                        ),
-                      ),
-                    ],
+                // Title
+                const Text(
+                  'Sign Up',
+                  style: TextStyle(
+                    fontSize: 32,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.grey900,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Join Linkly and unlock your business potential.',
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: AppColors.grey600,
                   ),
                 ),
                 
-                const SizedBox(height: 32),
+                const SizedBox(height: 40),
                 
                 // Full name field
                 CustomTextField(
@@ -158,12 +155,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   },
                 ),
                 
-                const SizedBox(height: 16),
+                const SizedBox(height: 20),
                 
                 // Email field
                 CustomTextField(
                   controller: _emailController,
-                  label: 'Email',
+                  label: 'Email Address',
                   hint: 'Enter your email',
                   keyboardType: TextInputType.emailAddress,
                   prefixIcon: Icons.email_outlined,
@@ -178,18 +175,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   },
                 ),
                 
-                const SizedBox(height: 16),
+                const SizedBox(height: 20),
                 
                 // Password field
                 CustomTextField(
                   controller: _passwordController,
                   label: 'Password',
-                  hint: 'Create a password',
+                  hint: 'Create your password',
                   obscureText: _obscurePassword,
                   prefixIcon: Icons.lock_outlined,
                   suffixIcon: IconButton(
                     icon: Icon(
                       _obscurePassword ? Icons.visibility : Icons.visibility_off,
+                      color: AppColors.grey500,
                     ),
                     onPressed: () {
                       setState(() {
@@ -208,37 +206,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   },
                 ),
                 
-                const SizedBox(height: 16),
-                
-                // Confirm password field
-                CustomTextField(
-                  controller: _confirmPasswordController,
-                  label: 'Confirm Password',
-                  hint: 'Confirm your password',
-                  obscureText: _obscureConfirmPassword,
-                  prefixIcon: Icons.lock_outlined,
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                      _obscureConfirmPassword ? Icons.visibility : Icons.visibility_off,
-                    ),
-                    onPressed: () {
-                      setState(() {
-                        _obscureConfirmPassword = !_obscureConfirmPassword;
-                      });
-                    },
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please confirm your password';
-                    }
-                    if (value != _passwordController.text) {
-                      return 'Passwords do not match';
-                    }
-                    return null;
-                  },
-                ),
-                
-                const SizedBox(height: 16),
+                const SizedBox(height: 30),
                 
                 // Terms and conditions
                 Row(
@@ -250,6 +218,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           _agreeToTerms = value ?? false;
                         });
                       },
+                      activeColor: AppColors.primary,
                     ),
                     Expanded(
                       child: RichText(
@@ -282,25 +251,25 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ],
                 ),
                 
-                const SizedBox(height: 24),
+                const SizedBox(height: 30),
                 
                 // Sign up button
                 Consumer<AuthService>(
                   builder: (context, authService, child) {
                     return CustomButton(
-                      text: 'Create Account',
+                      text: 'Register',
                       onPressed: authService.isLoading ? null : _signUp,
                       isLoading: authService.isLoading,
                     );
                   },
                 ),
                 
-                const SizedBox(height: 24),
+                const SizedBox(height: 30),
                 
                 // Divider
                 Row(
                   children: [
-                    const Expanded(child: Divider()),
+                    const Expanded(child: Divider(color: AppColors.grey300)),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: Text(
@@ -311,26 +280,35 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         ),
                       ),
                     ),
-                    const Expanded(child: Divider()),
+                    const Expanded(child: Divider(color: AppColors.grey300)),
                   ],
                 ),
                 
-                const SizedBox(height: 24),
+                const SizedBox(height: 30),
                 
                 // Google sign up button
                 OutlinedButton.icon(
                   onPressed: _signUpWithGoogle,
-                  icon: const Icon(Icons.g_mobiledata, size: 24),
-                  label: const Text('Continue with Google'),
+                  icon: const Icon(Icons.g_mobiledata, size: 24, color: AppColors.grey700),
+                  label: const Text(
+                    'Continue with Google',
+                    style: TextStyle(
+                      color: AppColors.grey700,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
                   style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    side: const BorderSide(color: AppColors.grey300),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
+                    backgroundColor: AppColors.white,
                   ),
                 ),
                 
-                const SizedBox(height: 32),
+                const SizedBox(height: 40),
                 
                 // Sign in link
                 Row(
@@ -342,7 +320,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                     TextButton(
                       onPressed: () => context.go('/login'),
-                      child: const Text('Sign In'),
+                      child: const Text(
+                        'Log In',
+                        style: TextStyle(
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
                   ],
                 ),
