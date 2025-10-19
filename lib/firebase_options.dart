@@ -41,45 +41,45 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'your-web-api-key',
-    appId: 'your-web-app-id',
-    messagingSenderId: 'your-sender-id',
-    projectId: 'your-project-id',
-    authDomain: 'your-project-id.firebaseapp.com',
-    storageBucket: 'your-project-id.appspot.com',
+    apiKey: 'AIzaSyDi5Z3g1Mpt1y7KsPLHowmWmWwW73pnn9k',
+    appId: '1:651351206557:web:7565ff2e20876787e7c274',
+    messagingSenderId: '651351206557',
+    projectId: 'linklly-9525b',
+    authDomain: 'linklly-9525b.firebaseapp.com',
+    storageBucket: 'linklly-9525b.firebasestorage.app',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'your-android-api-key',
-    appId: 'your-android-app-id',
-    messagingSenderId: 'your-sender-id',
-    projectId: 'your-project-id',
-    storageBucket: 'your-project-id.appspot.com',
+    apiKey: 'AIzaSyDi5Z3g1Mpt1y7KsPLHowmWmWwW73pnn9k',
+    appId: '1:651351206557:android:7565ff2e20876787e7c274',
+    messagingSenderId: '651351206557',
+    projectId: 'linklly-9525b',
+    storageBucket: 'linklly-9525b.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'your-ios-api-key',
-    appId: 'your-ios-app-id',
-    messagingSenderId: 'your-sender-id',
-    projectId: 'your-project-id',
-    storageBucket: 'your-project-id.appspot.com',
+    apiKey: 'AIzaSyDi5Z3g1Mpt1y7KsPLHowmWmWwW73pnn9k',
+    appId: '1:651351206557:ios:7565ff2e20876787e7c274',
+    messagingSenderId: '651351206557',
+    projectId: 'linklly-9525b',
+    storageBucket: 'linklly-9525b.firebasestorage.app',
     iosBundleId: 'com.example.linkly',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'your-macos-api-key',
-    appId: 'your-macos-app-id',
-    messagingSenderId: 'your-sender-id',
-    projectId: 'your-project-id',
-    storageBucket: 'your-project-id.appspot.com',
+    apiKey: 'AIzaSyDi5Z3g1Mpt1y7KsPLHowmWmWwW73pnn9k',
+    appId: '1:651351206557:ios:7565ff2e20876787e7c274',
+    messagingSenderId: '651351206557',
+    projectId: 'linklly-9525b',
+    storageBucket: 'linklly-9525b.firebasestorage.app',
     iosBundleId: 'com.example.linkly',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'your-windows-api-key',
-    appId: 'your-windows-app-id',
-    messagingSenderId: 'your-sender-id',
-    projectId: 'your-project-id',
-    storageBucket: 'your-project-id.appspot.com',
+    apiKey: 'AIzaSyDi5Z3g1Mpt1y7KsPLHowmWmWwW73pnn9k',
+    appId: '1:651351206557:web:7565ff2e20876787e7c274',
+    messagingSenderId: '651351206557',
+    projectId: 'linklly-9525b',
+    storageBucket: 'linklly-9525b.firebasestorage.app',
   );
 }

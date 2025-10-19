@@ -31,41 +31,53 @@ import 'constants/app_theme.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
+  bool firebaseInitialized = false;
+  
   try {
-    // Initialize Firebase
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
-    
-    // Initialize Firebase Crashlytics
-    FlutterError.onError = (errorDetails) {
-      FirebaseCrashlytics.instance.recordFlutterFatalError(errorDetails);
-    };
-    
-    // Pass all uncaught asynchronous errors to Crashlytics
-    PlatformDispatcher.instance.onError = (error, stack) {
-      FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
-      return true;
-    };
-    
-    debugPrint('Firebase initialized successfully');
+    // Check if Firebase is already initialized
+    if (Firebase.apps.isEmpty) {
+      // Initialize Firebase only if not already initialized
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+      
+      // Initialize Firebase Crashlytics
+      FlutterError.onError = (errorDetails) {
+        FirebaseCrashlytics.instance.recordFlutterFatalError(errorDetails);
+      };
+      
+      // Pass all uncaught asynchronous errors to Crashlytics
+      PlatformDispatcher.instance.onError = (error, stack) {
+        FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+        return true;
+      };
+      
+      firebaseInitialized = true;
+      debugPrint('✅ Firebase initialized successfully');
+    } else {
+      // Firebase is already initialized
+      firebaseInitialized = true;
+      debugPrint('✅ Firebase already initialized');
+    }
   } catch (e) {
-    debugPrint('Firebase initialization error: $e');
-    debugPrint('Continuing with mock data for demonstration...');
-    // Continue without Firebase for now
+    debugPrint('❌ Firebase initialization error: $e');
+    debugPrint('❌ Continuing without Firebase authentication...');
+    firebaseInitialized = false;
   }
   
-  runApp(const LinklyApp());
+  runApp(LinklyApp(firebaseInitialized: firebaseInitialized));
 }
 
 class LinklyApp extends StatelessWidget {
-  const LinklyApp({super.key});
+  final bool firebaseInitialized;
+  
+  const LinklyApp({super.key, required this.firebaseInitialized});
 
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => AuthService()),
+        ChangeNotifierProvider(create: (_) => AuthService(firebaseInitialized: firebaseInitialized)),
         ChangeNotifierProvider(create: (_) => FirestoreService()),
         ChangeNotifierProvider(create: (_) => NotificationService()),
         ChangeNotifierProvider(create: (_) => PostService()),
@@ -78,7 +90,7 @@ class LinklyApp extends StatelessWidget {
             theme: AppTheme.lightTheme,
             darkTheme: AppTheme.darkTheme,
             themeMode: ThemeMode.system,
-            routerConfig: _router,
+            routerConfig: _createRouter(authService),
           );
         },
       ),
@@ -86,9 +98,47 @@ class LinklyApp extends StatelessWidget {
   }
 }
 
-final GoRouter _router = GoRouter(
-  initialLocation: '/splash',
-  routes: [
+GoRouter _createRouter(AuthService authService) {
+  return GoRouter(
+    initialLocation: '/splash',
+    redirect: (context, state) {
+      final bool isAuthenticated = authService.isAuthenticated;
+      final bool isLoading = authService.isLoading;
+      final String currentPath = state.uri.toString();
+
+      debugPrint('🔄 Router redirect: $currentPath');
+      debugPrint('🔄 Auth state: isAuthenticated=$isAuthenticated, isLoading=$isLoading');
+
+      // Don't redirect if we're on splash screen or if loading
+      if (currentPath == '/splash' || isLoading) {
+        return null;
+      }
+
+      // List of routes accessible to unauthenticated users
+      final bool isAuthRoute = currentPath == '/login' || currentPath == '/register' || currentPath == '/onboarding';
+
+      // If not authenticated
+      if (!isAuthenticated) {
+        // If trying to access a protected route, redirect to onboarding
+        if (!isAuthRoute) {
+          debugPrint('🔄 Not authenticated, redirecting to onboarding');
+          return '/onboarding';
+        }
+        // If already on an auth route, allow it
+        return null;
+      }
+      // If authenticated
+      else {
+        // If authenticated and on an auth route, redirect to home
+        if (isAuthRoute) {
+          debugPrint('🔄 Authenticated, redirecting to home');
+          return '/home';
+        }
+        // If authenticated and on a protected route, allow it
+        return null;
+      }
+    },
+    routes: [
     GoRoute(
       path: '/splash',
       builder: (context, state) => const SplashScreen(),
@@ -154,4 +204,5 @@ final GoRouter _router = GoRouter(
       builder: (context, state) => const NotificationsScreen(),
     ),
   ],
-);
+  );
+}

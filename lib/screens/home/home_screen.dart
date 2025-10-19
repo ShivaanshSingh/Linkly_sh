@@ -19,7 +19,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
-  int _selectedTab = 0; // 0 for Feeds, 1 for Digital Card
+  final int _selectedTab = 0; // 0 for Feeds, 1 for Digital Card
 
   final List<Widget> _screens = [
     const HomeDashboard(),
@@ -112,6 +112,68 @@ class HomeDashboard extends StatefulWidget {
 class _HomeDashboardState extends State<HomeDashboard> {
   int _selectedTab = 0; // 0 for Feeds, 1 for Digital Card
 
+  void _showLogoutDialog(BuildContext context, AuthService authService) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Sign Out'),
+          content: const Text('Are you sure you want to sign out?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () async {
+                Navigator.of(context).pop();
+                await _performLogout(context, authService);
+              },
+              style: TextButton.styleFrom(
+                foregroundColor: AppColors.error,
+              ),
+              child: const Text('Sign Out'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _performLogout(BuildContext context, AuthService authService) async {
+    debugPrint('🚀 Starting logout process');
+    
+    // Show loading indicator
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: CircularProgressIndicator(),
+      ),
+    );
+
+    try {
+      debugPrint('🔄 Calling authService.signOut()');
+      // Perform logout - router will handle navigation automatically
+      await authService.signOut();
+      debugPrint('✅ Sign out completed successfully');
+    } catch (e) {
+      debugPrint('❌ Sign out error: $e');
+      // Continue with navigation even if there's an error
+    } finally {
+      debugPrint('🧹 Cleaning up');
+      
+      // Always close loading dialog
+      if (context.mounted) {
+        Navigator.of(context).pop();
+        debugPrint('✅ Loading dialog closed');
+      }
+      
+      // Router will automatically navigate based on auth state
+      debugPrint('✅ Router will handle navigation automatically');
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -126,6 +188,30 @@ class _HomeDashboardState extends State<HomeDashboard> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.white,
+      appBar: AppBar(
+        backgroundColor: AppColors.white,
+        elevation: 0,
+        automaticallyImplyLeading: false,
+        title: const Text(
+          'Linkly',
+          style: TextStyle(
+            color: AppColors.grey900,
+            fontWeight: FontWeight.bold,
+            fontSize: 24,
+          ),
+        ),
+        actions: [
+          Consumer<AuthService>(
+            builder: (context, authService, child) {
+              return IconButton(
+                icon: const Icon(Icons.logout, color: AppColors.grey600),
+                onPressed: () => _showLogoutDialog(context, authService),
+                tooltip: 'Sign Out',
+              );
+            },
+          ),
+        ],
+      ),
       body: SafeArea(
         child: Column(
           children: [
@@ -149,22 +235,32 @@ class _HomeDashboardState extends State<HomeDashboard> {
   }
 
   Widget _buildHeader() {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Good morning, Alex!',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.grey900,
-                  ),
-                ),
+    return Consumer<AuthService>(
+      builder: (context, authService, child) {
+        // Get the first name from the user's full name
+        String firstName = 'User';
+        if (authService.userModel != null && authService.userModel!.fullName.isNotEmpty) {
+          firstName = authService.userModel!.fullName.split(' ').first;
+        } else if (authService.user != null && authService.user!.displayName != null) {
+          firstName = authService.user!.displayName!.split(' ').first;
+        }
+        
+        return Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Good morning, $firstName!',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.grey900,
+                      ),
+                    ),
                 const SizedBox(height: 4),
                 Text(
                   'Ready to connect today?',
@@ -205,7 +301,7 @@ class _HomeDashboardState extends State<HomeDashboard> {
               radius: 20,
               backgroundColor: AppColors.primary,
               child: Text(
-                'A',
+                firstName.isNotEmpty ? firstName[0].toUpperCase() : 'U',
                 style: TextStyle(
                   color: AppColors.white,
                   fontWeight: FontWeight.bold,
@@ -215,6 +311,8 @@ class _HomeDashboardState extends State<HomeDashboard> {
           ),
         ],
       ),
+    );
+      },
     );
   }
 

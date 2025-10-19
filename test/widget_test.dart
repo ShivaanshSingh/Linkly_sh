@@ -28,6 +28,9 @@ void main() {
       ),
     );
 
+    // Wait for any pending timers to complete
+    await tester.pumpAndSettle();
+
     // Verify that the app loads without crashing
     expect(find.byType(MaterialApp), findsOneWidget);
   });

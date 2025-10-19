@@ -78,7 +78,6 @@ class AuthService extends ChangeNotifier {
   }
 
   void _setLoading(bool loading) {
-    debugPrint('🔄 AuthService loading state changed: $loading');
     _isLoading = loading;
     notifyListeners();
   }
@@ -201,15 +200,10 @@ class AuthService extends ChangeNotifier {
       // Obtain the auth details from the request
       final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
       
-      // Check if we have the required tokens
-      if (googleAuth.accessToken == null || googleAuth.idToken == null) {
-        throw Exception('Failed to get authentication tokens from Google');
-      }
-      
       // Create a new credential
       final credential = GoogleAuthProvider.credential(
-        accessToken: googleAuth.accessToken!,
-        idToken: googleAuth.idToken!,
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
       );
       
       // Sign in to Firebase with the Google credential
@@ -252,28 +246,18 @@ class AuthService extends ChangeNotifier {
       debugPrint('Signing out');
       
       if (_isFirebaseAvailable) {
-        try {
-          // Sign out from Firebase Auth
-          await _auth!.signOut();
-          debugPrint('✅ Firebase Auth sign out successful');
-        } catch (e) {
-          debugPrint('⚠️ Firebase Auth sign out error: $e');
-          // Continue with sign out even if Firebase fails
-        }
+        // Sign out from Firebase Auth
+        await _auth!.signOut();
+        debugPrint('✅ Firebase Auth sign out successful');
         
-        try {
-          // Sign out from Google Sign-In
-          await _googleSignIn!.signOut();
-          debugPrint('✅ Google Sign-In sign out successful');
-        } catch (e) {
-          debugPrint('⚠️ Google Sign-In sign out error: $e');
-          // Continue with sign out even if Google fails
-        }
+        // Sign out from Google Sign-In
+        await _googleSignIn!.signOut();
+        debugPrint('✅ Google Sign-In sign out successful');
       } else {
         debugPrint('✅ Local authentication sign out');
       }
       
-      // Clear user data (always do this)
+      // Clear user data
       _user = null;
       _userModel = null;
       
@@ -287,8 +271,8 @@ class AuthService extends ChangeNotifier {
       _user = null;
       _userModel = null;
       notifyListeners();
+      rethrow;
     } finally {
-      // Always reset loading state
       _setLoading(false);
     }
   }
