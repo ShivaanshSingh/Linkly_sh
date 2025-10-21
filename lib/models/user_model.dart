@@ -5,6 +5,9 @@ class UserModel {
   final String email;
   final String fullName;
   final String? profileImageUrl;
+  final String? company;
+  final String? position;
+  final String? bio;
   final DateTime createdAt;
   final DateTime lastSeen;
   final bool isOnline;
@@ -15,6 +18,9 @@ class UserModel {
     required this.email,
     required this.fullName,
     this.profileImageUrl,
+    this.company,
+    this.position,
+    this.bio,
     required this.createdAt,
     required this.lastSeen,
     this.isOnline = false,
@@ -27,6 +33,9 @@ class UserModel {
       email: map['email'] ?? '',
       fullName: map['fullName'] ?? '',
       profileImageUrl: map['profileImageUrl'],
+      company: map['company'],
+      position: map['position'],
+      bio: map['bio'],
       createdAt: (map['createdAt'] as Timestamp).toDate(),
       lastSeen: (map['lastSeen'] as Timestamp).toDate(),
       isOnline: map['isOnline'] ?? false,
@@ -41,6 +50,9 @@ class UserModel {
       email: data['email'] ?? '',
       fullName: data['fullName'] ?? '',
       profileImageUrl: data['profileImageUrl'],
+      company: data['company'],
+      position: data['position'],
+      bio: data['bio'],
       createdAt: (data['createdAt'] as Timestamp).toDate(),
       lastSeen: (data['lastSeen'] as Timestamp).toDate(),
       isOnline: data['isOnline'] ?? false,
@@ -54,6 +66,9 @@ class UserModel {
       'email': email,
       'fullName': fullName,
       'profileImageUrl': profileImageUrl,
+      'company': company,
+      'position': position,
+      'bio': bio,
       'createdAt': Timestamp.fromDate(createdAt),
       'lastSeen': Timestamp.fromDate(lastSeen),
       'isOnline': isOnline,
@@ -66,6 +81,9 @@ class UserModel {
     String? email,
     String? fullName,
     String? profileImageUrl,
+    String? company,
+    String? position,
+    String? bio,
     DateTime? createdAt,
     DateTime? lastSeen,
     bool? isOnline,
@@ -76,6 +94,9 @@ class UserModel {
       email: email ?? this.email,
       fullName: fullName ?? this.fullName,
       profileImageUrl: profileImageUrl ?? this.profileImageUrl,
+      company: company ?? this.company,
+      position: position ?? this.position,
+      bio: bio ?? this.bio,
       createdAt: createdAt ?? this.createdAt,
       lastSeen: lastSeen ?? this.lastSeen,
       isOnline: isOnline ?? this.isOnline,

@@ -339,4 +339,68 @@ class AuthService extends ChangeNotifier {
       _setLoading(false);
     }
   }
+
+  Future<void> updateUserProfile({
+    required String fullName,
+    String? bio,
+    String? company,
+    String? position,
+    String? profileImageUrl,
+  }) async {
+    if (!_isFirebaseAvailable) {
+      debugPrint('Firebase not available, cannot update user profile');
+      return;
+    }
+    
+    try {
+      _setLoading(true);
+      final userId = _user?.uid ?? _userModel?.uid;
+      
+      if (userId == null) {
+        throw Exception('User not authenticated');
+      }
+      
+      debugPrint('Updating user profile for: $fullName');
+      
+      // Update Firebase Auth display name
+      if (_user != null) {
+        await _user!.updateDisplayName(fullName);
+        if (profileImageUrl != null) {
+          await _user!.updatePhotoURL(profileImageUrl);
+        }
+      }
+      
+      // Update Firestore user document
+      final updateData = {
+        'fullName': fullName,
+        'lastSeen': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+      
+      if (bio != null && bio.isNotEmpty) updateData['bio'] = bio;
+      if (company != null && company.isNotEmpty) updateData['company'] = company;
+      if (position != null && position.isNotEmpty) updateData['position'] = position;
+      if (profileImageUrl != null && profileImageUrl.isNotEmpty) {
+        updateData['profileImageUrl'] = profileImageUrl;
+      }
+      
+      await _firestore!.collection('users').doc(userId).update(updateData);
+      
+      // Update local user model
+      if (_userModel != null) {
+        _userModel = _userModel!.copyWith(
+          fullName: fullName,
+          profileImageUrl: profileImageUrl ?? _userModel!.profileImageUrl,
+        );
+      }
+      
+      notifyListeners();
+      debugPrint('User profile updated successfully');
+    } catch (e) {
+      debugPrint('Error updating user profile: $e');
+      rethrow;
+    } finally {
+      _setLoading(false);
+    }
+  }
 }

@@ -16,6 +16,9 @@ import 'screens/auth/login_screen.dart';
 import 'screens/auth/register_screen.dart';
 import 'screens/home/home_screen.dart';
 import 'screens/profile/profile_setup_screen.dart';
+import 'screens/profile/profile_edit_screen.dart';
+import 'screens/people/people_search_screen.dart';
+import 'screens/network/network_screen.dart';
 import 'screens/connections/connections_screen.dart';
 import 'screens/messages/messages_screen.dart';
 import 'screens/settings/settings_screen.dart';
@@ -162,6 +165,18 @@ GoRouter _createRouter(AuthService authService) {
     GoRoute(
       path: '/profile-setup',
       builder: (context, state) => const ProfileSetupScreen(),
+    ),
+    GoRoute(
+      path: '/profile-edit',
+      builder: (context, state) => const ProfileEditScreen(),
+    ),
+    GoRoute(
+      path: '/people-search',
+      builder: (context, state) => const PeopleSearchScreen(),
+    ),
+    GoRoute(
+      path: '/network',
+      builder: (context, state) => const NetworkScreen(),
     ),
     GoRoute(
       path: '/connections',

@@ -24,7 +24,7 @@ void main() {
           ChangeNotifierProvider(create: (_) => FirestoreService()),
           ChangeNotifierProvider(create: (_) => NotificationService()),
         ],
-        child: const LinklyApp(),
+        child: const LinklyApp(firebaseInitialized: false),
       ),
     );
 

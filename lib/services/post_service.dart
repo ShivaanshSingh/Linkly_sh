@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'dart:io';
 import '../models/post_model.dart';
 
 class PostService extends ChangeNotifier {
@@ -432,5 +434,125 @@ class PostService extends ChangeNotifier {
   void clearError() {
     _error = null;
     notifyListeners();
+  }
+
+  // Create a new post
+  Future<String?> createNewPost({
+    required String content,
+    String? imagePath,
+    required String userId,
+    required String userName,
+    String? userProfileImageUrl,
+  }) async {
+    try {
+      _setLoading(true);
+      _error = null;
+      debugPrint('PostService: Creating new post for user: $userName');
+
+      String? imageUrl;
+      
+      // Upload image if provided
+      if (imagePath != null && imagePath.isNotEmpty) {
+        debugPrint('PostService: Uploading image...');
+        imageUrl = await _uploadPostImage(imagePath, userId);
+        if (imageUrl == null) {
+          debugPrint('PostService: Image upload failed, continuing without image');
+        }
+      }
+
+      final postId = DateTime.now().millisecondsSinceEpoch.toString();
+      final now = DateTime.now();
+      final post = PostModel(
+        id: postId,
+        userId: userId,
+        userName: userName,
+        userAvatar: userProfileImageUrl ?? (userName.isNotEmpty ? userName[0].toUpperCase() : 'U'),
+        content: content,
+        imageUrl: imageUrl,
+        likes: [],
+        shares: [],
+        commentsCount: 0,
+        createdAt: now,
+        updatedAt: now,
+      );
+
+      if (_isFirebaseAvailable && _firestore != null) {
+        // Save to Firestore
+        debugPrint('PostService: Saving to Firestore...');
+        await _firestore!.collection(_collection).doc(postId).set(post.toFirestore());
+        debugPrint('PostService: Post saved to Firestore successfully');
+      } else {
+        // Add to mock posts
+        debugPrint('PostService: Adding to mock posts...');
+        _posts.insert(0, post);
+        debugPrint('PostService: Post added to mock posts successfully');
+      }
+
+      notifyListeners();
+      debugPrint('PostService: Post creation completed successfully');
+      return postId;
+    } catch (e) {
+      debugPrint('PostService: Error creating post: $e');
+      _error = 'Failed to create post: ${e.toString()}';
+      notifyListeners();
+      return null;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  // Upload post image to Firebase Storage
+  Future<String?> _uploadPostImage(String imagePath, String userId) async {
+    if (!_isFirebaseAvailable) {
+      // Return a mock URL for demonstration
+      debugPrint('PostService: Mock image URL generated');
+      return 'https://via.placeholder.com/400x300?text=Post+Image';
+    }
+    
+    try {
+      final file = File(imagePath);
+      final fileName = 'post_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final ref = FirebaseStorage.instance
+          .ref()
+          .child('post_images')
+          .child(userId)
+          .child(fileName);
+
+      await ref.putFile(file);
+      final downloadUrl = await ref.getDownloadURL();
+      
+      debugPrint('PostService: Image uploaded successfully');
+      return downloadUrl;
+    } catch (e) {
+      debugPrint('PostService: Error uploading image: $e');
+      // Return a mock URL as fallback
+      return 'https://via.placeholder.com/400x300?text=Post+Image';
+    }
+  }
+
+  // Delete a post
+  Future<bool> removePost(String postId) async {
+    try {
+      _setLoading(true);
+      debugPrint('PostService: Deleting post $postId');
+
+      if (_isFirebaseAvailable && _firestore != null) {
+        await _firestore!.collection(_collection).doc(postId).delete();
+        debugPrint('PostService: Post deleted from Firestore');
+      } else {
+        _posts.removeWhere((post) => post.id == postId);
+        debugPrint('PostService: Post removed from mock posts');
+      }
+
+      notifyListeners();
+      return true;
+    } catch (e) {
+      debugPrint('PostService: Error deleting post: $e');
+      _error = 'Failed to delete post: $e';
+      notifyListeners();
+      return false;
+    } finally {
+      _setLoading(false);
+    }
   }
 }

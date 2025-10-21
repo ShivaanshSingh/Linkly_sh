@@ -5,10 +5,13 @@ import '../../constants/app_colors.dart';
 import '../../services/auth_service.dart';
 import '../../services/post_service.dart';
 import '../../models/post_model.dart';
-import '../connections/connections_screen.dart';
+import '../network/network_screen.dart';
 import '../messages/messages_screen.dart';
 import '../notifications/notifications_screen.dart';
 import '../settings/settings_screen.dart';
+import '../../widgets/digital_card_widget.dart';
+import '../../widgets/create_post_modal.dart';
+import '../../widgets/recent_connections.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -19,11 +22,10 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
-  final int _selectedTab = 0; // 0 for Feeds, 1 for Digital Card
 
   final List<Widget> _screens = [
     const HomeDashboard(),
-    const ConnectionsScreen(),
+    const NetworkScreen(),
     const MessagesScreen(),
     const NotificationsScreen(),
     const SettingsScreen(),
@@ -33,13 +35,30 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: _screens[_selectedIndex],
+      floatingActionButton: _selectedIndex == 0 ? FloatingActionButton(
+        onPressed: () {
+          showDialog(
+            context: context,
+            builder: (context) => const CreatePostModal(),
+          );
+        },
+        backgroundColor: AppColors.primary,
+        child: const Icon(
+          Icons.add,
+          color: AppColors.white,
+        ),
+      ) : null,
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
         currentIndex: _selectedIndex,
         onTap: (index) {
-          setState(() {
-            _selectedIndex = index;
-          });
+          if (index == 2) { // Profile tab
+            context.push('/profile-edit');
+          } else {
+            setState(() {
+              _selectedIndex = index;
+            });
+          }
         },
         selectedItemColor: AppColors.primary,
         unselectedItemColor: AppColors.grey500,
@@ -219,7 +238,7 @@ class _HomeDashboardState extends State<HomeDashboard> {
             _buildHeader(),
             
             // Recent Connections
-            _buildRecentConnections(),
+            const RecentConnections(),
             
             // Tab Bar
             _buildTabBar(),
@@ -231,6 +250,19 @@ class _HomeDashboardState extends State<HomeDashboard> {
           ],
         ),
       ),
+      floatingActionButton: _selectedTab == 0 ? FloatingActionButton(
+        onPressed: () {
+          showDialog(
+            context: context,
+            builder: (context) => const CreatePostModal(),
+          );
+        },
+        backgroundColor: AppColors.primary,
+        child: const Icon(
+          Icons.add,
+          color: AppColors.white,
+        ),
+      ) : null,
     );
   }
 
@@ -296,17 +328,29 @@ class _HomeDashboardState extends State<HomeDashboard> {
           const SizedBox(width: 8),
           // Profile picture
           GestureDetector(
-            onTap: () => context.go('/profile'),
-            child: CircleAvatar(
-              radius: 20,
-              backgroundColor: AppColors.primary,
-              child: Text(
-                firstName.isNotEmpty ? firstName[0].toUpperCase() : 'U',
-                style: TextStyle(
-                  color: AppColors.white,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+            onTap: () => _navigateToProfileEdit(),
+            child: Consumer<AuthService>(
+              builder: (context, authService, child) {
+                final profileImageUrl = authService.userModel?.profileImageUrl ?? 
+                                     authService.user?.photoURL;
+                
+                return CircleAvatar(
+                  radius: 20,
+                  backgroundColor: AppColors.primary,
+                  backgroundImage: profileImageUrl != null 
+                      ? NetworkImage(profileImageUrl)
+                      : null,
+                  child: profileImageUrl == null
+                      ? Text(
+                          firstName.isNotEmpty ? firstName[0].toUpperCase() : 'U',
+                          style: const TextStyle(
+                            color: AppColors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        )
+                      : null,
+                );
+              },
             ),
           ),
         ],
@@ -316,95 +360,6 @@ class _HomeDashboardState extends State<HomeDashboard> {
     );
   }
 
-  Widget _buildRecentConnections() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Text(
-            'Recent Connections',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: AppColors.grey900,
-            ),
-          ),
-        ),
-        const SizedBox(height: 12),
-        SizedBox(
-          height: 80,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            itemCount: 6,
-            itemBuilder: (context, index) {
-              final connections = [
-                {'name': 'John', 'avatar': 'J', 'status': 'online'},
-                {'name': 'Jane', 'avatar': 'J', 'status': 'online'},
-                {'name': 'Robert', 'avatar': 'R', 'status': 'away'},
-                {'name': 'Emily', 'avatar': 'E', 'status': 'online'},
-                {'name': 'David', 'avatar': 'D', 'status': 'online'},
-                {'name': 'Sarah', 'avatar': 'S', 'status': 'offline'},
-              ];
-              
-              final connection = connections[index];
-              return Container(
-                width: 60,
-                margin: const EdgeInsets.only(right: 12),
-                child: Column(
-                  children: [
-                    Stack(
-                      children: [
-                        CircleAvatar(
-                          radius: 20,
-                          backgroundColor: AppColors.primary,
-                          child: Text(
-                            connection['avatar']!,
-                            style: TextStyle(
-                              color: AppColors.white,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                        Positioned(
-                          right: 0,
-                          bottom: 0,
-                          child: Container(
-                            width: 12,
-                            height: 12,
-                            decoration: BoxDecoration(
-                              color: connection['status'] == 'online' 
-                                  ? AppColors.success 
-                                  : connection['status'] == 'away'
-                                      ? AppColors.warning
-                                      : AppColors.grey400,
-                              shape: BoxShape.circle,
-                              border: Border.all(color: AppColors.white, width: 2),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      connection['name']!,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        color: AppColors.grey700,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-        ),
-      ],
-    );
-  }
 
   Widget _buildTabBar() {
     return Container(
@@ -537,9 +492,9 @@ class _HomeDashboardState extends State<HomeDashboard> {
                 const SizedBox(height: 16),
                 ElevatedButton.icon(
                   onPressed: () {
-                    // TODO: Navigate to create post screen
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Create post feature coming soon!')),
+                    showDialog(
+                      context: context,
+                      builder: (context) => const CreatePostModal(),
                     );
                   },
                   icon: const Icon(Icons.add),
@@ -740,33 +695,110 @@ class _HomeDashboardState extends State<HomeDashboard> {
   }
 
   Widget _buildDigitalCardContent() {
-    return Center(
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(vertical: 16),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            Icons.credit_card,
-            size: 80,
-            color: AppColors.grey400,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Digital Card',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: AppColors.grey900,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Your digital business card will appear here',
-            style: TextStyle(
-              fontSize: 16,
-              color: AppColors.grey600,
+          // Digital Card Widget
+          const DigitalCardWidget(),
+          
+          const SizedBox(height: 20),
+          
+          // Card instructions
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Your Digital Business Card',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.grey900,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Tap the card to reveal your QR code for easy sharing',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: AppColors.grey600,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                
+                // Quick actions
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    _buildQuickAction(
+                      icon: Icons.share,
+                      label: 'Share',
+                      onTap: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Share feature coming soon!')),
+                        );
+                      },
+                    ),
+                    _buildQuickAction(
+                      icon: Icons.edit,
+                      label: 'Edit',
+                      onTap: () => _navigateToProfileEdit(),
+                    ),
+                    _buildQuickAction(
+                      icon: Icons.download,
+                      label: 'Save',
+                      onTap: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Save feature coming soon!')),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildQuickAction({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: AppColors.grey100,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              color: AppColors.primary,
+              size: 20,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                color: AppColors.grey700,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -827,6 +859,13 @@ class _HomeDashboardState extends State<HomeDashboard> {
       builder: (context) => ShareModal(post: post),
     );
   }
+
+  // Navigate to profile edit
+  void _navigateToProfileEdit() {
+    context.push('/profile-edit');
+  }
+
+
 }
 
 // Comments Modal
