@@ -33,7 +33,7 @@ class PostService extends ChangeNotifier {
   String? get error => _error;
 
   // Get all posts ordered by creation date (newest first)
-  Future<void> getPosts() async {
+  Future<void> getPosts({String? currentUserId}) async {
     if (!_isFirebaseAvailable) {
       _loadMockPosts();
       return;
@@ -45,20 +45,69 @@ class PostService extends ChangeNotifier {
       
       debugPrint('PostService: Fetching posts from Firestore');
       
-      final QuerySnapshot snapshot = await _firestore!
+      // First, get all public posts
+      final QuerySnapshot publicSnapshot = await _firestore!
           .collection(_collection)
+          .where('isPublic', isEqualTo: true)
           .orderBy('createdAt', descending: true)
           .get();
 
-      _posts = snapshot.docs
+      List<PostModel> publicPosts = publicSnapshot.docs
           .map((doc) => PostModel.fromFirestore(doc))
           .toList();
+
+      // If user is logged in, also get private posts from their connections
+      List<PostModel> privatePosts = [];
+      if (currentUserId != null) {
+        // Get user's connections
+        final connectionsSnapshot = await _firestore!
+            .collection('connections')
+            .where('userId', isEqualTo: currentUserId)
+            .get();
+        
+        List<String> connectionIds = connectionsSnapshot.docs
+            .map((doc) => doc.data()['contactUserId'] as String)
+            .toList();
+        
+        if (connectionIds.isNotEmpty) {
+          // Get private posts from connections
+          final QuerySnapshot privateSnapshot = await _firestore!
+              .collection(_collection)
+              .where('userId', whereIn: connectionIds)
+              .where('isPublic', isEqualTo: false)
+              .orderBy('createdAt', descending: true)
+              .get();
+          
+          privatePosts = privateSnapshot.docs
+              .map((doc) => PostModel.fromFirestore(doc))
+              .toList();
+        }
+      }
+
+      // Combine and sort all posts
+      _posts = [...publicPosts, ...privatePosts];
+      _posts.sort((a, b) => b.createdAt.compareTo(a.createdAt));
       
-      debugPrint('PostService: Fetched ${_posts.length} posts');
+      // If no posts found, show empty state
+      if (_posts.isEmpty) {
+        debugPrint('PostService: No posts found in database');
+      }
+      
+      debugPrint('PostService: Fetched ${_posts.length} posts (${publicPosts.length} public, ${privatePosts.length} private)');
       notifyListeners();
     } catch (e) {
-      _error = e.toString();
       debugPrint('PostService: Error fetching posts: $e');
+      
+      // Handle Firebase index errors gracefully
+      if (e is FirebaseException && e.code == 'failed-precondition') {
+        debugPrint('PostService: Firestore index error detected. Showing empty state.');
+        _error = null; // Clear error to show empty state
+        _posts = []; // Clear posts to show empty state
+      } else {
+        // For other errors, show a user-friendly message
+        _error = 'Unable to load posts at the moment. Please try again later.';
+        debugPrint('PostService: General error fetching posts: $e');
+      }
       notifyListeners();
     } finally {
       _setLoading(false);

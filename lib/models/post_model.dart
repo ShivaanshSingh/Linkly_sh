@@ -10,6 +10,7 @@ class PostModel {
   final List<String> likes;
   final List<String> shares;
   final int commentsCount;
+  final bool isPublic;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -23,6 +24,7 @@ class PostModel {
     required this.likes,
     required this.shares,
     required this.commentsCount,
+    this.isPublic = true,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -41,6 +43,7 @@ class PostModel {
       likes: List<String>.from(data['likes'] ?? []),
       shares: List<String>.from(data['shares'] ?? []),
       commentsCount: data['commentsCount'] ?? 0,
+      isPublic: data['isPublic'] ?? true,
       createdAt: (data['createdAt'] as Timestamp).toDate(),
       updatedAt: (data['updatedAt'] as Timestamp).toDate(),
     );
@@ -57,6 +60,7 @@ class PostModel {
       'likes': likes,
       'shares': shares,
       'commentsCount': commentsCount,
+      'isPublic': isPublic,
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': Timestamp.fromDate(updatedAt),
     };
@@ -73,6 +77,7 @@ class PostModel {
     List<String>? likes,
     List<String>? shares,
     int? commentsCount,
+    bool? isPublic,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -86,6 +91,7 @@ class PostModel {
       likes: likes ?? this.likes,
       shares: shares ?? this.shares,
       commentsCount: commentsCount ?? this.commentsCount,
+      isPublic: isPublic ?? this.isPublic,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

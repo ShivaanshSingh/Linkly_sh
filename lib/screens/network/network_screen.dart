@@ -86,7 +86,7 @@ class _NetworkScreenState extends State<NetworkScreen> with SingleTickerProvider
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Network'),
+        title: const Text('Connections'),
         actions: [
           IconButton(
             onPressed: () => context.push('/people-search'),

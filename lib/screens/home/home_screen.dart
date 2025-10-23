@@ -4,14 +4,17 @@ import 'package:provider/provider.dart';
 import '../../constants/app_colors.dart';
 import '../../services/auth_service.dart';
 import '../../services/post_service.dart';
+import '../../services/notification_service.dart';
 import '../../models/post_model.dart';
-import '../network/network_screen.dart';
+import '../connections/connections_screen.dart';
 import '../messages/messages_screen.dart';
 import '../notifications/notifications_screen.dart';
 import '../settings/settings_screen.dart';
+import '../groups/groups_screen.dart';
 import '../../widgets/digital_card_widget.dart';
 import '../../widgets/create_post_modal.dart';
 import '../../widgets/recent_connections.dart';
+import '../../widgets/status_list_widget.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -25,17 +28,44 @@ class _HomeScreenState extends State<HomeScreen> {
 
   final List<Widget> _screens = [
     const HomeDashboard(),
-    const NetworkScreen(),
+    const ConnectionsScreen(),
+    const GroupsScreen(),
     const MessagesScreen(),
     const NotificationsScreen(),
     const SettingsScreen(),
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _initializeNotifications();
+  }
+
+  Future<void> _initializeNotifications() async {
+    try {
+      final authService = Provider.of<AuthService>(context, listen: false);
+      final notificationService = Provider.of<NotificationService>(context, listen: false);
+      
+      if (authService.isAuthenticated && authService.user != null) {
+        // Initialize notifications
+        await notificationService.initialize();
+        
+        // Save FCM token to user's document
+        await notificationService.saveTokenToFirestore(authService.user!.uid);
+        
+        debugPrint('🔔 Notifications initialized for user: ${authService.user!.uid}');
+      }
+    } catch (e) {
+      debugPrint('❌ Error initializing notifications: $e');
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: _screens[_selectedIndex],
       floatingActionButton: _selectedIndex == 0 ? FloatingActionButton(
+        heroTag: "home_fab",
         onPressed: () {
           showDialog(
             context: context,
@@ -52,7 +82,7 @@ class _HomeScreenState extends State<HomeScreen> {
         type: BottomNavigationBarType.fixed,
         currentIndex: _selectedIndex,
         onTap: (index) {
-          if (index == 2) { // Profile tab
+          if (index == 3) { // Profile tab (now index 3)
             context.push('/profile-edit');
           } else {
             setState(() {
@@ -103,7 +133,12 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ],
             ),
-            label: 'Network',
+            label: 'Connections',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.group_outlined),
+            activeIcon: Icon(Icons.group),
+            label: 'Groups',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person_outlined),
@@ -128,8 +163,34 @@ class HomeDashboard extends StatefulWidget {
   State<HomeDashboard> createState() => _HomeDashboardState();
 }
 
-class _HomeDashboardState extends State<HomeDashboard> {
+class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateMixin {
   int _selectedTab = 0; // 0 for Feeds, 1 for Digital Card
+  late PageController _pageController;
+  late AnimationController _tabAnimationController;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController(initialPage: 0);
+    _tabAnimationController = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
+    );
+    
+    // Load posts when the widget initializes
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final postService = Provider.of<PostService>(context, listen: false);
+      final authService = Provider.of<AuthService>(context, listen: false);
+      postService.getPosts(currentUserId: authService.user?.uid);
+    });
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    _tabAnimationController.dispose();
+    super.dispose();
+  }
 
   void _showLogoutDialog(BuildContext context, AuthService authService) {
     showDialog(
@@ -193,15 +254,6 @@ class _HomeDashboardState extends State<HomeDashboard> {
     }
   }
 
-  @override
-  void initState() {
-    super.initState();
-    // Load posts when the widget initializes
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final postService = Provider.of<PostService>(context, listen: false);
-      postService.getPosts();
-    });
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -243,14 +295,31 @@ class _HomeDashboardState extends State<HomeDashboard> {
             // Tab Bar
             _buildTabBar(),
             
-            // Content based on selected tab
+            // Content with smooth transitions
             Expanded(
-              child: _selectedTab == 0 ? _buildFeedsContent() : _buildDigitalCardContent(),
+              child: PageView(
+                controller: _pageController,
+                physics: const BouncingScrollPhysics(),
+                allowImplicitScrolling: false,
+                onPageChanged: (index) {
+                  setState(() {
+                    _selectedTab = index;
+                  });
+                  _tabAnimationController.forward().then((_) {
+                    _tabAnimationController.reset();
+                  });
+                },
+                children: [
+                  _buildFeedsContentWrapper(),
+                  _buildDigitalCardContentWrapper(),
+                ],
+              ),
             ),
           ],
         ),
       ),
       floatingActionButton: _selectedTab == 0 ? FloatingActionButton(
+        heroTag: "dashboard_fab",
         onPressed: () {
           showDialog(
             context: context,
@@ -372,19 +441,24 @@ class _HomeDashboardState extends State<HomeDashboard> {
         children: [
           Expanded(
             child: GestureDetector(
-              onTap: () => setState(() => _selectedTab = 0),
-              child: Container(
+              onTap: () => _switchToTab(0),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeInOut,
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 decoration: BoxDecoration(
                   color: _selectedTab == 0 ? AppColors.primary : Colors.transparent,
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Text(
-                  'Feeds',
-                  textAlign: TextAlign.center,
+                child: AnimatedDefaultTextStyle(
+                  duration: const Duration(milliseconds: 300),
                   style: TextStyle(
                     color: _selectedTab == 0 ? AppColors.white : AppColors.grey700,
                     fontWeight: FontWeight.w600,
+                  ),
+                  child: const Text(
+                    'Feeds',
+                    textAlign: TextAlign.center,
                   ),
                 ),
               ),
@@ -392,19 +466,24 @@ class _HomeDashboardState extends State<HomeDashboard> {
           ),
           Expanded(
             child: GestureDetector(
-              onTap: () => setState(() => _selectedTab = 1),
-              child: Container(
+              onTap: () => _switchToTab(1),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeInOut,
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 decoration: BoxDecoration(
                   color: _selectedTab == 1 ? AppColors.primary : Colors.transparent,
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Text(
-                  'Digital Card',
-                  textAlign: TextAlign.center,
+                child: AnimatedDefaultTextStyle(
+                  duration: const Duration(milliseconds: 300),
                   style: TextStyle(
                     color: _selectedTab == 1 ? AppColors.white : AppColors.grey700,
                     fontWeight: FontWeight.w600,
+                  ),
+                  child: const Text(
+                    'Digital Card',
+                    textAlign: TextAlign.center,
                   ),
                 ),
               ),
@@ -412,6 +491,56 @@ class _HomeDashboardState extends State<HomeDashboard> {
           ),
         ],
       ),
+    );
+  }
+
+  void _switchToTab(int index) {
+    setState(() {
+      _selectedTab = index;
+    });
+    _pageController.animateToPage(
+      index,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+    );
+    _tabAnimationController.forward().then((_) {
+      _tabAnimationController.reset();
+    });
+  }
+
+  Widget _buildFeedsContentWrapper() {
+    return GestureDetector(
+      onHorizontalDragEnd: (details) {
+        // Allow horizontal swipes to pass through to PageView
+        if (details.primaryVelocity != null) {
+          if (details.primaryVelocity! > 0 && _selectedTab > 0) {
+            // Swipe right - go to previous page
+            _switchToTab(_selectedTab - 1);
+          } else if (details.primaryVelocity! < 0 && _selectedTab < 1) {
+            // Swipe left - go to next page
+            _switchToTab(_selectedTab + 1);
+          }
+        }
+      },
+      child: _buildFeedsContent(),
+    );
+  }
+
+  Widget _buildDigitalCardContentWrapper() {
+    return GestureDetector(
+      onHorizontalDragEnd: (details) {
+        // Allow horizontal swipes to pass through to PageView
+        if (details.primaryVelocity != null) {
+          if (details.primaryVelocity! > 0 && _selectedTab > 0) {
+            // Swipe right - go to previous page
+            _switchToTab(_selectedTab - 1);
+          } else if (details.primaryVelocity! < 0 && _selectedTab < 1) {
+            // Swipe left - go to next page
+            _switchToTab(_selectedTab + 1);
+          }
+        }
+      },
+      child: _buildDigitalCardContent(),
     );
   }
 
@@ -505,15 +634,86 @@ class _HomeDashboardState extends State<HomeDashboard> {
           );
         }
 
-        return ListView.builder(
+        return ListView(
           padding: const EdgeInsets.symmetric(horizontal: 16),
-          itemCount: postService.posts.length,
-          itemBuilder: (context, index) {
-            final post = postService.posts[index];
-            return _buildFeedPost(post, index);
-          },
+          physics: const ClampingScrollPhysics(),
+          children: [
+            // Status section
+            const StatusListWidget(),
+            const SizedBox(height: 16),
+            
+            // Posts section
+            if (postService.posts.isEmpty)
+              _buildEmptyPostsState()
+            else
+              ...postService.posts.map((post) => _buildFeedPost(post, postService.posts.indexOf(post))),
+          ],
         );
       },
+    );
+  }
+
+  Widget _buildEmptyPostsState() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(32),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Icon(
+            Icons.article_outlined,
+            size: 64,
+            color: AppColors.grey400,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'No Posts Yet',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: AppColors.grey900,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Be the first to share something with your network!',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 14,
+              color: AppColors.grey600,
+            ),
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton.icon(
+            onPressed: () {
+              showDialog(
+                context: context,
+                builder: (context) => const CreatePostModal(),
+              );
+            },
+            icon: const Icon(Icons.add),
+            label: const Text('Create First Post'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: AppColors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 

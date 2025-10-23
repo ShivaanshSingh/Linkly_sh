@@ -87,7 +87,7 @@ class _DigitalCardWidgetState extends State<DigitalCardWidget>
   Widget _buildFrontCard(String userName) {
     return Container(
       width: double.infinity,
-      height: 200,
+      height: 300,
       margin: const EdgeInsets.symmetric(horizontal: 16),
       constraints: const BoxConstraints(
         maxWidth: 400,
@@ -113,12 +113,11 @@ class _DigitalCardWidgetState extends State<DigitalCardWidget>
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
             // User Avatar
             Expanded(
-              flex: 2,
+              flex: 3,
               child: Center(
                 child: Consumer<AuthService>(
                   builder: (context, authService, child) {
@@ -126,7 +125,7 @@ class _DigitalCardWidgetState extends State<DigitalCardWidget>
                                          authService.user?.photoURL;
                     
                     return CircleAvatar(
-                      radius: 28,
+                      radius: 40,
                       backgroundColor: AppColors.white,
                       backgroundImage: profileImageUrl != null 
                           ? NetworkImage(profileImageUrl)
@@ -154,7 +153,7 @@ class _DigitalCardWidgetState extends State<DigitalCardWidget>
                 child: Text(
                   userName,
                   style: const TextStyle(
-                    fontSize: 18,
+                    fontSize: 24,
                     fontWeight: FontWeight.bold,
                     color: AppColors.white,
                   ),
@@ -162,6 +161,45 @@ class _DigitalCardWidgetState extends State<DigitalCardWidget>
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
+              ),
+            ),
+            
+            // Username and Email
+            Expanded(
+              flex: 1,
+              child: Consumer<AuthService>(
+                builder: (context, authService, child) {
+                  final username = authService.userModel?.username ?? '';
+                  final email = authService.userModel?.email ?? authService.user?.email ?? '';
+                  
+                  return Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      if (username.isNotEmpty)
+                        Text(
+                          '@$username',
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: AppColors.white,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      if (email.isNotEmpty)
+                        Text(
+                          email,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: AppColors.white,
+                            fontWeight: FontWeight.w400,
+                          ),
+                          textAlign: TextAlign.center,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                    ],
+                  );
+                },
               ),
             ),
             
@@ -195,7 +233,7 @@ class _DigitalCardWidgetState extends State<DigitalCardWidget>
   Widget _buildBackCard() {
     return Container(
       width: double.infinity,
-      height: 200,
+      height: 300,
       margin: const EdgeInsets.symmetric(horizontal: 16),
       constraints: const BoxConstraints(
         maxWidth: 400,
@@ -221,8 +259,7 @@ class _DigitalCardWidgetState extends State<DigitalCardWidget>
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
             // QR Code
             Expanded(
@@ -235,12 +272,19 @@ class _DigitalCardWidgetState extends State<DigitalCardWidget>
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Center(
-                  child: QrImageView(
-                    data: _generateQRData(),
-                    version: QrVersions.auto,
-                    size: 120,
-                    backgroundColor: AppColors.white,
-                    foregroundColor: AppColors.grey900,
+                  child: Consumer<AuthService>(
+                    builder: (context, authService, child) {
+                      final userId = authService.user?.uid ?? '';
+                      final qrData = userId.isNotEmpty ? 'linkly://user/$userId' : 'linkly://user/unknown';
+                      
+                      return QrImageView(
+                        data: qrData,
+                        version: QrVersions.auto,
+                        size: 180,
+                        backgroundColor: AppColors.white,
+                        foregroundColor: AppColors.grey900,
+                      );
+                    },
                   ),
                 ),
               ),
@@ -275,10 +319,4 @@ class _DigitalCardWidgetState extends State<DigitalCardWidget>
     );
   }
 
-  String _generateQRData() {
-    // Generate a profile URL or data that can be scanned
-    // This could be a deep link to the user's profile or a unique identifier
-    final timestamp = DateTime.now().millisecondsSinceEpoch;
-    return 'https://linkly.app/profile/$timestamp';
-  }
 }

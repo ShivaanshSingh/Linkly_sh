@@ -54,28 +54,20 @@ class AuthService extends ChangeNotifier {
   }
 
   void _onAuthStateChanged(User? user) {
+    debugPrint('🔄 Auth state changed: user=${user?.uid}');
     _user = user;
+    
     if (user != null) {
-      _loadUserModel();
+      // User is signed in, load their data from Firestore
+      loadUserData();
     } else {
+      // User is signed out, clear user data
       _userModel = null;
     }
+    
     notifyListeners();
   }
 
-  Future<void> _loadUserModel() async {
-    if (_user == null || _firestore == null) return;
-    
-    try {
-      final doc = await _firestore!.collection('users').doc(_user!.uid).get();
-      if (doc.exists) {
-        final data = doc.data()!;
-        _userModel = UserModel.fromMap(data);
-      }
-    } catch (e) {
-      debugPrint('Error loading user model: $e');
-    }
-  }
 
   void _setLoading(bool loading) {
     debugPrint('🔄 AuthService loading state changed: $loading');
@@ -127,7 +119,7 @@ class AuthService extends ChangeNotifier {
     }
   }
 
-  Future<UserCredential?> signUpWithEmail(String email, String password, String fullName) async {
+  Future<UserCredential?> signUpWithEmail(String email, String password, String fullName, {String? username, String? phoneNumber, String? company, String? accountType}) async {
     if (!_isFirebaseAvailable) {
       throw Exception('Firebase is not available. Please check your internet connection.');
     }
@@ -136,8 +128,16 @@ class AuthService extends ChangeNotifier {
       _setLoading(true);
       debugPrint('Signing up with email: $email, name: $fullName');
       
-      if (email.isEmpty || password.isEmpty || fullName.isEmpty) {
+      if (email.isEmpty || password.isEmpty || fullName.isEmpty || username == null || username.isEmpty) {
         throw Exception('All fields are required');
+      }
+      
+      if (username.length < 3) {
+        throw Exception('Username must be at least 3 characters');
+      }
+      
+      if (!RegExp(r'^[a-zA-Z0-9_]+$').hasMatch(username)) {
+        throw Exception('Username can only contain letters, numbers, and underscores');
       }
       
       if (password.length < 6) {
@@ -156,6 +156,10 @@ class AuthService extends ChangeNotifier {
           'uid': credential.user!.uid,
           'email': email.trim(),
           'fullName': fullName.trim(),
+          'username': username.trim(),
+          'phoneNumber': phoneNumber?.trim() ?? '',
+          'company': company?.trim() ?? '',
+          'accountType': accountType ?? 'Public',
           'createdAt': FieldValue.serverTimestamp(),
           'lastSeen': FieldValue.serverTimestamp(),
           'isOnline': true,
@@ -308,6 +312,42 @@ class AuthService extends ChangeNotifier {
       rethrow;
     } finally {
       _setLoading(false);
+    }
+  }
+
+  Future<void> loadUserData() async {
+    if (!_isFirebaseAvailable || _user == null) {
+      debugPrint('Firebase not available or no user, cannot load user data');
+      return;
+    }
+    
+    try {
+      debugPrint('Loading user data from Firestore for: ${_user!.uid}');
+      
+      final userDoc = await _firestore!.collection('users').doc(_user!.uid).get();
+      
+      if (userDoc.exists) {
+        _userModel = UserModel.fromFirestore(userDoc);
+        debugPrint('User data loaded successfully: ${_userModel!.fullName}');
+        notifyListeners();
+        
+        // Initialize notifications for the user
+        await _initializeNotifications();
+      } else {
+        debugPrint('User document not found in Firestore');
+      }
+    } catch (e) {
+      debugPrint('Error loading user data: $e');
+    }
+  }
+
+  Future<void> _initializeNotifications() async {
+    try {
+      // This would be called from the UI layer where NotificationService is available
+      debugPrint('🔔 User authenticated, notifications should be initialized');
+      // The actual initialization will be done in the UI layer
+    } catch (e) {
+      debugPrint('❌ Error initializing notifications: $e');
     }
   }
 

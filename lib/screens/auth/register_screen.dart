@@ -17,18 +17,25 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
   final _fullNameController = TextEditingController();
   final _emailController = TextEditingController();
+  final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+  final _phoneController = TextEditingController();
+  final _companyController = TextEditingController();
   bool _obscurePassword = true;
   final bool _obscureConfirmPassword = true;
   bool _agreeToTerms = false;
+  String _accountType = 'Public'; // Default to Public
 
   @override
   void dispose() {
     _fullNameController.dispose();
     _emailController.dispose();
+    _usernameController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
+    _phoneController.dispose();
+    _companyController.dispose();
     super.dispose();
   }
 
@@ -50,6 +57,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
         _emailController.text.trim(),
         _passwordController.text,
         _fullNameController.text.trim(),
+        username: _usernameController.text.trim(),
+        phoneNumber: _phoneController.text.trim(),
+        company: _companyController.text.trim(),
+        accountType: _accountType,
       );
       
       if (mounted) {
@@ -177,6 +188,28 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 
                 const SizedBox(height: 20),
                 
+                // Username field
+                CustomTextField(
+                  controller: _usernameController,
+                  label: 'Username',
+                  hint: 'Choose a unique username',
+                  prefixIcon: Icons.alternate_email,
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please enter a username';
+                    }
+                    if (value.length < 3) {
+                      return 'Username must be at least 3 characters';
+                    }
+                    if (!RegExp(r'^[a-zA-Z0-9_]+$').hasMatch(value)) {
+                      return 'Username can only contain letters, numbers, and underscores';
+                    }
+                    return null;
+                  },
+                ),
+                
+                const SizedBox(height: 20),
+                
                 // Password field
                 CustomTextField(
                   controller: _passwordController,
@@ -204,6 +237,106 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     }
                     return null;
                   },
+                ),
+                
+                const SizedBox(height: 20),
+                
+                // Phone number field
+                CustomTextField(
+                  controller: _phoneController,
+                  label: 'Phone Number',
+                  hint: 'Enter your phone number',
+                  keyboardType: TextInputType.phone,
+                  prefixIcon: Icons.phone_outlined,
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please enter your phone number';
+                    }
+                    if (value.length < 10) {
+                      return 'Please enter a valid phone number';
+                    }
+                    return null;
+                  },
+                ),
+                
+                const SizedBox(height: 20),
+                
+                // Company/College field
+                CustomTextField(
+                  controller: _companyController,
+                  label: 'Company/College Name',
+                  hint: 'Enter your company or college name',
+                  prefixIcon: Icons.business_outlined,
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please enter your company or college name';
+                    }
+                    return null;
+                  },
+                ),
+                
+                const SizedBox(height: 20),
+                
+                // Account Type selection
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Account Type',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.grey900,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: RadioListTile<String>(
+                            title: const Text(
+                              'Public',
+                              style: TextStyle(fontSize: 14),
+                            ),
+                            subtitle: const Text(
+                              'Posts visible to everyone',
+                              style: TextStyle(fontSize: 12, color: AppColors.grey600),
+                            ),
+                            value: 'Public',
+                            groupValue: _accountType,
+                            onChanged: (value) {
+                              setState(() {
+                                _accountType = value!;
+                              });
+                            },
+                            activeColor: AppColors.primary,
+                            contentPadding: EdgeInsets.zero,
+                          ),
+                        ),
+                        Expanded(
+                          child: RadioListTile<String>(
+                            title: const Text(
+                              'Private',
+                              style: TextStyle(fontSize: 14),
+                            ),
+                            subtitle: const Text(
+                              'Posts visible to connections only',
+                              style: TextStyle(fontSize: 12, color: AppColors.grey600),
+                            ),
+                            value: 'Private',
+                            groupValue: _accountType,
+                            onChanged: (value) {
+                              setState(() {
+                                _accountType = value!;
+                              });
+                            },
+                            activeColor: AppColors.primary,
+                            contentPadding: EdgeInsets.zero,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
                 
                 const SizedBox(height: 30),

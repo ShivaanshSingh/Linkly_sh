@@ -44,5 +44,30 @@ service cloud.firestore {
       allow read: if request.auth != null && request.auth.uid == resource.data.recipientId;
       allow write: if request.auth != null && request.auth.uid == resource.data.recipientId;
     }
+
+    // Connection requests are readable by sender and receiver
+    match /connection_requests/{requestId} {
+      allow read: if request.auth != null && 
+        (request.auth.uid == resource.data.senderId || request.auth.uid == resource.data.receiverId);
+      allow write: if request.auth != null && 
+        (request.auth.uid == resource.data.senderId || request.auth.uid == resource.data.receiverId);
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.senderId;
+    }
+
+    // Connections are readable by the user
+    match /connections/{connectionId} {
+      allow read: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow write: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+    }
+
+    // Messages are readable by sender and receiver
+    match /messages/{messageId} {
+      allow read: if request.auth != null && 
+        (request.auth.uid == resource.data.senderId || request.auth.uid == resource.data.receiverId);
+      allow write: if request.auth != null && 
+        (request.auth.uid == resource.data.senderId || request.auth.uid == resource.data.receiverId);
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.senderId;
+    }
   }
 }

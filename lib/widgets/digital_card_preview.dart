@@ -11,7 +11,7 @@ class DigitalCardPreview extends StatelessWidget {
         // TODO: Navigate to full card view
       },
       child: Container(
-        height: 200,
+        height: 300,
         decoration: BoxDecoration(
           gradient: AppColors.primaryGradient,
           borderRadius: BorderRadius.circular(16),
