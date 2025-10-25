@@ -19,6 +19,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
   bool _rememberMe = false;
+  bool _isEmailMode = true;
 
   @override
   void dispose() {
@@ -32,7 +33,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
     try {
       final authService = Provider.of<AuthService>(context, listen: false);
-      await authService.signInWithEmail(
+      await authService.signInWithUsernameOrEmail(
         _emailController.text.trim(),
         _passwordController.text,
       );
@@ -75,18 +76,18 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.white,
+      backgroundColor: AppColors.backgroundLight, // Professional light background
       appBar: AppBar(
-        backgroundColor: AppColors.white,
+        backgroundColor: AppColors.white, // Clean white app bar
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.grey900),
+          icon: const Icon(Icons.arrow_back, color: AppColors.primary),
           onPressed: () => context.go('/onboarding'),
         ),
         title: const Text(
           'Sign In',
           style: TextStyle(
-            color: AppColors.grey900,
+            color: AppColors.primary,
             fontSize: 18,
             fontWeight: FontWeight.w600,
           ),
@@ -109,7 +110,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   style: TextStyle(
                     fontSize: 32,
                     fontWeight: FontWeight.bold,
-                    color: AppColors.grey900,
+                    color: AppColors.primary,
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -121,21 +122,90 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
                 
-                const SizedBox(height: 40),
+                const SizedBox(height: 30),
                 
-                // Email field
+                // Email/Username Toggle
+                Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: AppColors.grey100,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              _isEmailMode = true;
+                            });
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            decoration: BoxDecoration(
+                              color: _isEmailMode ? AppColors.primary : Colors.transparent,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              'Email',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: _isEmailMode ? Colors.white : AppColors.grey600,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              _isEmailMode = false;
+                            });
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            decoration: BoxDecoration(
+                              color: !_isEmailMode ? AppColors.primary : Colors.transparent,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              'Username',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: !_isEmailMode ? Colors.white : AppColors.grey600,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                
+                const SizedBox(height: 30),
+                
+                // Email/Username field
                 CustomTextField(
                   controller: _emailController,
-                  label: 'Email Address',
-                  hint: 'Enter your email',
-                  keyboardType: TextInputType.emailAddress,
-                  prefixIcon: Icons.email_outlined,
+                  label: _isEmailMode ? 'Email Address' : 'Username',
+                  hint: _isEmailMode ? 'Enter your email' : 'Enter your username',
+                  keyboardType: _isEmailMode ? TextInputType.emailAddress : TextInputType.text,
+                  prefixIcon: _isEmailMode ? Icons.email_outlined : Icons.person_outlined,
                   validator: (value) {
                     if (value == null || value.isEmpty) {
-                      return 'Please enter your email';
+                      return _isEmailMode ? 'Please enter your email' : 'Please enter your username';
                     }
-                    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+                    if (_isEmailMode && !RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
                       return 'Please enter a valid email';
+                    }
+                    if (!_isEmailMode && value.length < 3) {
+                      return 'Username must be at least 3 characters';
+                    }
+                    if (!_isEmailMode && !RegExp(r'^[a-zA-Z0-9_]+$').hasMatch(value)) {
+                      return 'Username can only contain letters, numbers, and underscores';
                     }
                     return null;
                   },
@@ -250,11 +320,11 @@ class _LoginScreenState extends State<LoginScreen> {
                 // Google sign in button
                 OutlinedButton.icon(
                   onPressed: _signInWithGoogle,
-                  icon: const Icon(Icons.g_mobiledata, size: 24, color: AppColors.grey700),
+                  icon: const Icon(Icons.g_mobiledata, size: 24, color: AppColors.grey600),
                   label: const Text(
                     'Continue with Google',
                     style: TextStyle(
-                      color: AppColors.grey700,
+                      color: AppColors.grey600,
                       fontSize: 16,
                       fontWeight: FontWeight.w500,
                     ),

@@ -252,6 +252,23 @@ class NotificationsScreen extends StatelessWidget {
                 ),
               );
             }
+          } else if (type == 'connection_request') {
+            // Navigate to connections screen for connection requests
+            if (context.mounted) {
+              context.go('/home');
+              
+              // Show a message that user should go to connections tab
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: const Text('Go to Connections tab to view the request'),
+                  backgroundColor: AppColors.primary,
+                  behavior: SnackBarBehavior.floating,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              );
+            }
           }
         },
         borderRadius: BorderRadius.circular(12),
@@ -266,12 +283,22 @@ class NotificationsScreen extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: type == 'message' 
                       ? AppColors.primary.withOpacity(0.1)
+                      : type == 'connection_request'
+                      ? AppColors.success.withOpacity(0.1)
                       : AppColors.grey200,
                   borderRadius: BorderRadius.circular(24),
                 ),
                 child: Icon(
-                  type == 'message' ? Icons.message : Icons.notifications,
-                  color: type == 'message' ? AppColors.primary : AppColors.grey600,
+                  type == 'message' 
+                      ? Icons.message 
+                      : type == 'connection_request'
+                      ? Icons.person_add
+                      : Icons.notifications,
+                  color: type == 'message' 
+                      ? AppColors.primary 
+                      : type == 'connection_request'
+                      ? AppColors.success
+                      : AppColors.grey600,
                   size: 24,
                 ),
               ),

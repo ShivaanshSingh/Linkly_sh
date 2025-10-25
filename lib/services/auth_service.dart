@@ -160,6 +160,7 @@ class AuthService extends ChangeNotifier {
           'phoneNumber': phoneNumber?.trim() ?? '',
           'company': company?.trim() ?? '',
           'accountType': accountType ?? 'Public',
+          'socialLinks': {},
           'createdAt': FieldValue.serverTimestamp(),
           'lastSeen': FieldValue.serverTimestamp(),
           'isOnline': true,
@@ -178,6 +179,62 @@ class AuthService extends ChangeNotifier {
         throw Exception('Please enter a valid email address');
       } else if (e.toString().contains('PigeonUserDetails')) {
         throw Exception('Authentication service error. Please try again');
+      } else {
+        rethrow;
+      }
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  Future<UserCredential?> signInWithUsernameOrEmail(String usernameOrEmail, String password) async {
+    if (!_isFirebaseAvailable) {
+      throw Exception('Firebase is not available. Please check your internet connection.');
+    }
+    
+    try {
+      _setLoading(true);
+      debugPrint('Signing in with username/email: $usernameOrEmail');
+      
+      if (usernameOrEmail.isEmpty || password.isEmpty) {
+        throw Exception('Username/Email and password are required');
+      }
+
+      String email = usernameOrEmail.trim();
+      
+      // Check if it's a username (not an email format)
+      if (!email.contains('@')) {
+        // It's a username, find the corresponding email
+        final userQuery = await _firestore!.collection('users')
+            .where('username', isEqualTo: email)
+            .limit(1)
+            .get();
+        
+        if (userQuery.docs.isEmpty) {
+          throw Exception('No account found with this username. Please sign up first.');
+        }
+        
+        email = userQuery.docs.first.data()['email'];
+        debugPrint('Found email for username: $email');
+      }
+
+      final credential = await _auth!.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+      
+      debugPrint('Sign in successful for: $usernameOrEmail');
+      return credential;
+    } catch (e) {
+      debugPrint('Sign in error: $e');
+      if (e.toString().contains('user-not-found')) {
+        throw Exception('No account found with this username/email. Please sign up first.');
+      } else if (e.toString().contains('wrong-password')) {
+        throw Exception('Incorrect password. Please try again.');
+      } else if (e.toString().contains('too-many-requests')) {
+        throw Exception('Too many failed attempts. Please try again later.');
+      } else if (e.toString().contains('user-disabled')) {
+        throw Exception('This account has been disabled. Please contact support.');
       } else {
         rethrow;
       }
@@ -226,6 +283,7 @@ class AuthService extends ChangeNotifier {
           'email': userCredential.user!.email ?? '',
           'fullName': userCredential.user!.displayName ?? 'Google User',
           'profileImageUrl': userCredential.user!.photoURL,
+          'socialLinks': {},
           'createdAt': FieldValue.serverTimestamp(),
           'lastSeen': FieldValue.serverTimestamp(),
           'isOnline': true,
@@ -385,7 +443,9 @@ class AuthService extends ChangeNotifier {
     String? bio,
     String? company,
     String? position,
+    String? phoneNumber,
     String? profileImageUrl,
+    Map<String, String>? socialLinks,
   }) async {
     if (!_isFirebaseAvailable) {
       debugPrint('Firebase not available, cannot update user profile');
@@ -420,8 +480,12 @@ class AuthService extends ChangeNotifier {
       if (bio != null && bio.isNotEmpty) updateData['bio'] = bio;
       if (company != null && company.isNotEmpty) updateData['company'] = company;
       if (position != null && position.isNotEmpty) updateData['position'] = position;
+      if (phoneNumber != null && phoneNumber.isNotEmpty) updateData['phoneNumber'] = phoneNumber;
       if (profileImageUrl != null && profileImageUrl.isNotEmpty) {
         updateData['profileImageUrl'] = profileImageUrl;
+      }
+      if (socialLinks != null) {
+        updateData['socialLinks'] = socialLinks;
       }
       
       await _firestore!.collection('users').doc(userId).update(updateData);
@@ -430,7 +494,9 @@ class AuthService extends ChangeNotifier {
       if (_userModel != null) {
         _userModel = _userModel!.copyWith(
           fullName: fullName,
+          phoneNumber: phoneNumber ?? _userModel!.phoneNumber,
           profileImageUrl: profileImageUrl ?? _userModel!.profileImageUrl,
+          socialLinks: socialLinks ?? _userModel!.socialLinks,
         );
       }
       

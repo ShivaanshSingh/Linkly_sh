@@ -1,14 +1,32 @@
 import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
+import '../utils/privacy_utils.dart';
 
 class DigitalCardPreview extends StatelessWidget {
-  const DigitalCardPreview({super.key});
+  final String? userName;
+  final String? userEmail;
+  final String? userPhone;
+  final String? userCompany;
+  final String? userPosition;
+  final String accountType;
+  final bool isConnected;
+
+  const DigitalCardPreview({
+    super.key,
+    this.userName,
+    this.userEmail,
+    this.userPhone,
+    this.userCompany,
+    this.userPosition,
+    this.accountType = 'Public',
+    this.isConnected = false,
+  });
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: () {
-        // TODO: Navigate to full card view
+        // Navigate to full card view
       },
       child: Container(
         height: 300,
@@ -77,17 +95,17 @@ class DigitalCardPreview extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
-                              'John Doe',
-                              style: TextStyle(
+                            Text(
+                              userName ?? '',
+                              style: const TextStyle(
                                 color: AppColors.white,
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
-                            const Text(
-                              'Software Engineer',
-                              style: TextStyle(
+                            Text(
+                              userPosition ?? '',
+                              style: const TextStyle(
                                 color: AppColors.white,
                                 fontSize: 14,
                                 fontWeight: FontWeight.w300,
@@ -98,7 +116,7 @@ class DigitalCardPreview extends StatelessWidget {
                       ),
                       IconButton(
                         onPressed: () {
-                          // TODO: Share profile
+                          // Share profile
                         },
                         icon: const Icon(
                           Icons.share,
@@ -111,9 +129,9 @@ class DigitalCardPreview extends StatelessWidget {
                   
                   const SizedBox(height: 20),
                   
-                  const Text(
-                    'Tech Solutions Inc.',
-                    style: TextStyle(
+                  Text(
+                    userCompany ?? '',
+                    style: const TextStyle(
                       color: AppColors.white,
                       fontSize: 16,
                       fontWeight: FontWeight.w500,
@@ -130,9 +148,14 @@ class DigitalCardPreview extends StatelessWidget {
                         size: 16,
                       ),
                       const SizedBox(width: 8),
-                      const Text(
-                        'john@techsolutions.com',
-                        style: TextStyle(
+                      Text(
+                        PrivacyUtils.getPersonalInfoDisplay(
+                          personalInfo: userEmail,
+                          accountType: accountType,
+                          isConnected: isConnected,
+                          placeholder: 'Connect to view',
+                        ),
+                        style: const TextStyle(
                           color: AppColors.white,
                           fontSize: 12,
                         ),
@@ -150,9 +173,14 @@ class DigitalCardPreview extends StatelessWidget {
                         size: 16,
                       ),
                       const SizedBox(width: 8),
-                      const Text(
-                        '+1 (555) 123-4567',
-                        style: TextStyle(
+                      Text(
+                        PrivacyUtils.getPersonalInfoDisplay(
+                          personalInfo: userPhone,
+                          accountType: accountType,
+                          isConnected: isConnected,
+                          placeholder: 'Connect to view',
+                        ),
+                        style: const TextStyle(
                           color: AppColors.white,
                           fontSize: 12,
                         ),

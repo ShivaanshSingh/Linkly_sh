@@ -23,6 +23,7 @@ import 'screens/connections/connections_screen.dart';
 import 'screens/messages/messages_screen.dart';
 import 'screens/settings/settings_screen.dart';
 import 'screens/qr_scanner_screen.dart';
+import 'widgets/main_navigation_wrapper.dart';
 import 'screens/people_around_screen.dart';
 import 'screens/posts/posts_screen.dart';
 import 'screens/status/status_screen.dart';
@@ -168,7 +169,7 @@ GoRouter _createRouter(AuthService authService) {
     ),
     GoRoute(
       path: '/profile-edit',
-      builder: (context, state) => const ProfileEditScreen(),
+      builder: (context, state) => const ProfileEditWrapper(),
     ),
     GoRoute(
       path: '/people-search',
@@ -188,7 +189,7 @@ GoRouter _createRouter(AuthService authService) {
     ),
     GoRoute(
       path: '/settings',
-      builder: (context, state) => const SettingsScreen(),
+      builder: (context, state) => const SettingsWrapper(),
     ),
     GoRoute(
       path: '/qr-scanner',

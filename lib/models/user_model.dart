@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 
 class UserModel {
   final String uid;
@@ -15,6 +16,7 @@ class UserModel {
   final DateTime lastSeen;
   final bool isOnline;
   final String? fcmToken;
+  final Map<String, String> socialLinks;
 
   UserModel({
     required this.uid,
@@ -31,6 +33,7 @@ class UserModel {
     required this.lastSeen,
     this.isOnline = false,
     this.fcmToken,
+    this.socialLinks = const {},
   });
 
   factory UserModel.fromMap(Map<String, dynamic> map) {
@@ -49,6 +52,7 @@ class UserModel {
       lastSeen: (map['lastSeen'] as Timestamp).toDate(),
       isOnline: map['isOnline'] ?? false,
       fcmToken: map['fcmToken'],
+      socialLinks: _parseSocialLinks(map['socialLinks']),
     );
   }
 
@@ -69,6 +73,7 @@ class UserModel {
       lastSeen: (data['lastSeen'] as Timestamp).toDate(),
       isOnline: data['isOnline'] ?? false,
       fcmToken: data['fcmToken'],
+      socialLinks: _parseSocialLinks(data['socialLinks']),
     );
   }
 
@@ -88,7 +93,27 @@ class UserModel {
       'lastSeen': Timestamp.fromDate(lastSeen),
       'isOnline': isOnline,
       'fcmToken': fcmToken,
+      'socialLinks': socialLinks,
     };
+  }
+
+  static Map<String, String> _parseSocialLinks(dynamic socialLinksData) {
+    if (socialLinksData == null) {
+      return {};
+    }
+    
+    try {
+      if (socialLinksData is Map<String, dynamic>) {
+        return socialLinksData.map((key, value) => MapEntry(key, value?.toString() ?? ''));
+      } else if (socialLinksData is Map) {
+        return socialLinksData.map((key, value) => MapEntry(key.toString(), value?.toString() ?? ''));
+      } else {
+        return {};
+      }
+    } catch (e) {
+      debugPrint('Error parsing socialLinks: $e');
+      return {};
+    }
   }
 
   UserModel copyWith({
@@ -106,6 +131,7 @@ class UserModel {
     DateTime? lastSeen,
     bool? isOnline,
     String? fcmToken,
+    Map<String, String>? socialLinks,
   }) {
     return UserModel(
       uid: uid ?? this.uid,
@@ -122,6 +148,7 @@ class UserModel {
       lastSeen: lastSeen ?? this.lastSeen,
       isOnline: isOnline ?? this.isOnline,
       fcmToken: fcmToken ?? this.fcmToken,
+      socialLinks: socialLinks ?? this.socialLinks,
     );
   }
 }

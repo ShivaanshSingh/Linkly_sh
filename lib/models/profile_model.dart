@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 
 class ProfileModel {
   final String userId;
@@ -38,7 +39,7 @@ class ProfileModel {
       phone: map['phone'],
       bio: map['bio'],
       profileImageUrl: map['profileImageUrl'],
-      socialLinks: Map<String, String>.from(map['socialLinks'] ?? {}),
+      socialLinks: _parseSocialLinks(map['socialLinks']),
       cardTheme: map['cardTheme'] ?? 'navy',
       isPublic: map['isPublic'] ?? true,
       locationSharing: map['locationSharing'] ?? false,
@@ -61,6 +62,25 @@ class ProfileModel {
       'locationSharing': locationSharing,
       'updatedAt': Timestamp.fromDate(updatedAt),
     };
+  }
+
+  static Map<String, String> _parseSocialLinks(dynamic socialLinksData) {
+    if (socialLinksData == null) {
+      return {};
+    }
+    
+    try {
+      if (socialLinksData is Map<String, dynamic>) {
+        return socialLinksData.map((key, value) => MapEntry(key, value?.toString() ?? ''));
+      } else if (socialLinksData is Map) {
+        return socialLinksData.map((key, value) => MapEntry(key.toString(), value?.toString() ?? ''));
+      } else {
+        return {};
+      }
+    } catch (e) {
+      debugPrint('Error parsing socialLinks: $e');
+      return {};
+    }
   }
 
   ProfileModel copyWith({

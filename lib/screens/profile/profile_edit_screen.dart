@@ -22,6 +22,8 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
   final _bioController = TextEditingController();
   final _companyController = TextEditingController();
   final _positionController = TextEditingController();
+  final _phoneController = TextEditingController();
+  final _linkedinController = TextEditingController();
   
   File? _selectedImage;
   String? _currentImageUrl;
@@ -31,19 +33,62 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
   @override
   void initState() {
     super.initState();
-    _loadUserData();
+    // Delay loading to ensure AuthService is ready
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadUserData();
+    });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Reload user data when dependencies change (e.g., AuthService updates)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadUserData();
+    });
   }
 
   void _loadUserData() {
     final authService = Provider.of<AuthService>(context, listen: false);
+    debugPrint('Loading user data...');
+    debugPrint('AuthService userModel: ${authService.userModel}');
+    debugPrint('AuthService user: ${authService.user}');
+    
     if (authService.userModel != null) {
+      debugPrint('Loading from userModel:');
+      debugPrint('Full Name: ${authService.userModel!.fullName}');
+      debugPrint('Email: ${authService.userModel!.email}');
+      debugPrint('Company: ${authService.userModel!.company}');
+      debugPrint('Position: ${authService.userModel!.position}');
+      debugPrint('Phone: ${authService.userModel!.phoneNumber}');
+      
       _nameController.text = authService.userModel!.fullName;
       _emailController.text = authService.userModel!.email;
+      _companyController.text = authService.userModel!.company ?? '';
+      _positionController.text = authService.userModel!.position ?? '';
+      _phoneController.text = authService.userModel!.phoneNumber ?? '';
+      _bioController.text = authService.userModel!.bio ?? '';
+      _linkedinController.text = authService.userModel!.socialLinks['linkedin'] ?? '';
       _currentImageUrl = authService.userModel!.profileImageUrl;
+      
+      debugPrint('Controllers updated with userModel data');
     } else if (authService.user != null) {
+      debugPrint('Loading from Firebase user:');
+      debugPrint('Display Name: ${authService.user!.displayName}');
+      debugPrint('Email: ${authService.user!.email}');
+      
       _nameController.text = authService.user!.displayName ?? '';
       _emailController.text = authService.user!.email ?? '';
+      _companyController.text = '';
+      _positionController.text = '';
+      _phoneController.text = '';
+      _bioController.text = '';
+      _linkedinController.text = '';
       _currentImageUrl = authService.user!.photoURL;
+      
+      debugPrint('Controllers updated with Firebase user data');
+    } else {
+      debugPrint('No user data available');
     }
   }
 
@@ -123,12 +168,19 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
       String? imageUrl = await _uploadImage();
       
       // Update user profile
+      final socialLinks = <String, String>{};
+      if (_linkedinController.text.trim().isNotEmpty) {
+        socialLinks['linkedin'] = _linkedinController.text.trim();
+      }
+      
       await authService.updateUserProfile(
         fullName: _nameController.text.trim(),
         bio: _bioController.text.trim(),
         company: _companyController.text.trim(),
         position: _positionController.text.trim(),
+        phoneNumber: _phoneController.text.trim(),
         profileImageUrl: imageUrl,
+        socialLinks: socialLinks,
       );
 
       if (mounted) {
@@ -245,110 +297,135 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
     _bioController.dispose();
     _companyController.dispose();
     _positionController.dispose();
+    _linkedinController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    // Load user data when widget builds
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadUserData();
+    });
+    
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Edit Profile'),
-        actions: [
-          TextButton(
-            onPressed: _isLoading ? null : _saveProfile,
-            child: Text(
-              'Save',
-              style: TextStyle(
-                color: _isLoading ? AppColors.grey400 : AppColors.primary,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              // Profile Picture Section
-              _buildProfilePictureSection(),
-              
-              const SizedBox(height: 32),
-              
-              // Form Fields
-              CustomTextField(
-                controller: _nameController,
-                label: 'Full Name',
-                hint: 'Enter your full name',
-                prefixIcon: Icons.person,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter your full name';
-                  }
-                  return null;
-                },
-              ),
-              
-              const SizedBox(height: 16),
-              
-              CustomTextField(
-                controller: _emailController,
-                label: 'Email',
-                hint: 'Enter your email',
-                prefixIcon: Icons.email,
-                enabled: false, // Email is usually not editable
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter your email';
-                  }
-                  return null;
-                },
-              ),
-              
-              const SizedBox(height: 16),
-              
-              CustomTextField(
-                controller: _companyController,
-                label: 'Company',
-                hint: 'Enter your company name',
-                prefixIcon: Icons.business,
-              ),
-              
-              const SizedBox(height: 16),
-              
-              CustomTextField(
-                controller: _positionController,
-                label: 'Position',
-                hint: 'Enter your job title',
-                prefixIcon: Icons.work,
-              ),
-              
-              const SizedBox(height: 16),
-              
-              CustomTextField(
-                controller: _bioController,
-                label: 'Bio',
-                hint: 'Tell us about yourself',
-                prefixIcon: Icons.info,
-                maxLines: 3,
-              ),
-              
-              const SizedBox(height: 32),
-              
-              // Save Button
-              CustomButton(
-                text: 'Save Changes',
+          appBar: AppBar(
+            title: const Text('Edit Profile'),
+            actions: [
+              TextButton(
                 onPressed: _isLoading ? null : _saveProfile,
-                isLoading: _isLoading,
+                child: Text(
+                  'Save',
+                  style: TextStyle(
+                    color: _isLoading ? AppColors.grey400 : AppColors.primary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ),
             ],
           ),
-        ),
-      ),
-    );
+          body: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  // Profile Picture Section
+                  _buildProfilePictureSection(),
+                  
+                  const SizedBox(height: 32),
+                  
+                  // Form Fields
+                  CustomTextField(
+                    controller: _nameController,
+                    label: 'Full Name',
+                    hint: 'Enter your full name',
+                    prefixIcon: Icons.person,
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Please enter your full name';
+                      }
+                      return null;
+                    },
+                  ),
+                  
+                  const SizedBox(height: 16),
+                  
+                  CustomTextField(
+                    controller: _emailController,
+                    label: 'Email',
+                    hint: 'Enter your email',
+                    prefixIcon: Icons.email,
+                    enabled: false, // Email is usually not editable
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Please enter your email';
+                      }
+                      return null;
+                    },
+                  ),
+                  
+                  const SizedBox(height: 16),
+                  
+                  CustomTextField(
+                    controller: _companyController,
+                    label: 'Company',
+                    hint: 'Enter your company name',
+                    prefixIcon: Icons.business,
+                  ),
+                  
+                  const SizedBox(height: 16),
+                  
+                  CustomTextField(
+                    controller: _positionController,
+                    label: 'Position',
+                    hint: 'Enter your job title',
+                    prefixIcon: Icons.work,
+                  ),
+                  
+                  const SizedBox(height: 16),
+                  
+                  CustomTextField(
+                    controller: _phoneController,
+                    label: 'Phone Number',
+                    hint: 'Enter your phone number',
+                    prefixIcon: Icons.phone,
+                  ),
+                  
+                  const SizedBox(height: 16),
+                  
+                  CustomTextField(
+                    controller: _bioController,
+                    label: 'Bio',
+                    hint: 'Tell us about yourself',
+                    prefixIcon: Icons.info,
+                    maxLines: 3,
+                  ),
+                  
+                  const SizedBox(height: 16),
+                  
+                  CustomTextField(
+                    controller: _linkedinController,
+                    label: 'LinkedIn Profile',
+                    hint: 'https://linkedin.com/in/yourprofile',
+                    prefixIcon: Icons.work,
+                    keyboardType: TextInputType.url,
+                  ),
+                  
+                  const SizedBox(height: 32),
+                  
+                  // Save Button
+                  CustomButton(
+                    text: 'Save Changes',
+                    onPressed: _isLoading ? null : _saveProfile,
+                    isLoading: _isLoading,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
   }
 
   Widget _buildProfilePictureSection() {

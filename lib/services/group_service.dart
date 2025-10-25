@@ -76,17 +76,34 @@ class GroupService {
     required String connectionUserId,
   }) async {
     try {
+      // Check if group exists
+      final groupDoc = await _firestore.collection(_groupsCollection).doc(groupId).get();
+      if (!groupDoc.exists) {
+        throw Exception('Group not found');
+      }
+
       // Add user to group members
       await _firestore.collection(_groupsCollection).doc(groupId).update({
         'members': FieldValue.arrayUnion([connectionUserId]),
         'updatedAt': FieldValue.serverTimestamp(),
       });
 
-      // Update connection with group info
-      await _firestore.collection(_connectionsCollection).doc(connectionId).update({
-        'groupId': groupId,
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
+      // Update connection with group info (only if connection document exists)
+      final connectionDoc = await _firestore.collection(_connectionsCollection).doc(connectionId).get();
+      if (connectionDoc.exists) {
+        await _firestore.collection(_connectionsCollection).doc(connectionId).update({
+          'groupId': groupId,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      } else {
+        // If connection document doesn't exist, create it
+        await _firestore.collection(_connectionsCollection).doc(connectionId).set({
+          'userId': connectionUserId,
+          'groupId': groupId,
+          'createdAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      }
     } catch (e) {
       throw Exception('Failed to add connection to group: $e');
     }

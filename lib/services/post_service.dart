@@ -32,7 +32,7 @@ class PostService extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get error => _error;
 
-  // Get all posts ordered by creation date (newest first)
+  // Get posts from user and their connections only
   Future<void> getPosts({String? currentUserId}) async {
     if (!_isFirebaseAvailable) {
       _loadMockPosts();
@@ -43,71 +43,95 @@ class PostService extends ChangeNotifier {
       _setLoading(true);
       _error = null;
       
-      debugPrint('PostService: Fetching posts from Firestore');
+      debugPrint('PostService: Fetching posts for user: $currentUserId');
       
-      // First, get all public posts
-      final QuerySnapshot publicSnapshot = await _firestore!
-          .collection(_collection)
-          .where('isPublic', isEqualTo: true)
-          .orderBy('createdAt', descending: true)
+      if (currentUserId == null) {
+        debugPrint('PostService: No current user, loading empty feed');
+        _posts = [];
+        notifyListeners();
+        return;
+      }
+
+      // Get user's connections
+      final connectionsSnapshot = await _firestore!
+          .collection('connections')
+          .where('userId', isEqualTo: currentUserId)
           .get();
 
-      List<PostModel> publicPosts = publicSnapshot.docs
-          .map((doc) => PostModel.fromFirestore(doc))
+      List<String> connectionUserIds = connectionsSnapshot.docs
+          .map((doc) => doc.data()['contactUserId'] as String)
           .toList();
 
-      // If user is logged in, also get private posts from their connections
-      List<PostModel> privatePosts = [];
-      if (currentUserId != null) {
-        // Get user's connections
-        final connectionsSnapshot = await _firestore!
-            .collection('connections')
-            .where('userId', isEqualTo: currentUserId)
-            .get();
-        
-        List<String> connectionIds = connectionsSnapshot.docs
-            .map((doc) => doc.data()['contactUserId'] as String)
-            .toList();
-        
-        if (connectionIds.isNotEmpty) {
-          // Get private posts from connections
-          final QuerySnapshot privateSnapshot = await _firestore!
-              .collection(_collection)
-              .where('userId', whereIn: connectionIds)
-              .where('isPublic', isEqualTo: false)
-              .orderBy('createdAt', descending: true)
-              .get();
-          
-          privatePosts = privateSnapshot.docs
-              .map((doc) => PostModel.fromFirestore(doc))
-              .toList();
+      // Add current user to the list so they see their own posts
+      connectionUserIds.add(currentUserId);
+
+      debugPrint('PostService: Found ${connectionUserIds.length} users to fetch posts from');
+
+      // Get posts from user and their connections (without orderBy to avoid index issues)
+      List<PostModel> allPosts = [];
+      
+      // Get user's own posts
+      final userPostsSnapshot = await _firestore!
+          .collection(_collection)
+          .where('userId', isEqualTo: currentUserId)
+          .get();
+      
+      allPosts.addAll(userPostsSnapshot.docs
+          .map((doc) => PostModel.fromFirestore(doc))
+          .toList());
+      
+      // Get posts from each connection individually to avoid whereIn + orderBy index issues
+      for (String connectionId in connectionUserIds) {
+        if (connectionId != currentUserId) {
+          try {
+            final connectionPostsSnapshot = await _firestore!
+                .collection(_collection)
+                .where('userId', isEqualTo: connectionId)
+                .get();
+            
+            allPosts.addAll(connectionPostsSnapshot.docs
+                .map((doc) => PostModel.fromFirestore(doc))
+                .toList());
+          } catch (e) {
+            debugPrint('PostService: Error fetching posts for connection $connectionId: $e');
+            // Continue with other connections even if one fails
+          }
         }
       }
+      
+      // Sort posts by creation date (newest first) on the client side
+      allPosts.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      
+      _posts = allPosts;
 
-      // Combine and sort all posts
-      _posts = [...publicPosts, ...privatePosts];
-      _posts.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-      
-      // If no posts found, show empty state
-      if (_posts.isEmpty) {
-        debugPrint('PostService: No posts found in database');
-      }
-      
-      debugPrint('PostService: Fetched ${_posts.length} posts (${publicPosts.length} public, ${privatePosts.length} private)');
+      debugPrint('PostService: Loaded ${_posts.length} posts from user and connections');
       notifyListeners();
     } catch (e) {
+      _error = e.toString();
       debugPrint('PostService: Error fetching posts: $e');
       
-      // Handle Firebase index errors gracefully
-      if (e is FirebaseException && e.code == 'failed-precondition') {
-        debugPrint('PostService: Firestore index error detected. Showing empty state.');
-        _error = null; // Clear error to show empty state
-        _posts = []; // Clear posts to show empty state
+      // Fallback: try to get user's own posts only
+      if (currentUserId != null) {
+        try {
+          final userPostsSnapshot = await _firestore!
+              .collection(_collection)
+              .where('userId', isEqualTo: currentUserId)
+              .orderBy('createdAt', descending: true)
+              .get();
+
+          _posts = userPostsSnapshot.docs
+              .map((doc) => PostModel.fromFirestore(doc))
+              .toList();
+          
+          debugPrint('PostService: Fallback loaded ${_posts.length} user posts');
+        } catch (fallbackError) {
+          debugPrint('PostService: Fallback also failed: $fallbackError');
+          _posts = [];
+        }
       } else {
-        // For other errors, show a user-friendly message
-        _error = 'Unable to load posts at the moment. Please try again later.';
-        debugPrint('PostService: General error fetching posts: $e');
+        _posts = [];
       }
+      
       notifyListeners();
     } finally {
       _setLoading(false);
@@ -160,20 +184,52 @@ class PostService extends ChangeNotifier {
     debugPrint('PostService: Loaded ${_posts.length} mock posts');
   }
 
-  // Stream posts for real-time updates
-  Stream<List<PostModel>> getPostsStream() {
+  // Stream posts for real-time updates (user and connections only)
+  Stream<List<PostModel>> getPostsStream({String? currentUserId}) {
     if (!_isFirebaseAvailable) {
       return Stream.value(_posts);
     }
     
+    if (currentUserId == null) {
+      return Stream.value([]);
+    }
+    
+    // Get user's connections
     return _firestore!
-        .collection(_collection)
-        .orderBy('createdAt', descending: true)
+        .collection('connections')
+        .where('userId', isEqualTo: currentUserId)
         .snapshots()
-        .map((snapshot) {
-      return snapshot.docs
-          .map((doc) => PostModel.fromFirestore(doc))
+        .asyncMap((connectionsSnapshot) async {
+      List<String> connectionUserIds = connectionsSnapshot.docs
+          .map((doc) => doc.data()['contactUserId'] as String)
           .toList();
+      
+      // Add current user to the list
+      connectionUserIds.add(currentUserId);
+      
+      if (connectionUserIds.isEmpty) {
+        // No connections, only show user's own posts
+        final userPostsSnapshot = await _firestore!
+            .collection(_collection)
+            .where('userId', isEqualTo: currentUserId)
+            .orderBy('createdAt', descending: true)
+            .get();
+        
+        return userPostsSnapshot.docs
+            .map((doc) => PostModel.fromFirestore(doc))
+            .toList();
+      } else {
+        // Get posts from user and their connections
+        final postsSnapshot = await _firestore!
+            .collection(_collection)
+            .where('userId', whereIn: connectionUserIds)
+            .orderBy('createdAt', descending: true)
+            .get();
+        
+        return postsSnapshot.docs
+            .map((doc) => PostModel.fromFirestore(doc))
+            .toList();
+      }
     });
   }
 
@@ -296,6 +352,7 @@ class PostService extends ChangeNotifier {
       });
       
       debugPrint('PostService: Like toggled successfully');
+      notifyListeners();
     } catch (e) {
       _error = e.toString();
       debugPrint('PostService: Error toggling like: $e');

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../constants/app_colors.dart';
 import '../../services/auth_service.dart';
 import '../../services/post_service.dart';
@@ -11,10 +12,10 @@ import '../messages/messages_screen.dart';
 import '../notifications/notifications_screen.dart';
 import '../settings/settings_screen.dart';
 import '../groups/groups_screen.dart';
+import '../connections/qr_scanner_screen.dart';
 import '../../widgets/digital_card_widget.dart';
 import '../../widgets/create_post_modal.dart';
-import '../../widgets/recent_connections.dart';
-import '../../widgets/status_list_widget.dart';
+import '../../widgets/status_stories_widget.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -84,6 +85,8 @@ class _HomeScreenState extends State<HomeScreen> {
         onTap: (index) {
           if (index == 3) { // Profile tab (now index 3)
             context.push('/profile-edit');
+          } else if (index == 4) { // Settings tab (index 4)
+            context.push('/settings');
           } else {
             setState(() {
               _selectedIndex = index;
@@ -99,45 +102,13 @@ class _HomeScreenState extends State<HomeScreen> {
             label: 'Home',
           ),
           BottomNavigationBarItem(
-            icon: Stack(
-              children: [
-                Icon(Icons.people_outlined),
-                Positioned(
-                  right: 0,
-                  top: 0,
-                  child: Container(
-                    width: 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      color: AppColors.error,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            activeIcon: Stack(
-              children: [
-                Icon(Icons.people),
-                Positioned(
-                  right: 0,
-                  top: 0,
-                  child: Container(
-                    width: 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      color: AppColors.error,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                ),
-              ],
-            ),
+            icon: Icon(Icons.people_outlined),
+            activeIcon: Icon(Icons.people),
             label: 'Connections',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.group_outlined),
-            activeIcon: Icon(Icons.group),
+            icon: Icon(Icons.group_work_outlined),
+            activeIcon: Icon(Icons.group_work),
             label: 'Groups',
           ),
           BottomNavigationBarItem(
@@ -192,96 +163,26 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
     super.dispose();
   }
 
-  void _showLogoutDialog(BuildContext context, AuthService authService) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Sign Out'),
-          content: const Text('Are you sure you want to sign out?'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () async {
-                Navigator.of(context).pop();
-                await _performLogout(context, authService);
-              },
-              style: TextButton.styleFrom(
-                foregroundColor: AppColors.error,
-              ),
-              child: const Text('Sign Out'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Future<void> _performLogout(BuildContext context, AuthService authService) async {
-    debugPrint('🚀 Starting logout process');
-    
-    // Show loading indicator
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => const Center(
-        child: CircularProgressIndicator(),
-      ),
-    );
-
-    try {
-      debugPrint('🔄 Calling authService.signOut()');
-      // Perform logout - router will handle navigation automatically
-      await authService.signOut();
-      debugPrint('✅ Sign out completed successfully');
-    } catch (e) {
-      debugPrint('❌ Sign out error: $e');
-      // Continue with navigation even if there's an error
-    } finally {
-      debugPrint('🧹 Cleaning up');
-      
-      // Always close loading dialog
-      if (context.mounted) {
-        Navigator.of(context).pop();
-        debugPrint('✅ Loading dialog closed');
-      }
-      
-      // Router will automatically navigate based on auth state
-      debugPrint('✅ Router will handle navigation automatically');
-    }
-  }
 
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.white,
+      backgroundColor: AppColors.backgroundLight,
       appBar: AppBar(
         backgroundColor: AppColors.white,
         elevation: 0,
+        surfaceTintColor: AppColors.white,
         automaticallyImplyLeading: false,
         title: const Text(
           'Linkly',
           style: TextStyle(
-            color: AppColors.grey900,
+            color: AppColors.grey700,
             fontWeight: FontWeight.bold,
             fontSize: 24,
           ),
         ),
-        actions: [
-          Consumer<AuthService>(
-            builder: (context, authService, child) {
-              return IconButton(
-                icon: const Icon(Icons.logout, color: AppColors.grey600),
-                onPressed: () => _showLogoutDialog(context, authService),
-                tooltip: 'Sign Out',
-              );
-            },
-          ),
-        ],
+        actions: [],
       ),
       body: SafeArea(
         child: Column(
@@ -289,8 +190,9 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
             // Header with greeting and profile
             _buildHeader(),
             
-            // Recent Connections
-            const RecentConnections(),
+            // Status section
+            const StatusStoriesWidget(),
+            const SizedBox(height: 6),
             
             // Tab Bar
             _buildTabBar(),
@@ -318,20 +220,7 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
           ],
         ),
       ),
-      floatingActionButton: _selectedTab == 0 ? FloatingActionButton(
-        heroTag: "dashboard_fab",
-        onPressed: () {
-          showDialog(
-            context: context,
-            builder: (context) => const CreatePostModal(),
-          );
-        },
-        backgroundColor: AppColors.primary,
-        child: const Icon(
-          Icons.add,
-          color: AppColors.white,
-        ),
-      ) : null,
+      // FloatingActionButton removed as requested
     );
   }
 
@@ -347,7 +236,7 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
         }
         
         return Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
           child: Row(
             children: [
               Expanded(
@@ -355,73 +244,108 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Good morning, $firstName!',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.grey900,
+                      'Hello, $firstName!',
+                      style: const TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.grey700,
+                        letterSpacing: -0.5,
                       ),
                     ),
-                const SizedBox(height: 4),
-                Text(
-                  'Ready to connect today?',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: AppColors.grey600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          // Notification bell
-          Stack(
-            children: [
-              IconButton(
-                icon: Icon(Icons.notifications_outlined, color: AppColors.grey700),
-                onPressed: () => context.go('/notifications'),
-              ),
-              Positioned(
-                right: 8,
-                top: 8,
-                child: Container(
-                  width: 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    color: AppColors.error,
-                    shape: BoxShape.circle,
-                  ),
+                    const SizedBox(height: 6),
+                    const Text(
+                      'Ready to connect today?',
+                      style: TextStyle(
+                        fontSize: 15,
+                        color: AppColors.grey500,
+                        fontWeight: FontWeight.w400,
+                        letterSpacing: -0.2,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ],
-          ),
-          const SizedBox(width: 8),
-          // Profile picture
-          GestureDetector(
-            onTap: () => _navigateToProfileEdit(),
-            child: Consumer<AuthService>(
-              builder: (context, authService, child) {
-                final profileImageUrl = authService.userModel?.profileImageUrl ?? 
-                                     authService.user?.photoURL;
-                
-                return CircleAvatar(
-                  radius: 20,
-                  backgroundColor: AppColors.primary,
-                  backgroundImage: profileImageUrl != null 
-                      ? NetworkImage(profileImageUrl)
-                      : null,
-                  child: profileImageUrl == null
-                      ? Text(
-                          firstName.isNotEmpty ? firstName[0].toUpperCase() : 'U',
-                          style: const TextStyle(
-                            color: AppColors.white,
-                            fontWeight: FontWeight.bold,
+              // Notification bell
+              Consumer<NotificationService>(
+                builder: (context, notificationService, child) {
+                  return Stack(
+                    children: [
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: AppColors.grey50,
+                          shape: BoxShape.circle,
+                        ),
+                        child: IconButton(
+                          icon: const Icon(Icons.notifications_outlined, color: AppColors.grey600, size: 20),
+                          onPressed: () => context.go('/notifications'),
+                        ),
+                      ),
+                      if (notificationService.hasUnreadNotifications)
+                        Positioned(
+                          right: 6,
+                          top: 6,
+                          child: Container(
+                            width: 8,
+                            height: 8,
+                            decoration: BoxDecoration(
+                              color: AppColors.error,
+                              shape: BoxShape.circle,
+                            ),
                           ),
-                        )
-                      : null,
-                );
-              },
-            ),
-          ),
+                        ),
+                    ],
+                  );
+                },
+              ),
+              const SizedBox(width: 12),
+              // Profile picture
+              GestureDetector(
+                onTap: () => _navigateToProfileEdit(),
+                child: Consumer<AuthService>(
+                  builder: (context, authService, child) {
+                    final profileImageUrl = authService.userModel?.profileImageUrl ?? 
+                                         authService.user?.photoURL;
+                    
+                    return Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: AppColors.primary,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: AppColors.white, width: 2),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.primary.withOpacity(0.2),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: profileImageUrl != null 
+                          ? ClipOval(
+                              child: Image.network(
+                                profileImageUrl,
+                                width: 40,
+                                height: 40,
+                                fit: BoxFit.cover,
+                              ),
+                            )
+                          : Center(
+                              child: Text(
+                                firstName.isNotEmpty ? firstName[0].toUpperCase() : 'U',
+                                style: const TextStyle(
+                                  color: AppColors.white,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                    );
+                  },
+                ),
+              ),
         ],
       ),
     );
@@ -432,10 +356,11 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
 
   Widget _buildTabBar() {
     return Container(
-      margin: const EdgeInsets.all(16),
+      margin: const EdgeInsets.fromLTRB(24, 0, 24, 16),
       decoration: BoxDecoration(
-        color: AppColors.grey100,
-        borderRadius: BorderRadius.circular(8),
+        color: AppColors.grey50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.grey100, width: 1),
       ),
       child: Row(
         children: [
@@ -445,16 +370,18 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 300),
                 curve: Curves.easeInOut,
-                padding: const EdgeInsets.symmetric(vertical: 12),
+                padding: const EdgeInsets.symmetric(vertical: 14),
                 decoration: BoxDecoration(
                   color: _selectedTab == 0 ? AppColors.primary : Colors.transparent,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: AnimatedDefaultTextStyle(
                   duration: const Duration(milliseconds: 300),
                   style: TextStyle(
-                    color: _selectedTab == 0 ? AppColors.white : AppColors.grey700,
+                    color: _selectedTab == 0 ? Colors.white : AppColors.grey500,
                     fontWeight: FontWeight.w600,
+                    fontSize: 15,
+                    letterSpacing: -0.2,
                   ),
                   child: const Text(
                     'Feeds',
@@ -470,16 +397,18 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 300),
                 curve: Curves.easeInOut,
-                padding: const EdgeInsets.symmetric(vertical: 12),
+                padding: const EdgeInsets.symmetric(vertical: 14),
                 decoration: BoxDecoration(
                   color: _selectedTab == 1 ? AppColors.primary : Colors.transparent,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: AnimatedDefaultTextStyle(
                   duration: const Duration(milliseconds: 300),
                   style: TextStyle(
-                    color: _selectedTab == 1 ? AppColors.white : AppColors.grey700,
+                    color: _selectedTab == 1 ? Colors.white : AppColors.grey500,
                     fontWeight: FontWeight.w600,
+                    fontSize: 15,
+                    letterSpacing: -0.2,
                   ),
                   child: const Text(
                     'Digital Card',
@@ -583,7 +512,10 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
                 ),
                 const SizedBox(height: 16),
                 ElevatedButton(
-                  onPressed: () => postService.getPosts(),
+                  onPressed: () {
+                    final authService = Provider.of<AuthService>(context, listen: false);
+                    postService.getPosts(currentUserId: authService.user?.uid);
+                  },
                   child: const Text('Retry'),
                 ),
               ],
@@ -604,30 +536,66 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
                 const SizedBox(height: 16),
                 Text(
                   'No posts yet',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.grey900,
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.grey700,
+                    letterSpacing: -0.3,
                   ),
                 ),
                 const SizedBox(height: 8),
-                Text(
+                const Text(
                   'Be the first to share something!',
                   style: TextStyle(
-                    fontSize: 14,
-                    color: AppColors.grey600,
+                    fontSize: 15,
+                    color: AppColors.grey500,
+                    fontWeight: FontWeight.w400,
+                    letterSpacing: -0.2,
                   ),
                 ),
                 const SizedBox(height: 16),
-                ElevatedButton.icon(
-                  onPressed: () {
-                    showDialog(
-                      context: context,
-                      builder: (context) => const CreatePostModal(),
-                    );
-                  },
-                  icon: const Icon(Icons.add),
-                  label: const Text('Create Post'),
+                Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [AppColors.primary, AppColors.primaryLight],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.primary.withOpacity(0.3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      showDialog(
+                        context: context,
+                        builder: (context) => const CreatePostModal(),
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.transparent,
+                      shadowColor: Colors.transparent,
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    icon: const Icon(Icons.add, color: Colors.white, size: 20),
+                    label: const Text(
+                      'Create Post',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: -0.2,
+                      ),
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -638,10 +606,6 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
           padding: const EdgeInsets.symmetric(horizontal: 16),
           physics: const ClampingScrollPhysics(),
           children: [
-            // Status section
-            const StatusListWidget(),
-            const SizedBox(height: 16),
-            
             // Posts section
             if (postService.posts.isEmpty)
               _buildEmptyPostsState()
@@ -658,11 +622,11 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(32),
       decoration: BoxDecoration(
-        color: AppColors.white,
+        color: const Color(0xFF2D2D2D),
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
+            color: Colors.black.withOpacity(0.2),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -673,7 +637,7 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
           Icon(
             Icons.article_outlined,
             size: 64,
-            color: AppColors.grey400,
+            color: const Color(0xFF9CA3AF),
           ),
           const SizedBox(height: 16),
           Text(
@@ -681,7 +645,7 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
-              color: AppColors.grey900,
+              color: Colors.white,
             ),
           ),
           const SizedBox(height: 8),
@@ -690,7 +654,7 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 14,
-              color: AppColors.grey600,
+              color: const Color(0xFF9CA3AF),
             ),
           ),
           const SizedBox(height: 24),
@@ -725,11 +689,11 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        color: AppColors.white,
+        color: const Color(0xFF2D2D2D),
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withOpacity(0.2),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -764,14 +728,14 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: AppColors.grey900,
+                          color: Colors.white,
                         ),
                       ),
                       Text(
                         post.timeAgo,
                         style: TextStyle(
                           fontSize: 12,
-                          color: AppColors.grey600,
+                          color: const Color(0xFF9CA3AF),
                         ),
                       ),
                     ],
@@ -788,30 +752,72 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
           // Post content
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Text(
-              post.content,
-              style: TextStyle(
-                fontSize: 14,
-                color: AppColors.grey800,
-                height: 1.4,
+            child:               Text(
+                post.content,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.white,
+                  height: 1.4,
+                ),
               ),
-            ),
           ),
           
           // Post image (if available)
-          if (post.imageUrl != null)
+          if (post.imageUrl != null && post.imageUrl!.isNotEmpty)
             Container(
               margin: const EdgeInsets.all(16),
               height: 200,
               decoration: BoxDecoration(
-                color: AppColors.grey100,
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Center(
-                child: Icon(
-                  Icons.image,
-                  size: 50,
-                  color: AppColors.grey400,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Image.network(
+                  post.imageUrl!,
+                  width: double.infinity,
+                  height: 200,
+                  fit: BoxFit.cover,
+                  loadingBuilder: (context, child, loadingProgress) {
+                    if (loadingProgress == null) return child;
+                    return Container(
+                      height: 200,
+                      color: AppColors.grey100,
+                      child: Center(
+                        child: CircularProgressIndicator(
+                          value: loadingProgress.expectedTotalBytes != null
+                              ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                              : null,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                    );
+                  },
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      height: 200,
+                      color: AppColors.grey100,
+                      child: Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.broken_image,
+                              size: 50,
+                              color: AppColors.grey400,
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Failed to load image',
+                              style: TextStyle(
+                                color: AppColors.grey600,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
                 ),
               ),
             ),
@@ -829,7 +835,7 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
                         duration: const Duration(milliseconds: 200),
                         child: Icon(
                           isLiked ? Icons.favorite : Icons.favorite_border,
-                          color: isLiked ? AppColors.error : AppColors.grey600,
+                          color: isLiked ? AppColors.error : const Color(0xFF9CA3AF),
                           size: 16,
                           key: ValueKey(isLiked),
                         ),
@@ -841,7 +847,7 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
                           '${post.likes.length}',
                           style: TextStyle(
                             fontSize: 12,
-                            color: isLiked ? AppColors.error : AppColors.grey600,
+                            color: isLiked ? AppColors.error : const Color(0xFF9CA3AF),
                             fontWeight: isLiked ? FontWeight.bold : FontWeight.normal,
                           ),
                           key: ValueKey('${post.likes.length}_$isLiked'),
@@ -855,13 +861,13 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
                   onTap: () => _showCommentsModal(post),
                   child: Row(
                     children: [
-                      Icon(Icons.comment_outlined, color: AppColors.grey600, size: 16),
+                      Icon(Icons.comment_outlined, color: const Color(0xFF9CA3AF), size: 16),
                       const SizedBox(width: 4),
                       Text(
                         '${post.commentsCount}',
                         style: TextStyle(
                           fontSize: 12,
-                          color: AppColors.grey600,
+                          color: const Color(0xFF9CA3AF),
                         ),
                       ),
                     ],
@@ -872,13 +878,13 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
                   onTap: () => _sharePost(post),
                   child: Row(
                     children: [
-                      Icon(Icons.share_outlined, color: AppColors.grey600, size: 16),
+                      Icon(Icons.share_outlined, color: const Color(0xFF9CA3AF), size: 16),
                       const SizedBox(width: 4),
                       Text(
                         '${post.shares.length}',
                         style: TextStyle(
                           fontSize: 12,
-                          color: AppColors.grey600,
+                          color: const Color(0xFF9CA3AF),
                         ),
                       ),
                     ],
@@ -935,25 +941,22 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
                     _buildQuickAction(
+                      icon: Icons.qr_code_scanner,
+                      label: 'Scan QR',
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => const QRScannerScreen(),
+                          ),
+                        );
+                      },
+                    ),
+                    _buildQuickAction(
                       icon: Icons.share,
                       label: 'Share',
                       onTap: () {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(content: Text('Share feature coming soon!')),
-                        );
-                      },
-                    ),
-                    _buildQuickAction(
-                      icon: Icons.edit,
-                      label: 'Edit',
-                      onTap: () => _navigateToProfileEdit(),
-                    ),
-                    _buildQuickAction(
-                      icon: Icons.download,
-                      label: 'Save',
-                      onTap: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Save feature coming soon!')),
                         );
                       },
                     ),
@@ -975,26 +978,44 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        width: 80,
+        height: 80,
         decoration: BoxDecoration(
-          color: AppColors.grey100,
-          borderRadius: BorderRadius.circular(8),
+          color: AppColors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.grey100, width: 1),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.grey100.withOpacity(0.5),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              icon,
-              color: AppColors.primary,
-              size: 20,
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: AppColors.primary.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                icon,
+                color: AppColors.primary,
+                size: 20,
+              ),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 8),
             Text(
               label,
-              style: TextStyle(
-                fontSize: 11,
+              style: const TextStyle(
+                fontSize: 12,
                 color: AppColors.grey700,
-                fontWeight: FontWeight.w500,
+                fontWeight: FontWeight.w600,
+                letterSpacing: -0.2,
               ),
             ),
           ],
@@ -1080,22 +1101,7 @@ class CommentsModal extends StatefulWidget {
 
 class _CommentsModalState extends State<CommentsModal> {
   final TextEditingController _commentController = TextEditingController();
-  List<Map<String, dynamic>> _comments = [
-    {
-      'id': '1',
-      'name': 'John Doe',
-      'avatar': 'J',
-      'content': 'Great insights! Looking forward to more updates.',
-      'time': '1 hour ago',
-    },
-    {
-      'id': '2',
-      'name': 'Jane Smith',
-      'avatar': 'J',
-      'content': 'This is exactly what I needed to read today. Thanks for sharing!',
-      'time': '2 hours ago',
-    },
-  ];
+  List<Map<String, dynamic>> _comments = [];
 
   @override
   Widget build(BuildContext context) {
@@ -1218,17 +1224,22 @@ class _CommentsModalState extends State<CommentsModal> {
             ),
             child: Row(
               children: [
-                CircleAvatar(
-                  radius: 16,
-                  backgroundColor: AppColors.primary,
-                  child: Text(
-                    'A',
-                    style: TextStyle(
-                      color: AppColors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+                Consumer<AuthService>(
+                  builder: (context, authService, child) {
+                    final currentUser = authService.userModel;
+                    return CircleAvatar(
+                      radius: 16,
+                      backgroundColor: AppColors.primary,
+                      child: Text(
+                        currentUser?.fullName?.isNotEmpty == true ? currentUser!.fullName[0].toUpperCase() : 'U',
+                        style: TextStyle(
+                          color: AppColors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    );
+                  },
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -1276,11 +1287,14 @@ class _CommentsModalState extends State<CommentsModal> {
 
   void _addComment() {
     if (_commentController.text.trim().isNotEmpty) {
+      final authService = Provider.of<AuthService>(context, listen: false);
+      final currentUser = authService.userModel;
+      
       setState(() {
         _comments.insert(0, {
           'id': DateTime.now().millisecondsSinceEpoch.toString(),
-          'name': 'Alex',
-          'avatar': 'A',
+          'name': currentUser?.fullName ?? 'User',
+          'avatar': currentUser?.fullName?.isNotEmpty == true ? currentUser!.fullName[0].toUpperCase() : 'U',
           'content': _commentController.text.trim(),
           'time': 'now',
         });
@@ -1344,9 +1358,9 @@ class ShareModal extends StatelessWidget {
                 label: 'Copy Link',
                 onTap: () {
                   Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Link copied to clipboard!')),
-                  );
+                  // Copy post content to clipboard
+                  final shareText = 'Check out this post by ${post.userName}: "${post.content}"';
+                  Share.share(shareText);
                 },
               ),
               _ShareOption(
@@ -1354,9 +1368,8 @@ class ShareModal extends StatelessWidget {
                 label: 'Message',
                 onTap: () {
                   Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Opening messages...')),
-                  );
+                  final shareText = 'Check out this post by ${post.userName}: "${post.content}"';
+                  Share.share(shareText, subject: 'Shared from Linkly');
                 },
               ),
               _ShareOption(
@@ -1364,9 +1377,8 @@ class ShareModal extends StatelessWidget {
                 label: 'Email',
                 onTap: () {
                   Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Opening email...')),
-                  );
+                  final shareText = 'Check out this post by ${post.userName}: "${post.content}"';
+                  Share.share(shareText, subject: 'Shared from Linkly');
                 },
               ),
               _ShareOption(
@@ -1374,9 +1386,8 @@ class ShareModal extends StatelessWidget {
                 label: 'More',
                 onTap: () {
                   Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('More sharing options...')),
-                  );
+                  final shareText = 'Check out this post by ${post.userName}: "${post.content}"';
+                  Share.share(shareText, subject: 'Shared from Linkly');
                 },
               ),
             ],

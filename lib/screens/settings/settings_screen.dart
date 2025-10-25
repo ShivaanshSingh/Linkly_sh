@@ -1,11 +1,49 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/auth_service.dart';
 import '../../constants/app_colors.dart';
 
-class SettingsScreen extends StatelessWidget {
+class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
+
+  @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<SettingsScreen> {
+  bool _notificationsEnabled = true;
+  bool _darkMode = false;
+  bool _showOnlineStatus = true;
+  bool _allowConnectionRequests = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSettings();
+  }
+
+  Future<void> _loadSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _notificationsEnabled = prefs.getBool('notifications_enabled') ?? true;
+      _darkMode = prefs.getBool('dark_mode') ?? false;
+      _showOnlineStatus = prefs.getBool('show_online_status') ?? true;
+      _allowConnectionRequests = prefs.getBool('allow_connection_requests') ?? true;
+    });
+  }
+
+  Future<void> _saveSetting(String key, dynamic value) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (value is bool) {
+      await prefs.setBool(key, value);
+    } else if (value is String) {
+      await prefs.setString(key, value);
+    }
+    setState(() {});
+  }
+
 
   void _showLogoutDialog(BuildContext context, AuthService authService) {
     showDialog(
@@ -104,14 +142,14 @@ class SettingsScreen extends StatelessWidget {
                 icon: Icons.person,
                 title: 'Edit Profile',
                 onTap: () {
-                  // TODO: Navigate to edit profile
+                  context.push('/profile-edit');
                 },
               ),
               _SettingsTile(
                 icon: Icons.business_center,
                 title: 'Digital Card',
                 onTap: () {
-                  // TODO: Navigate to digital card
+                  context.push('/profile-edit');
                 },
               ),
             ],
@@ -119,29 +157,56 @@ class SettingsScreen extends StatelessWidget {
           
           const SizedBox(height: 24),
           
-          // Account Section
+          // App Settings Section
           _SettingsSection(
-            title: 'Account',
+            title: 'App Settings',
             children: [
-              _SettingsTile(
-                icon: Icons.security,
-                title: 'Privacy & Security',
-                onTap: () {
-                  // TODO: Navigate to privacy settings
-                },
-              ),
-              _SettingsTile(
+              _SwitchSettingsTile(
                 icon: Icons.notifications,
                 title: 'Notifications',
-                onTap: () {
-                  // TODO: Navigate to notification settings
+                subtitle: 'Enable app notifications',
+                value: _notificationsEnabled,
+                onChanged: (value) {
+                  setState(() {
+                    _notificationsEnabled = value;
+                  });
+                  _saveSetting('notifications_enabled', value);
                 },
               ),
-              _SettingsTile(
-                icon: Icons.language,
-                title: 'Language',
-                onTap: () {
-                  // TODO: Navigate to language settings
+              _SwitchSettingsTile(
+                icon: Icons.dark_mode,
+                title: 'Dark Mode',
+                subtitle: 'Use dark theme',
+                value: _darkMode,
+                onChanged: (value) {
+                  setState(() {
+                    _darkMode = value;
+                  });
+                  _saveSetting('dark_mode', value);
+                },
+              ),
+              _SwitchSettingsTile(
+                icon: Icons.visibility,
+                title: 'Show Online Status',
+                subtitle: 'Let others see when you\'re online',
+                value: _showOnlineStatus,
+                onChanged: (value) {
+                  setState(() {
+                    _showOnlineStatus = value;
+                  });
+                  _saveSetting('show_online_status', value);
+                },
+              ),
+              _SwitchSettingsTile(
+                icon: Icons.person_add,
+                title: 'Allow Connection Requests',
+                subtitle: 'Allow others to send connection requests',
+                value: _allowConnectionRequests,
+                onChanged: (value) {
+                  setState(() {
+                    _allowConnectionRequests = value;
+                  });
+                  _saveSetting('allow_connection_requests', value);
                 },
               ),
             ],
@@ -275,3 +340,51 @@ class _SettingsTile extends StatelessWidget {
     );
   }
 }
+
+class _SwitchSettingsTile extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final bool value;
+  final bool enabled;
+  final ValueChanged<bool> onChanged;
+
+  const _SwitchSettingsTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.value,
+    this.enabled = true,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      leading: Icon(
+        icon,
+        color: enabled ? AppColors.grey600 : AppColors.grey400,
+      ),
+      title: Text(
+        title,
+        style: TextStyle(
+          color: enabled ? AppColors.grey900 : AppColors.grey400,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+      subtitle: Text(
+        subtitle,
+        style: TextStyle(
+          color: enabled ? AppColors.grey600 : AppColors.grey400,
+          fontSize: 12,
+        ),
+      ),
+      trailing: Switch(
+        value: value,
+        onChanged: enabled ? onChanged : null,
+        activeColor: AppColors.primary,
+      ),
+    );
+  }
+}
+

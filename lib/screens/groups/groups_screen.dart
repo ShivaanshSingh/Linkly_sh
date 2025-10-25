@@ -17,33 +17,34 @@ class GroupsScreen extends StatefulWidget {
 }
 
 class _GroupsScreenState extends State<GroupsScreen> {
+  String _selectedFilter = 'All Groups';
+  String _searchQuery = '';
+  final TextEditingController _searchController = TextEditingController();
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.white,
+      backgroundColor: AppColors.backgroundLight,
       appBar: AppBar(
         backgroundColor: AppColors.white,
         elevation: 0,
+        surfaceTintColor: AppColors.white,
         title: const Text(
           'Groups',
           style: TextStyle(
-            color: AppColors.grey900,
-            fontWeight: FontWeight.bold,
+            color: AppColors.grey700,
+            fontWeight: FontWeight.w600,
+            fontSize: 20,
+            letterSpacing: -0.3,
           ),
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.qr_code_scanner, color: AppColors.grey900),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const QRScannerScreen(),
-                ),
-              );
-            },
-          ),
-        ],
+        actions: [],
       ),
       body: Consumer<AuthService>(
         builder: (context, authService, child) {
@@ -59,9 +60,125 @@ class _GroupsScreenState extends State<GroupsScreen> {
             );
           }
 
-          return StreamBuilder<List<GroupModel>>(
-            stream: GroupService.getUserGroups(authService.user!.uid),
-            builder: (context, snapshot) {
+          return Column(
+            children: [
+              // Search and Filter Section
+              Container(
+                padding: const EdgeInsets.all(16),
+                color: AppColors.white,
+                child: Column(
+                  children: [
+                    // Search Bar
+                    Container(
+                      decoration: BoxDecoration(
+                        color: AppColors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppColors.grey100, width: 1),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.grey100.withOpacity(0.5),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: TextField(
+                        controller: _searchController,
+                        onChanged: (value) {
+                          setState(() {
+                            _searchQuery = value;
+                          });
+                        },
+                        style: const TextStyle(
+                          color: AppColors.grey700,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w400,
+                          letterSpacing: -0.2,
+                        ),
+                        decoration: const InputDecoration(
+                          hintText: 'Search by name, email, or...',
+                          hintStyle: TextStyle(
+                            color: AppColors.grey400,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w400,
+                            letterSpacing: -0.2,
+                          ),
+                          prefixIcon: Icon(
+                            Icons.search,
+                            color: AppColors.grey400,
+                            size: 20,
+                          ),
+                          border: InputBorder.none,
+                          contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    // Filter Dropdown
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                      decoration: BoxDecoration(
+                        color: AppColors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppColors.grey100, width: 1),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.grey100.withOpacity(0.5),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: _selectedFilter,
+                          isExpanded: true,
+                          items: ['All Groups', 'Work', 'Personal', 'Networking', 'Create New Group']
+                              .map((String value) {
+                            return DropdownMenuItem<String>(
+                              value: value,
+                              child: Row(
+                                children: [
+                                  if (value == 'All Groups') Icon(Icons.group, color: AppColors.primary),
+                                  if (value == 'Work') Icon(Icons.work, color: AppColors.primary),
+                                  if (value == 'Personal') Icon(Icons.person, color: AppColors.success),
+                                  if (value == 'Networking') Icon(Icons.network_check, color: AppColors.warning),
+                                  if (value == 'Create New Group') Icon(Icons.add, color: AppColors.primary),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    value,
+                                    style: const TextStyle(
+                                      color: AppColors.grey700,
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w500,
+                                      letterSpacing: -0.2,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }).toList(),
+                          onChanged: (String? newValue) {
+                            if (newValue == 'Create New Group') {
+                              _showCreateGroupDialog();
+                            } else if (newValue != null) {
+                              setState(() {
+                                _selectedFilter = newValue;
+                              });
+                            }
+                          },
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              
+              // Groups List
+              Expanded(
+                child: StreamBuilder<List<GroupModel>>(
+                  stream: GroupService.getUserGroups(authService.user!.uid),
+                  builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Center(
                   child: CircularProgressIndicator(
@@ -134,9 +251,63 @@ class _GroupsScreenState extends State<GroupsScreen> {
                 );
               }
 
-              final groups = snapshot.data ?? [];
+                    final groups = snapshot.data ?? [];
+                    
+                    // Apply search and filter
+                    List<GroupModel> filteredGroups = groups.where((group) {
+                      // Apply search filter
+                      if (_searchQuery.isNotEmpty) {
+                        if (!group.name.toLowerCase().contains(_searchQuery.toLowerCase()) &&
+                            !group.description.toLowerCase().contains(_searchQuery.toLowerCase())) {
+                          return false;
+                        }
+                      }
+                      
+                      // Apply category filter
+                      if (_selectedFilter != 'All Groups') {
+                        // This is a simple implementation - in a real app you'd have group categories
+                        // For now, we'll just filter by group name containing the filter term
+                        if (!group.name.toLowerCase().contains(_selectedFilter.toLowerCase())) {
+                          return false;
+                        }
+                      }
+                      
+                      return true;
+                    }).toList();
 
-              if (groups.isEmpty) {
+                    if (filteredGroups.isEmpty && groups.isNotEmpty) {
+                      return Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.search_off,
+                              size: 64,
+                              color: AppColors.grey400,
+                            ),
+                            const SizedBox(height: 16),
+                            const Text(
+                              'No groups found',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.grey900,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            const Text(
+                              'Try adjusting your search or filter',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: AppColors.grey600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+
+                    if (filteredGroups.isEmpty) {
                 return Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -150,17 +321,20 @@ class _GroupsScreenState extends State<GroupsScreen> {
                       const Text(
                         'No groups yet',
                         style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.grey900,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.grey700,
+                          letterSpacing: -0.3,
                         ),
                       ),
                       const SizedBox(height: 8),
                       const Text(
                         'Create a group or scan a QR code to join one',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: AppColors.grey600,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          color: AppColors.grey500,
+                          fontWeight: FontWeight.w400,
+                          letterSpacing: -0.2,
                         ),
                         textAlign: TextAlign.center,
                       ),
@@ -187,15 +361,18 @@ class _GroupsScreenState extends State<GroupsScreen> {
                 );
               }
 
-              return ListView.builder(
-                padding: const EdgeInsets.all(16),
-                itemCount: groups.length,
-                itemBuilder: (context, index) {
-                  final group = groups[index];
-                  return _buildGroupCard(group, authService.userModel!);
-                },
-              );
-            },
+                    return ListView.builder(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: filteredGroups.length,
+                      itemBuilder: (context, index) {
+                        final group = filteredGroups[index];
+                        return _buildGroupCard(group, authService.userModel!);
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
           );
         },
       ),

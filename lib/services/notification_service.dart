@@ -17,6 +17,11 @@ class NotificationService extends ChangeNotifier {
   String? get fcmToken => _fcmToken;
   bool get isLoading => _isLoading;
   List<Map<String, dynamic>> get notifications => _notifications;
+  
+  // Check if there are unread notifications
+  bool get hasUnreadNotifications => _notifications.any((notification) => 
+      notification['isRead'] == false || notification['isRead'] == null);
+
 
   Future<void> initialize() async {
     try {

@@ -58,6 +58,15 @@ class ConnectionRequestService {
 
       await _firestore.collection('connection_requests').doc(requestId).set(request.toMap());
       
+      // Create notification for the receiver
+      await _createConnectionRequestNotification(
+        receiverId: receiverId,
+        senderName: senderName,
+        senderId: senderId,
+        requestId: requestId,
+        message: message,
+      );
+      
       return requestId;
     } catch (e) {
       throw Exception('Failed to send connection request: ${e.toString()}');
@@ -334,6 +343,38 @@ class ConnectionRequestService {
       await batch.commit();
     } catch (e) {
       throw Exception('Failed to remove connection: ${e.toString()}');
+    }
+  }
+
+  // Create notification for connection request
+  Future<void> _createConnectionRequestNotification({
+    required String receiverId,
+    required String senderName,
+    required String senderId,
+    required String requestId,
+    String? message,
+  }) async {
+    try {
+      await _firestore.collection('notifications').add({
+        'receiverId': receiverId,
+        'title': 'New Connection Request',
+        'body': message != null && message.isNotEmpty 
+            ? '$senderName wants to connect with you: "$message"'
+            : '$senderName wants to connect with you',
+        'data': {
+          'type': 'connection_request',
+          'senderId': senderId,
+          'senderName': senderName,
+          'requestId': requestId,
+        },
+        'timestamp': FieldValue.serverTimestamp(),
+        'isRead': false,
+        'type': 'connection_request',
+      });
+    } catch (e) {
+      // Don't throw error for notification creation failure
+      // Connection request should still succeed even if notification fails
+      print('Failed to create connection request notification: $e');
     }
   }
 }

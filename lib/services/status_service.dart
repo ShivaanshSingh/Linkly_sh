@@ -53,17 +53,40 @@ class StatusService {
     }
   }
 
-  // Get all active statuses for a user's connections
+  // Get all active statuses for a user's connections only
   Stream<List<StatusModel>> getStatuses(String currentUserId) {
+    // First get the user's connections
     return _firestore
-        .collection('statuses')
-        .where('userId', isNotEqualTo: currentUserId) // Exclude current user's statuses
-        .orderBy('createdAt', descending: true)
+        .collection('connections')
+        .where('userId', isEqualTo: currentUserId)
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => StatusModel.fromMap(doc.data()))
-            .where((status) => !status.isExpired) // Filter out expired statuses
-            .toList());
+        .asyncMap((connectionsSnapshot) async {
+      if (connectionsSnapshot.docs.isEmpty) {
+        // No connections, return empty list
+        return <StatusModel>[];
+      }
+      
+      // Get connection user IDs
+      List<String> connectionUserIds = connectionsSnapshot.docs
+          .map((doc) => doc.data()['contactUserId'] as String)
+          .toList();
+      
+      if (connectionUserIds.isEmpty) {
+        return <StatusModel>[];
+      }
+      
+      // Get statuses from connections only
+      final statusesSnapshot = await _firestore
+          .collection('statuses')
+          .where('userId', whereIn: connectionUserIds)
+          .orderBy('createdAt', descending: true)
+          .get();
+      
+      return statusesSnapshot.docs
+          .map((doc) => StatusModel.fromMap(doc.data()))
+          .where((status) => !status.isExpired) // Filter out expired statuses
+          .toList();
+    });
   }
 
   // Get current user's statuses
