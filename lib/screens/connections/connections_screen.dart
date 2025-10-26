@@ -160,6 +160,287 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
     }
   }
 
+  void _showConnectionRequestsDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Container(
+            constraints: const BoxConstraints(maxHeight: 600),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Header
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary,
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(16),
+                      topRight: Radius.circular(16),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.person_add_alt_1,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Connection Requests',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        icon: const Icon(
+                          Icons.close,
+                          color: Colors.white,
+                          size: 24,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                
+                // Content
+                Flexible(
+                  child: _pendingRequests.isEmpty
+                      ? Container(
+                          padding: const EdgeInsets.all(40),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.inbox_outlined,
+                                size: 64,
+                                color: AppColors.grey400,
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                'No Pending Requests',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.grey700,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'You don\'t have any pending connection requests at the moment.',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: AppColors.grey500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      : ListView.builder(
+                          shrinkWrap: true,
+                          itemCount: _pendingRequests.length,
+                          itemBuilder: (context, index) {
+                            final request = _pendingRequests[index];
+                            return Container(
+                              margin: const EdgeInsets.all(16),
+                              child: _buildConnectionRequestCard(request),
+                            );
+                          },
+                        ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showAddToGroupDialog(ConnectionModel connection) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Container(
+            constraints: const BoxConstraints(maxHeight: 500),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Header
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary,
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(16),
+                      topRight: Radius.circular(16),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.group_add,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Add ${connection.contactName} to Group',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        icon: const Icon(
+                          Icons.close,
+                          color: Colors.white,
+                          size: 24,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                
+                // Content
+                Flexible(
+                  child: _groups.isEmpty
+                      ? Container(
+                          padding: const EdgeInsets.all(40),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.group_outlined,
+                                size: 64,
+                                color: AppColors.grey400,
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                'No Groups Available',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.grey700,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Create a group first to add connections.',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: AppColors.grey500,
+                                ),
+                              ),
+                              const SizedBox(height: 20),
+                              ElevatedButton(
+                                onPressed: () {
+                                  Navigator.of(context).pop();
+                                  // Navigate to create group screen
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Create group feature coming soon!'),
+                                    ),
+                                  );
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.primary,
+                                  foregroundColor: Colors.white,
+                                ),
+                                child: const Text('Create Group'),
+                              ),
+                            ],
+                          ),
+                        )
+                      : ListView.builder(
+                          shrinkWrap: true,
+                          itemCount: _groups.length,
+                          itemBuilder: (context, index) {
+                            final group = _groups[index];
+                            return ListTile(
+                              leading: CircleAvatar(
+                                backgroundColor: AppColors.primary,
+                                child: Text(
+                                  group.name.isNotEmpty ? group.name[0].toUpperCase() : 'G',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                              title: Text(
+                                group.name,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              subtitle: Text(
+                                '${group.members.length} members',
+                                style: TextStyle(
+                                  color: AppColors.grey500,
+                                  fontSize: 12,
+                                ),
+                              ),
+                              trailing: ElevatedButton(
+                                onPressed: () {
+                                  _addConnectionToGroup(connection, group);
+                                  Navigator.of(context).pop();
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.primary,
+                                  foregroundColor: Colors.white,
+                                  minimumSize: const Size(60, 32),
+                                ),
+                                child: const Text(
+                                  'Add',
+                                  style: TextStyle(fontSize: 12),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _addConnectionToGroup(ConnectionModel connection, GroupModel group) async {
+    // TODO: Implement actual group membership functionality
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('${connection.contactName} added to ${group.name}'),
+        backgroundColor: AppColors.success,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -237,6 +518,33 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
                 );
               },
               tooltip: 'Search People',
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: _pendingRequests.isNotEmpty ? AppColors.primary : AppColors.grey50,
+              shape: BoxShape.circle,
+              boxShadow: _pendingRequests.isNotEmpty ? [
+                BoxShadow(
+                  color: AppColors.primary.withOpacity(0.3),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ] : null,
+            ),
+            child: IconButton(
+              icon: Icon(
+                Icons.person_add_alt_1, 
+                color: _pendingRequests.isNotEmpty ? Colors.white : AppColors.grey600, 
+                size: 20
+              ),
+              onPressed: () {
+                _showConnectionRequestsDialog();
+              },
+              tooltip: 'Connection Requests',
             ),
           ),
           const SizedBox(width: 8),
@@ -544,37 +852,53 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
   Widget _buildConnectionCard(ConnectionModel connection) {
     return Container(
       margin: const EdgeInsets.only(bottom: 20),
-      height: 140, // Fixed height for rectangular business card
+      height: 200, // Increased height to prevent overflow
       decoration: BoxDecoration(
-        color: const Color(0xFF0466C8),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFF0466C8).withOpacity(0.1)),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFF0466C8),
+            Color(0xFF034A9F),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(12), // Less rounded for business card look
+        border: Border.all(color: const Color(0x33FFFFFF), width: 1), // White with 20% opacity
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.15),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+            color: Colors.black.withOpacity(0.2),
+            blurRadius: 15,
+            offset: const Offset(0, 6),
+            spreadRadius: 0,
+          ),
+          BoxShadow(
+            color: const Color(0xFF0466C8).withOpacity(0.3),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+            spreadRadius: -5,
           ),
         ],
       ),
       child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Row(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Profile image
-            Stack(
+            // Header section with avatar and name
+            Row(
               children: [
+                // Profile image with professional styling
                 Container(
-                  width: 60,
-                  height: 60,
+                  width: 50,
+                  height: 50,
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(30),
+                    borderRadius: BorderRadius.circular(8), // Square with slight rounding
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
+                        color: Colors.black.withOpacity(0.15),
                         blurRadius: 8,
-                        offset: const Offset(0, 2),
+                        offset: const Offset(0, 3),
                       ),
                     ],
                   ),
@@ -584,151 +908,186 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
                           ? connection.contactName[0].toUpperCase() 
                           : 'A',
                       style: const TextStyle(
-                        color: Colors.black,
+                        color: Color(0xFF0466C8),
                         fontWeight: FontWeight.bold,
-                        fontSize: 24,
+                        fontSize: 20,
                       ),
                     ),
                   ),
                 ),
-                // Online status indicator
-                Positioned(
-                  bottom: 2,
-                  right: 2,
-                  child: Container(
-                    width: 16,
-                    height: 16,
-                    decoration: BoxDecoration(
-                      color: Colors.green,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.white, width: 2),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(width: 16),
-            
-            // Connection info
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    connection.contactName,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    connection.contactCompany ?? 'No Company',
-                    style: const TextStyle(
-                      color: Color(0xFF9CA3AF),
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  
-                  // Contact details in horizontal layout
-                  Row(
+                const SizedBox(width: 16),
+                
+                // Name and title section
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(Icons.email, color: Colors.white, size: 14),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          connection.contactEmail,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w400,
-                          ),
-                          overflow: TextOverflow.ellipsis,
+                      Text(
+                        connection.contactName,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 20,
+                          letterSpacing: 0.5,
                         ),
                       ),
-                    ],
-                  ),
-                  if (connection.contactPhone != null && connection.contactPhone!.isNotEmpty) ...[
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        Icon(Icons.phone, color: Colors.white, size: 14),
-                        const SizedBox(width: 6),
-                        Text(
-                          connection.contactPhone!,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w400,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            
-            // Action buttons and menu
-            Column(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                // Delete button
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: PopupMenuButton<String>(
-                    icon: const Icon(Icons.more_vert, color: Colors.white, size: 18),
-                    onSelected: (String value) {
-                      if (value == 'delete') {
-                        _showDeleteDialog(connection);
-                      }
-                    },
-                    itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-                      const PopupMenuItem<String>(
-                        value: 'delete',
-                        child: Row(
-                          children: [
-                            Icon(Icons.delete_outline, color: Colors.red),
-                            SizedBox(width: 8),
-                            Text('Delete'),
-                          ],
+                      const SizedBox(height: 2),
+                      Text(
+                        connection.contactCompany ?? 'Professional',
+                        style: const TextStyle(
+                          color: Color(0xCCFFFFFF), // White with 80% opacity
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          letterSpacing: 0.3,
                         ),
                       ),
                     ],
                   ),
                 ),
                 
-                // Message button
+                // Online status indicator
                 Container(
+                  width: 12,
+                  height: 12,
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: TextButton(
-                    onPressed: () {
-                      _openChat(connection);
-                    },
-                    style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    ),
-                    child: const Text(
-                      'Message',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
+                    color: Colors.green,
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: Colors.white, width: 2),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.green.withOpacity(0.5),
+                        blurRadius: 4,
+                        offset: const Offset(0, 1),
                       ),
-                    ),
+                    ],
                   ),
                 ),
               ],
+            ),
+            
+            const SizedBox(height: 12),
+            
+            // Contact information section
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  // Email
+                  Row(
+                    children: [
+                      Icon(Icons.email_outlined, color: const Color(0xE6FFFFFF), size: 16), // White with 90% opacity
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          connection.contactEmail,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w400,
+                            letterSpacing: 0.2,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                  
+                  // Phone (if available)
+                  if (connection.contactPhone != null && connection.contactPhone!.isNotEmpty) ...[
+                    Row(
+                      children: [
+                        Icon(Icons.phone_outlined, color: const Color(0xE6FFFFFF), size: 16), // White with 90% opacity
+                        const SizedBox(width: 8),
+                        Text(
+                          connection.contactPhone!,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w400,
+                            letterSpacing: 0.2,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                  
+                  // Action buttons row
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      // Message button
+                      Container(
+                        decoration: BoxDecoration(
+                          color: const Color(0x26FFFFFF), // White with 15% opacity
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: const Color(0x4DFFFFFF), width: 1), // White with 30% opacity
+                        ),
+                        child: TextButton(
+                          onPressed: () {
+                            _openChat(connection);
+                          },
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            minimumSize: Size.zero,
+                          ),
+                          child: const Text(
+                            'Message',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 12,
+                              letterSpacing: 0.3,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      
+                      // More options button
+                      Container(
+                        decoration: BoxDecoration(
+                          color: const Color(0x26FFFFFF), // White with 15% opacity
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: const Color(0x4DFFFFFF), width: 1), // White with 30% opacity
+                        ),
+                        child: PopupMenuButton<String>(
+                          icon: const Icon(Icons.more_horiz, color: Colors.white, size: 16),
+                          onSelected: (String value) {
+                            if (value == 'delete') {
+                              _showDeleteDialog(connection);
+                            } else if (value == 'add_to_group') {
+                              _showAddToGroupDialog(connection);
+                            }
+                          },
+                          itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+                            const PopupMenuItem<String>(
+                              value: 'add_to_group',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.group_add, color: Colors.blue),
+                                  SizedBox(width: 8),
+                                  Text('Add to Group'),
+                                ],
+                              ),
+                            ),
+                            const PopupMenuItem<String>(
+                              value: 'delete',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.delete_outline, color: Colors.red),
+                                  SizedBox(width: 8),
+                                  Text('Delete'),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -845,7 +1204,7 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
                     );
 
                     // Add connection to the newly created group
-                    await _addConnectionToGroup(connection, GroupModel(
+                    _addConnectionToGroup(connection, GroupModel(
                       id: groupId,
                       name: nameController.text.trim(),
                       description: descriptionController.text.trim(),
@@ -901,86 +1260,6 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
     );
   }
 
-  void _showAddToGroupDialog(ConnectionModel connection) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          backgroundColor: const Color(0xFF2D2D2D),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          title: const Text(
-            'Add to Group',
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-              fontSize: 20,
-            ),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'Add ${connection.contactName} to a group',
-                style: const TextStyle(
-                  color: Color(0xFF9CA3AF),
-                  fontSize: 16,
-                ),
-              ),
-              const SizedBox(height: 16),
-              if (_groups.isEmpty)
-                const Text(
-                  'No existing groups available.',
-                  style: TextStyle(
-                    color: Color(0xFF9CA3AF),
-                    fontSize: 14,
-                  ),
-                )
-              else
-                ..._groups.map((group) => ListTile(
-                  leading: Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: Color(int.parse(group.color.replaceFirst('#', '0xFF'))),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Center(
-                      child: Text(
-                        group.name[0].toUpperCase(),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
-                  title: Text(
-                    group.name,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  subtitle: Text(
-                    group.description,
-                    style: const TextStyle(
-                      color: Color(0xFF9CA3AF),
-                      fontSize: 12,
-                    ),
-                  ),
-                  onTap: () {
-                    Navigator.of(context).pop();
-                    _addConnectionToGroup(connection, group);
-                  },
-                )),
-            ],
-          ),
-        );
-      },
-    );
-  }
 
   void _showDeleteDialog(ConnectionModel connection) {
     showDialog(
@@ -1049,61 +1328,6 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
     );
   }
 
-  Future<void> _addConnectionToGroup(ConnectionModel connection, GroupModel group) async {
-    try {
-      // Show loading indicator
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => const Center(
-          child: CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
-          ),
-        ),
-      );
-
-      // Add connection to group using GroupService
-      await GroupService.addConnectionToGroup(
-        groupId: group.id,
-        connectionId: connection.id,
-        connectionUserId: connection.contactUserId,
-      );
-
-      // Close loading dialog
-      if (mounted) Navigator.of(context).pop();
-
-      // Show success message
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('${connection.contactName} added to ${group.name}'),
-            backgroundColor: AppColors.primary,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-        );
-      }
-    } catch (e) {
-      // Close loading dialog if still open
-      if (mounted) Navigator.of(context).pop();
-      
-      // Show error message
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to add to group: $e'),
-            backgroundColor: Colors.red,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-        );
-      }
-    }
-  }
 
   void _createGroup(String name, String description, String color) {
     final newGroup = GroupModel(

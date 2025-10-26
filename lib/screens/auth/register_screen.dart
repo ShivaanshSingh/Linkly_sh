@@ -216,102 +216,105 @@ class _RegisterScreenState extends State<RegisterScreen> {
             
             // Form content
             Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 32),
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      // Step content
-                      _buildStepContent(),
-                      
-                      const SizedBox(height: 48),
-                      
-                      // Navigation buttons
-                      _buildNavigationButtons(),
-                      
-                      const SizedBox(height: 24),
-                      
-                      // Google sign up (only on first step)
-                      if (_currentStep == 0) ...[
-                        Row(
-                          children: [
-                            const Expanded(child: Divider(color: AppColors.grey100, height: 1)),
-                            Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 20),
-                              child: Text(
-                                'OR',
-                                style: TextStyle(
-                                  color: AppColors.grey400,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w400,
-                                  letterSpacing: 1,
-                                ),
-                              ),
-                            ),
-                            const Expanded(child: Divider(color: AppColors.grey100, height: 1)),
-                          ],
-                        ),
+              child: Center(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 32),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Step content
+                        _buildStepContent(),
+                        
+                        const SizedBox(height: 48),
+                        
+                        // Navigation buttons
+                        _buildNavigationButtons(),
                         
                         const SizedBox(height: 24),
                         
-                        OutlinedButton.icon(
-                          onPressed: _signUpWithGoogle,
-                          icon: const Icon(Icons.g_mobiledata, size: 20, color: AppColors.grey600),
-                          label: const Text(
-                            'Continue with Google',
-                            style: TextStyle(
-                              color: AppColors.grey600,
-                              fontSize: 15,
-                              fontWeight: FontWeight.w400,
-                              letterSpacing: -0.2,
-                            ),
-                          ),
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            side: const BorderSide(color: AppColors.grey100, width: 1),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            backgroundColor: AppColors.white,
-                          ),
-                        ),
-                      ],
-                      
-                      const SizedBox(height: 32),
-                      
-                      // Sign in link
-                      if (_currentStep == 0)
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              'Already have an account? ',
-                              style: TextStyle(
-                                color: AppColors.grey400,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w400,
-                              ),
-                            ),
-                            TextButton(
-                              onPressed: () => context.go('/login'),
-                              style: TextButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-                              ),
-                              child: const Text(
-                                'Log In',
-                                style: TextStyle(
-                                  color: AppColors.primary,
-                                  fontWeight: FontWeight.w500,
-                                  fontSize: 14,
-                                  letterSpacing: -0.2,
+                        // Google sign up (only on first step)
+                        if (_currentStep == 0) ...[
+                          Row(
+                            children: [
+                              const Expanded(child: Divider(color: AppColors.grey100, height: 1)),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 20),
+                                child: Text(
+                                  'OR',
+                                  style: TextStyle(
+                                    color: AppColors.grey400,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w400,
+                                    letterSpacing: 1,
+                                  ),
                                 ),
                               ),
+                              const Expanded(child: Divider(color: AppColors.grey100, height: 1)),
+                            ],
+                          ),
+                          
+                          const SizedBox(height: 24),
+                          
+                          OutlinedButton.icon(
+                            onPressed: _signUpWithGoogle,
+                            icon: const Icon(Icons.g_mobiledata, size: 20, color: AppColors.grey600),
+                            label: const Text(
+                              'Continue with Google',
+                              style: TextStyle(
+                                color: AppColors.grey600,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w400,
+                                letterSpacing: -0.2,
+                              ),
                             ),
-                          ],
-                        ),
-                    ],
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              side: const BorderSide(color: AppColors.grey100, width: 1),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              backgroundColor: AppColors.white,
+                            ),
+                          ),
+                        ],
+                        
+                        const SizedBox(height: 32),
+                        
+                        // Sign in link
+                        if (_currentStep == 0)
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                'Already have an account? ',
+                                style: TextStyle(
+                                  color: AppColors.grey400,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w400,
+                                ),
+                              ),
+                              TextButton(
+                                onPressed: () => context.go('/login'),
+                                style: TextButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                                ),
+                                child: const Text(
+                                  'Log In',
+                                  style: TextStyle(
+                                    color: AppColors.primary,
+                                    fontWeight: FontWeight.w500,
+                                    fontSize: 14,
+                                    letterSpacing: -0.2,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                      ],
+                    ),
                   ),
                 ),
               ),
