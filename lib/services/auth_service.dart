@@ -165,6 +165,9 @@ class AuthService extends ChangeNotifier {
           'lastSeen': FieldValue.serverTimestamp(),
           'isOnline': true,
         });
+        
+        // Immediately load user data after signup
+        await loadUserData();
       }
       
       debugPrint('Sign up successful for: $email');
@@ -288,6 +291,9 @@ class AuthService extends ChangeNotifier {
           'lastSeen': FieldValue.serverTimestamp(),
           'isOnline': true,
         }, SetOptions(merge: true));
+        
+        // Immediately load user data after Google sign-in
+        await loadUserData();
       }
       
       debugPrint('Google sign in successful for: ${userCredential.user?.email}');
@@ -386,16 +392,20 @@ class AuthService extends ChangeNotifier {
       
       if (userDoc.exists) {
         _userModel = UserModel.fromFirestore(userDoc);
-        debugPrint('User data loaded successfully: ${_userModel!.fullName}');
+        debugPrint('✅ User data loaded successfully: ${_userModel!.fullName}');
+        debugPrint('✅ User email: ${_userModel!.email}');
+        debugPrint('✅ User company: ${_userModel!.company}');
+        debugPrint('✅ User phone: ${_userModel!.phoneNumber}');
         notifyListeners();
         
         // Initialize notifications for the user
         await _initializeNotifications();
       } else {
-        debugPrint('User document not found in Firestore');
+        debugPrint('❌ User document not found in Firestore for UID: ${_user!.uid}');
+        debugPrint('❌ This might be why the name shows as "User"');
       }
     } catch (e) {
-      debugPrint('Error loading user data: $e');
+      debugPrint('❌ Error loading user data: $e');
     }
   }
 
@@ -407,6 +417,12 @@ class AuthService extends ChangeNotifier {
     } catch (e) {
       debugPrint('❌ Error initializing notifications: $e');
     }
+  }
+
+  // Force refresh user data - useful for debugging
+  Future<void> refreshUserData() async {
+    debugPrint('🔄 Force refreshing user data...');
+    await loadUserData();
   }
 
   Future<void> updateUserModel(UserModel userModel) async {

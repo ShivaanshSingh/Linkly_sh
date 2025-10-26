@@ -182,7 +182,23 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
             fontSize: 24,
           ),
         ),
-        actions: [],
+        actions: [
+          // Debug button to refresh user data
+          IconButton(
+            icon: const Icon(Icons.refresh, color: AppColors.grey600),
+            onPressed: () {
+              final authService = Provider.of<AuthService>(context, listen: false);
+              authService.refreshUserData();
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('User data refreshed'),
+                  duration: Duration(seconds: 2),
+                ),
+              );
+            },
+            tooltip: 'Refresh User Data',
+          ),
+        ],
       ),
       body: SafeArea(
         child: Column(
@@ -231,8 +247,12 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
         String firstName = 'User';
         if (authService.userModel != null && authService.userModel!.fullName.isNotEmpty) {
           firstName = authService.userModel!.fullName.split(' ').first;
-        } else if (authService.user != null && authService.user!.displayName != null) {
+          debugPrint('✅ Using userModel fullName: ${authService.userModel!.fullName}');
+        } else if (authService.user != null && authService.user!.displayName != null && authService.user!.displayName!.isNotEmpty) {
           firstName = authService.user!.displayName!.split(' ').first;
+          debugPrint('✅ Using Firebase user displayName: ${authService.user!.displayName}');
+        } else {
+          debugPrint('❌ No user name found - userModel: ${authService.userModel?.fullName}, Firebase user: ${authService.user?.displayName}');
         }
         
         return Padding(
@@ -906,11 +926,6 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Digital Card Widget
-          const DigitalCardWidget(),
-          
-          const SizedBox(height: 20),
-          
           // Card instructions
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -934,31 +949,110 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
                   ),
                   textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 16),
-                
+              ],
+            ),
+          ),
+          
+          const SizedBox(height: 20),
+          
+          // Digital Card Widget
+          const DigitalCardWidget(),
+          
+          const SizedBox(height: 20),
+          
+          // Quick actions
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
                 // Quick actions
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                Column(
                   children: [
-                    _buildQuickAction(
-                      icon: Icons.qr_code_scanner,
-                      label: 'Scan QR',
-                      onTap: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (context) => const QRScannerScreen(),
+                    // Prominent Scan QR button
+                    Container(
+                      width: double.infinity,
+                      height: 56,
+                      margin: const EdgeInsets.symmetric(horizontal: 20),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFFFF6B35), Color(0xFFE55A2B)], // Orange gradient
+                          begin: Alignment.centerLeft,
+                          end: Alignment.centerRight,
+                        ),
+                        borderRadius: BorderRadius.circular(28), // Pill shape
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFFFF6B35).withOpacity(0.4),
+                            blurRadius: 12,
+                            offset: const Offset(0, 6),
                           ),
-                        );
-                      },
+                        ],
+                      ),
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(28),
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (context) => const QRScannerScreen(),
+                              ),
+                            );
+                          },
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Container(
+                                width: 32,
+                                height: 32,
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.2),
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                child: const Icon(
+                                  Icons.qr_code_scanner,
+                                  color: Colors.white,
+                                  size: 20,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              const Text(
+                                'Scan QR',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                     ),
-                    _buildQuickAction(
-                      icon: Icons.share,
-                      label: 'Share',
-                      onTap: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Share feature coming soon!')),
-                        );
-                      },
+                    
+                    const SizedBox(height: 16),
+                    
+                    // Other quick actions
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        _buildQuickAction(
+                          icon: Icons.share,
+                          label: 'Share',
+                          onTap: () {
+                            _shareDigitalCard();
+                          },
+                        ),
+                        _buildQuickAction(
+                          icon: Icons.contact_page,
+                          label: 'vCard',
+                          onTap: () {
+                            _generateVCard();
+                          },
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -1084,6 +1178,89 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
   // Navigate to profile edit
   void _navigateToProfileEdit() {
     context.push('/profile-edit');
+  }
+
+  // Share digital card functionality
+  void _shareDigitalCard() {
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final userModel = authService.userModel;
+    final user = authService.user;
+    
+    if (userModel == null && user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('User information not available')),
+      );
+      return;
+    }
+    
+    final userName = userModel?.fullName ?? user?.displayName ?? 'User';
+    final userEmail = userModel?.email ?? user?.email ?? '';
+    final userId = user?.uid ?? '';
+    
+    // Create shareable content
+    final shareText = '''
+🌟 Check out my digital business card!
+
+👤 Name: $userName
+📧 Email: $userEmail
+🔗 Profile: linkly://user/$userId
+
+Download Linkly to connect with me digitally!
+''';
+    
+    Share.share(
+      shareText,
+      subject: 'My Digital Business Card - $userName',
+    );
+  }
+
+  // Generate vCard functionality
+  void _generateVCard() {
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final userModel = authService.userModel;
+    final user = authService.user;
+    
+    if (userModel == null && user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('User information not available')),
+      );
+      return;
+    }
+    
+    final userName = userModel?.fullName ?? user?.displayName ?? 'User';
+    final userEmail = userModel?.email ?? user?.email ?? '';
+    final userPhone = userModel?.phoneNumber ?? '';
+    final userCompany = userModel?.company ?? '';
+    final userPosition = userModel?.position ?? '';
+    
+    // Generate vCard content
+    final vCardContent = '''BEGIN:VCARD
+VERSION:3.0
+FN:$userName
+N:${userName.split(' ').last};${userName.split(' ').first};;;
+EMAIL:$userEmail
+${userPhone.isNotEmpty ? 'TEL:$userPhone' : ''}
+${userCompany.isNotEmpty ? 'ORG:$userCompany' : ''}
+${userPosition.isNotEmpty ? 'TITLE:$userPosition' : ''}
+URL:linkly://user/${user?.uid ?? ''}
+END:VCARD''';
+    
+    // Share the vCard
+    Share.share(
+      vCardContent,
+      subject: 'Contact Card - $userName',
+    );
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('vCard for $userName generated successfully!'),
+        backgroundColor: AppColors.primary,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
+    );
   }
 
 

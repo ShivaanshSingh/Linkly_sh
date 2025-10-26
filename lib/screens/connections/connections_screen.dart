@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 import '../../constants/app_colors.dart';
 import '../../models/connection_model.dart';
+import '../../models/connection_request_model.dart';
 import '../../models/group_model.dart';
 import '../../models/user_model.dart';
 import '../../models/message_model.dart';
@@ -27,13 +28,16 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
   List<ConnectionModel> _connections = [];
   List<ConnectionModel> _filteredConnections = [];
   List<GroupModel> _groups = [];
+  List<ConnectionRequestModel> _pendingRequests = [];
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final ConnectionRequestService _connectionRequestService = ConnectionRequestService();
 
   @override
   void initState() {
     super.initState();
     _loadConnections();
     _loadGroups();
+    _loadPendingRequests();
   }
 
   void _loadConnections() {
@@ -94,6 +98,19 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
     ];
   }
 
+  void _loadPendingRequests() {
+    final authService = Provider.of<AuthService>(context, listen: false);
+    if (authService.user == null) return;
+
+    _connectionRequestService.getPendingRequests(authService.user!.uid).listen((requests) {
+      if (mounted) {
+        setState(() {
+          _pendingRequests = requests;
+        });
+      }
+    });
+  }
+
   void _filterConnections() {
     setState(() {
       _filteredConnections = _connections.where((connection) {
@@ -105,6 +122,44 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
     });
   }
 
+  Future<void> _acceptConnectionRequest(ConnectionRequestModel request) async {
+    try {
+      await _connectionRequestService.acceptConnectionRequest(request.id);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Connection request from ${request.senderName} accepted'),
+          backgroundColor: AppColors.success,
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to accept request: $e'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    }
+  }
+
+  Future<void> _declineConnectionRequest(ConnectionRequestModel request) async {
+    try {
+      await _connectionRequestService.declineConnectionRequest(request.id);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Connection request from ${request.senderName} declined'),
+          backgroundColor: AppColors.grey500,
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to decline request: $e'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -113,14 +168,36 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
         backgroundColor: AppColors.white,
         elevation: 0,
         surfaceTintColor: AppColors.white,
-        title: const Text(
-          'My Connections',
-          style: TextStyle(
-            color: AppColors.grey700,
-            fontWeight: FontWeight.w600,
-            fontSize: 20,
-            letterSpacing: -0.3,
-          ),
+        title: Row(
+          children: [
+            const Text(
+              'My Connections',
+              style: TextStyle(
+                color: AppColors.grey700,
+                fontWeight: FontWeight.w600,
+                fontSize: 20,
+                letterSpacing: -0.3,
+              ),
+            ),
+            if (_pendingRequests.isNotEmpty) ...[
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppColors.primary,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  '${_pendingRequests.length}',
+                  style: const TextStyle(
+                    color: AppColors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ],
         ),
         actions: [
           Container(
@@ -187,8 +264,10 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
           ),
         ],
       ),
-      body: Column(
-        children: [
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.only(bottom: 20),
+        child: Column(
+          children: [
           // Connection count
           Container(
             margin: const EdgeInsets.fromLTRB(24, 16, 24, 8),
@@ -218,6 +297,45 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
               ],
             ),
           ),
+          
+          // Connection Requests Section
+          if (_pendingRequests.isNotEmpty) ...[
+            Container(
+              margin: const EdgeInsets.fromLTRB(24, 8, 24, 8),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.primary.withOpacity(0.3), width: 1),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.person_add,
+                    color: AppColors.primary,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    '${_pendingRequests.length} connection request${_pendingRequests.length == 1 ? '' : 's'} pending',
+                    style: const TextStyle(
+                      color: AppColors.primary,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: -0.2,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // Connection Requests List
+            Container(
+              margin: const EdgeInsets.fromLTRB(24, 0, 24, 16),
+              child: Column(
+                children: _pendingRequests.map((request) => _buildConnectionRequestCard(request)).toList(),
+              ),
+            ),
+          ],
           
           // Search bar
           Padding(
@@ -407,19 +525,18 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
           ),
           
           // Connections list
-          Expanded(
-            child: _filteredConnections.isEmpty
-                ? _buildEmptyState()
-                : ListView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: _filteredConnections.length,
-                    itemBuilder: (context, index) {
-                      final connection = _filteredConnections[index];
-                      return _buildConnectionCard(connection);
-                    },
-                  ),
-          ),
+          _filteredConnections.isEmpty
+              ? _buildEmptyState()
+              : Column(
+                  children: _filteredConnections.map((connection) => 
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      child: _buildConnectionCard(connection),
+                    ),
+                  ).toList(),
+                ),
         ],
+        ),
       ),
     );
   }
@@ -427,9 +544,10 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
   Widget _buildConnectionCard(ConnectionModel connection) {
     return Container(
       margin: const EdgeInsets.only(bottom: 20),
+      height: 140, // Fixed height for rectangular business card
       decoration: BoxDecoration(
         color: const Color(0xFF0466C8),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: const Color(0xFF0466C8).withOpacity(0.1)),
         boxShadow: [
           BoxShadow(
@@ -441,69 +559,124 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
       ),
       child: Padding(
         padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Row(
           children: [
-            Row(
+            // Profile image
+            Stack(
               children: [
-                // Profile image
-                Stack(
-                  children: [
-                    Container(
-                      width: 60,
-                      height: 60,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(30),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
+                Container(
+                  width: 60,
+                  height: 60,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(30),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
                       ),
-                      child: Center(
-                        child: Text(
-                          connection.contactName.isNotEmpty 
-                              ? connection.contactName[0].toUpperCase() 
-                              : 'A',
-                          style: const TextStyle(
-                            color: Colors.black,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 24,
-                          ),
-                        ),
+                    ],
+                  ),
+                  child: Center(
+                    child: Text(
+                      connection.contactName.isNotEmpty 
+                          ? connection.contactName[0].toUpperCase() 
+                          : 'A',
+                      style: const TextStyle(
+                        color: Colors.black,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 24,
                       ),
                     ),
-                  ],
+                  ),
                 ),
-                const SizedBox(width: 16),
-                // Connection info
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                // Online status indicator
+                Positioned(
+                  bottom: 2,
+                  right: 2,
+                  child: Container(
+                    width: 16,
+                    height: 16,
+                    decoration: BoxDecoration(
+                      color: Colors.green,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.white, width: 2),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(width: 16),
+            
+            // Connection info
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    connection.contactName,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    connection.contactCompany ?? 'No Company',
+                    style: const TextStyle(
+                      color: Color(0xFF9CA3AF),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  
+                  // Contact details in horizontal layout
+                  Row(
                     children: [
-                      Text(
-                        connection.contactName,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 20,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        connection.contactCompany ?? 'No Company',
-                        style: const TextStyle(
-                          color: Color(0xFF9CA3AF),
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
+                      Icon(Icons.email, color: Colors.white, size: 14),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          connection.contactEmail,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w400,
+                          ),
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ],
                   ),
-                ),
+                  if (connection.contactPhone != null && connection.contactPhone!.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Icon(Icons.phone, color: Colors.white, size: 14),
+                        const SizedBox(width: 6),
+                        Text(
+                          connection.contactPhone!,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w400,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            
+            // Action buttons and menu
+            Column(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
                 // Delete button
                 Container(
                   decoration: BoxDecoration(
@@ -511,7 +684,7 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: PopupMenuButton<String>(
-                    icon: const Icon(Icons.more_vert, color: Colors.white),
+                    icon: const Icon(Icons.more_vert, color: Colors.white, size: 18),
                     onSelected: (String value) {
                       if (value == 'delete') {
                         _showDeleteDialog(connection);
@@ -531,63 +704,27 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
                     ],
                   ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            
-            // Contact details
-            _buildContactDetail(Icons.email, connection.contactEmail),
-            const SizedBox(height: 8),
-            if (connection.contactPhone != null && connection.contactPhone!.isNotEmpty)
-              _buildContactDetail(Icons.phone, connection.contactPhone!),
-            
-            const SizedBox(height: 16),
-            
-            // Action buttons
-            Row(
-              children: [
+                
+                // Message button
                 Container(
                   decoration: BoxDecoration(
-                    color: const Color(0xFF0466C8),
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFF0466C8).withOpacity(0.3),
-                        blurRadius: 6,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(8),
                   ),
                   child: TextButton(
                     onPressed: () {
                       _openChat(connection);
                     },
                     style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     ),
                     child: const Text(
                       'Message',
                       style: TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
-                        fontSize: 16,
+                        fontSize: 12,
                       ),
-                    ),
-                  ),
-                ),
-                const Spacer(),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF1A1A1A),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    '${connection.createdAt.day}/${connection.createdAt.month}/${connection.createdAt.year}',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
                     ),
                   ),
                 ),
@@ -599,32 +736,6 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
     );
   }
 
-  Widget _buildContactDetail(IconData icon, String text) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1A1A1A),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, color: Colors.white, size: 18),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              text,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   void _showCreateGroupDialog(ConnectionModel connection) {
     final nameController = TextEditingController();
@@ -1427,6 +1538,154 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
     );
   }
 
+  Widget _buildConnectionRequestCard(ConnectionRequestModel request) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.grey100, width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.grey100.withOpacity(0.5),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              // Profile image
+              Container(
+                width: 50,
+                height: 50,
+                decoration: BoxDecoration(
+                  color: AppColors.primary,
+                  borderRadius: BorderRadius.circular(25),
+                ),
+                child: Center(
+                  child: Text(
+                    request.senderName.isNotEmpty 
+                        ? request.senderName[0].toUpperCase() 
+                        : 'U',
+                    style: const TextStyle(
+                      color: AppColors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      request.senderName,
+                      style: const TextStyle(
+                        color: AppColors.grey700,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: -0.2,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Wants to connect with you',
+                      style: const TextStyle(
+                        color: AppColors.grey500,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w400,
+                        letterSpacing: -0.1,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          
+          if (request.message != null && request.message!.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.grey50,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                request.message!,
+                style: const TextStyle(
+                  color: AppColors.grey600,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w400,
+                  letterSpacing: -0.1,
+                ),
+              ),
+            ),
+          ],
+          
+          const SizedBox(height: 16),
+          
+          // Action buttons
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () => _declineConnectionRequest(request),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.grey200,
+                    foregroundColor: AppColors.grey600,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: const Text(
+                    'Decline',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: -0.1,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () => _acceptConnectionRequest(request),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: AppColors.white,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: const Text(
+                    'Accept',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: -0.1,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   void dispose() {
