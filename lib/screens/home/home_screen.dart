@@ -65,20 +65,6 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: _screens[_selectedIndex],
-      floatingActionButton: _selectedIndex == 0 ? FloatingActionButton(
-        heroTag: "home_fab",
-        onPressed: () {
-          showDialog(
-            context: context,
-            builder: (context) => const CreatePostModal(),
-          );
-        },
-        backgroundColor: AppColors.primary,
-        child: const Icon(
-          Icons.add,
-          color: AppColors.white,
-        ),
-      ) : null,
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
         currentIndex: _selectedIndex,
@@ -168,16 +154,16 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.backgroundLight,
+      backgroundColor: AppColors.backgroundLight, // Beautiful Light Blue Background
       appBar: AppBar(
-        backgroundColor: AppColors.white,
+        backgroundColor: AppColors.white, // Clean White App Bar
         elevation: 0,
         surfaceTintColor: AppColors.white,
         automaticallyImplyLeading: false,
         title: const Text(
           'Linkly',
           style: TextStyle(
-            color: AppColors.grey700,
+            color: AppColors.primaryDark, // Dark Blue Text
             fontWeight: FontWeight.bold,
             fontSize: 24,
           ),
@@ -185,7 +171,7 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
         actions: [
           // Debug button to refresh user data
           IconButton(
-            icon: const Icon(Icons.refresh, color: AppColors.grey600),
+            icon: const Icon(Icons.refresh, color: AppColors.primary), // Medium Blue
             onPressed: () {
               final authService = Provider.of<AuthService>(context, listen: false);
               authService.refreshUserData();
@@ -236,6 +222,7 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
           ],
         ),
       ),
+      floatingActionButton: null,
       // FloatingActionButton removed as requested
     );
   }
@@ -256,7 +243,7 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
         }
         
         return Padding(
-          padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
           child: Row(
             children: [
               Expanded(
@@ -268,7 +255,7 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
                       style: const TextStyle(
                         fontSize: 28,
                         fontWeight: FontWeight.w600,
-                        color: AppColors.grey700,
+                        color: AppColors.primaryDark, // Dark Blue
                         letterSpacing: -0.5,
                       ),
                     ),
@@ -277,7 +264,7 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
                       'Ready to connect today?',
                       style: TextStyle(
                         fontSize: 15,
-                        color: AppColors.grey500,
+                        color: AppColors.primary, // Medium Blue
                         fontWeight: FontWeight.w400,
                         letterSpacing: -0.2,
                       ),
@@ -294,11 +281,11 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
                         width: 40,
                         height: 40,
                         decoration: BoxDecoration(
-                          color: AppColors.grey50,
+                          color: AppColors.primaryLight, // Light Blue
                           shape: BoxShape.circle,
                         ),
                         child: IconButton(
-                          icon: const Icon(Icons.notifications_outlined, color: AppColors.grey600, size: 20),
+                          icon: const Icon(Icons.notifications_outlined, color: AppColors.white, size: 20), // White Icon
                           onPressed: () => context.go('/notifications'),
                         ),
                       ),
@@ -319,7 +306,7 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
                   );
                 },
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 8),
               // Profile picture
               GestureDetector(
                 onTap: () => _navigateToProfileEdit(),
@@ -332,12 +319,12 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
                       width: 40,
                       height: 40,
                       decoration: BoxDecoration(
-                        color: AppColors.primary,
+                        color: AppColors.primary, // Medium Blue
                         shape: BoxShape.circle,
-                        border: Border.all(color: AppColors.white, width: 2),
+                        border: Border.all(color: AppColors.white, width: 2), // White Border
                         boxShadow: [
                           BoxShadow(
-                            color: AppColors.primary.withOpacity(0.2),
+                            color: AppColors.primary.withOpacity(0.3),
                             blurRadius: 8,
                             offset: const Offset(0, 2),
                           ),
@@ -356,7 +343,7 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
                               child: Text(
                                 firstName.isNotEmpty ? firstName[0].toUpperCase() : 'U',
                                 style: const TextStyle(
-                                  color: AppColors.white,
+                                  color: Colors.white,
                                   fontSize: 16,
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -376,11 +363,18 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
 
   Widget _buildTabBar() {
     return Container(
-      margin: const EdgeInsets.fromLTRB(24, 0, 24, 16),
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       decoration: BoxDecoration(
-        color: AppColors.grey50,
+        color: AppColors.white, // Clean White Background
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.grey100, width: 1),
+        border: Border.all(color: AppColors.primaryLight, width: 1), // Light Blue Border
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primaryLight.withOpacity(0.2),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Row(
         children: [
@@ -392,13 +386,13 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
                 curve: Curves.easeInOut,
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 decoration: BoxDecoration(
-                  color: _selectedTab == 0 ? AppColors.primary : Colors.transparent,
+                  color: _selectedTab == 0 ? AppColors.secondary : Colors.transparent, // Orange
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: AnimatedDefaultTextStyle(
                   duration: const Duration(milliseconds: 300),
                   style: TextStyle(
-                    color: _selectedTab == 0 ? Colors.white : AppColors.grey500,
+                    color: _selectedTab == 0 ? AppColors.white : AppColors.primary, // Medium Blue
                     fontWeight: FontWeight.w600,
                     fontSize: 15,
                     letterSpacing: -0.2,
@@ -419,13 +413,13 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
                 curve: Curves.easeInOut,
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 decoration: BoxDecoration(
-                  color: _selectedTab == 1 ? AppColors.primary : Colors.transparent,
+                  color: _selectedTab == 1 ? AppColors.secondary : Colors.transparent, // Orange
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: AnimatedDefaultTextStyle(
                   duration: const Duration(milliseconds: 300),
                   style: TextStyle(
-                    color: _selectedTab == 1 ? Colors.white : AppColors.grey500,
+                    color: _selectedTab == 1 ? AppColors.white : AppColors.primary, // Medium Blue
                     fontWeight: FontWeight.w600,
                     fontSize: 15,
                     letterSpacing: -0.2,
@@ -642,11 +636,11 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(32),
       decoration: BoxDecoration(
-        color: const Color(0xFF2D2D2D),
+        color: AppColors.white,
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.2),
+            color: AppColors.primaryLight.withOpacity(0.2),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -657,7 +651,7 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
           Icon(
             Icons.article_outlined,
             size: 64,
-            color: const Color(0xFF9CA3AF),
+            color: AppColors.grey400,
           ),
           const SizedBox(height: 16),
           Text(
@@ -665,7 +659,7 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
-              color: Colors.white,
+              color: AppColors.primaryDark,
             ),
           ),
           const SizedBox(height: 8),
@@ -674,7 +668,7 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 14,
-              color: const Color(0xFF9CA3AF),
+              color: AppColors.grey400,
             ),
           ),
           const SizedBox(height: 24),
@@ -709,11 +703,11 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        color: const Color(0xFF2D2D2D),
+        color: AppColors.white,
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.2),
+            color: AppColors.primaryLight.withOpacity(0.2),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -748,14 +742,14 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: Colors.white,
+                          color: AppColors.primaryDark,
                         ),
                       ),
                       Text(
                         post.timeAgo,
                         style: TextStyle(
                           fontSize: 12,
-                          color: const Color(0xFF9CA3AF),
+                          color: AppColors.grey400,
                         ),
                       ),
                     ],
@@ -776,7 +770,7 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
                 post.content,
                 style: TextStyle(
                   fontSize: 14,
-                  color: Colors.white,
+                  color: AppColors.grey600,
                   height: 1.4,
                 ),
               ),
@@ -855,7 +849,7 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
                         duration: const Duration(milliseconds: 200),
                         child: Icon(
                           isLiked ? Icons.favorite : Icons.favorite_border,
-                          color: isLiked ? AppColors.error : const Color(0xFF9CA3AF),
+                          color: isLiked ? AppColors.error : AppColors.grey400,
                           size: 16,
                           key: ValueKey(isLiked),
                         ),
@@ -867,7 +861,7 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
                           '${post.likes.length}',
                           style: TextStyle(
                             fontSize: 12,
-                            color: isLiked ? AppColors.error : const Color(0xFF9CA3AF),
+                            color: isLiked ? AppColors.error : AppColors.grey400,
                             fontWeight: isLiked ? FontWeight.bold : FontWeight.normal,
                           ),
                           key: ValueKey('${post.likes.length}_$isLiked'),
@@ -881,13 +875,13 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
                   onTap: () => _showCommentsModal(post),
                   child: Row(
                     children: [
-                      Icon(Icons.comment_outlined, color: const Color(0xFF9CA3AF), size: 16),
+                      Icon(Icons.comment_outlined, color: AppColors.grey400, size: 16),
                       const SizedBox(width: 4),
                       Text(
                         '${post.commentsCount}',
                         style: TextStyle(
                           fontSize: 12,
-                          color: const Color(0xFF9CA3AF),
+                          color: AppColors.grey400,
                         ),
                       ),
                     ],
@@ -898,13 +892,13 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
                   onTap: () => _sharePost(post),
                   child: Row(
                     children: [
-                      Icon(Icons.share_outlined, color: const Color(0xFF9CA3AF), size: 16),
+                      Icon(Icons.share_outlined, color: AppColors.grey400, size: 16),
                       const SizedBox(width: 4),
                       Text(
                         '${post.shares.length}',
                         style: TextStyle(
                           fontSize: 12,
-                          color: const Color(0xFF9CA3AF),
+                          color: AppColors.grey400,
                         ),
                       ),
                     ],
@@ -928,24 +922,25 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
         children: [
           // Card instructions
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 12),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
+                const Text(
                   'Your Digital Business Card',
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: AppColors.grey900,
+                    color: AppColors.primaryDark, // Dark Blue
                   ),
+                  textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 6),
-                Text(
-                  'Tap the card to reveal your QR code for easy sharing',
+                const Text(
+                  'Share your professional identity in style',
                   style: TextStyle(
                     fontSize: 13,
-                    color: AppColors.grey600,
+                    color: AppColors.primary, // Medium Blue
                   ),
                   textAlign: TextAlign.center,
                 ),
@@ -962,97 +957,154 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
           
           // Quick actions
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 12),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Quick actions
-                Column(
-                  children: [
-                    // Prominent Scan QR button
-                    Container(
-                      width: double.infinity,
-                      height: 56,
-                      margin: const EdgeInsets.symmetric(horizontal: 20),
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFFFF6B35), Color(0xFFE55A2B)], // Orange gradient
-                          begin: Alignment.centerLeft,
-                          end: Alignment.centerRight,
-                        ),
-                        borderRadius: BorderRadius.circular(28), // Pill shape
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFFFF6B35).withOpacity(0.4),
-                            blurRadius: 12,
-                            offset: const Offset(0, 6),
+                // Scan QR Button - Floating style above Share and vCard
+                Container(
+                  width: 120,
+                  height: 52,
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: AppColors.secondary, // Orange background
+                    borderRadius: BorderRadius.circular(26), // Pill shape
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.secondary.withOpacity(0.4),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(26),
+                      onTap: () {
+                        _showQRCode();
+                      },
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(
+                            Icons.qr_code_scanner,
+                            color: AppColors.white,
+                            size: 22,
+                          ),
+                          const SizedBox(width: 8),
+                          const Text(
+                            'Scan QR',
+                            style: TextStyle(
+                              color: AppColors.white,
+                              fontSize: 17,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ],
                       ),
-                      child: Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(28),
-                          onTap: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (context) => const QRScannerScreen(),
-                              ),
-                            );
-                          },
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Container(
-                                width: 32,
-                                height: 32,
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.2),
-                                  borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                ),
+                
+                // Action buttons - only Share and vCard
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    // Share button (white background with blue text)
+                    Expanded(
+                      child: Container(
+                        height: 48,
+                        margin: const EdgeInsets.symmetric(horizontal: 4),
+                        decoration: BoxDecoration(
+                          color: AppColors.white, // Clean White Background
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: AppColors.primaryLight, width: 1), // Light Blue Border
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppColors.primaryLight.withOpacity(0.2),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(12),
+                            onTap: () {
+                              _shareDigitalCard();
+                            },
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.share,
+                                  color: AppColors.primary, // Medium Blue
+                                  size: 16,
                                 ),
-                                child: const Icon(
-                                  Icons.qr_code_scanner,
-                                  color: Colors.white,
-                                  size: 20,
+                                const SizedBox(width: 6),
+                                const Text(
+                                  'Share',
+                                  style: TextStyle(
+                                    color: AppColors.primary, // Medium Blue
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(width: 12),
-                              const Text(
-                                'Scan QR',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 0.5,
-                                ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
                       ),
                     ),
                     
-                    const SizedBox(height: 16),
-                    
-                    // Other quick actions
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        _buildQuickAction(
-                          icon: Icons.share,
-                          label: 'Share',
-                          onTap: () {
-                            _shareDigitalCard();
-                          },
+                    // vCard button (white background with orange text)
+                    Expanded(
+                      child: Container(
+                        height: 48,
+                        margin: const EdgeInsets.symmetric(horizontal: 4),
+                        decoration: BoxDecoration(
+                          color: AppColors.white, // Clean White Background
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: AppColors.secondaryLight, width: 1), // Golden Yellow Border
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppColors.secondaryLight.withOpacity(0.2),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
                         ),
-                        _buildQuickAction(
-                          icon: Icons.contact_page,
-                          label: 'vCard',
-                          onTap: () {
-                            _generateVCard();
-                          },
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(12),
+                            onTap: () {
+                              _generateVCard();
+                            },
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.contact_page,
+                                  color: AppColors.secondary, // Orange
+                                  size: 16,
+                                ),
+                                const SizedBox(width: 6),
+                                const Text(
+                                  'vCard',
+                                  style: TextStyle(
+                                    color: AppColors.secondary, // Orange
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
-                      ],
+                      ),
                     ),
                   ],
                 ),
@@ -1259,6 +1311,15 @@ END:VCARD''';
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
         ),
+      ),
+    );
+  }
+
+  void _showQRCode() {
+    // Show QR code in a dialog or navigate to QR screen
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => const QRScannerScreen(),
       ),
     );
   }

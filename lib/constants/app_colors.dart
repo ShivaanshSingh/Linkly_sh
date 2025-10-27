@@ -1,20 +1,20 @@
 import 'package:flutter/material.dart';
 
 class AppColors {
-  // Primary Colors - Clean Teal/Green Theme from Coolors
-  static const Color primary = Color(0xFF22577A); // Deep Teal
-  static const Color primaryLight = Color(0xFF38A3A5); // Medium Teal
-  static const Color primaryDark = Color(0xFF1A4A6B); // Darker Teal
+  // Primary Colors - Beautiful Blue Theme from Coolors Palette
+  static const Color primary = Color(0xFF219EBC); // Medium Blue
+  static const Color primaryLight = Color(0xFF8ECAE6); // Light Blue
+  static const Color primaryDark = Color(0xFF023047); // Dark Blue
   
   // Secondary Colors
-  static const Color secondary = Color(0xFF57CC99); // Fresh Green
-  static const Color secondaryLight = Color(0xFF80ED99); // Light Green
-  static const Color secondaryDark = Color(0xFF4AB88A); // Darker Green
+  static const Color secondary = Color(0xFFFB8500); // Orange
+  static const Color secondaryLight = Color(0xFFFFB703); // Golden Yellow
+  static const Color secondaryDark = Color(0xFFE67E00); // Darker Orange
   
   // Accent Colors
-  static const Color accent = Color(0xFFC7F9CC); // Lightest Green
-  static const Color accentLight = Color(0xFFE8FCE8); // Very Light Green
-  static const Color accentDark = Color(0xFFB0F5B0); // Light Green
+  static const Color accent = Color(0xFFFFB703); // Golden Yellow
+  static const Color accentLight = Color(0xFFFFD54F); // Light Yellow
+  static const Color accentDark = Color(0xFFE6A500); // Darker Yellow
   
   // Neutral Colors
   static const Color white = Color(0xFFFFFFFF);
@@ -31,26 +31,26 @@ class AppColors {
   static const Color grey900 = Color(0xFF000000); // Pure Black
   
   // Status Colors
-  static const Color success = Color(0xFF57CC99); // Fresh Green
-  static const Color warning = Color(0xFFF59E0B);
+  static const Color success = Color(0xFF219EBC); // Medium Blue
+  static const Color warning = Color(0xFFFFB703); // Golden Yellow
   static const Color error = Color(0xFFE53E3E); // Red for liked hearts
-  static const Color info = Color(0xFF38A3A5); // Medium Teal
+  static const Color info = Color(0xFF8ECAE6); // Light Blue
   
-  // Background Colors - Clean Teal/Green Theme
-  static const Color backgroundLight = Color(0xFFF0FDF4); // Very Light Green
-  static const Color backgroundDark = Color(0xFF22577A); // Deep Teal
+  // Background Colors - Beautiful Blue Theme
+  static const Color backgroundLight = Color(0xFFF0F8FF); // Very Light Blue
+  static const Color backgroundDark = Color(0xFF023047); // Dark Blue
   static const Color surfaceLight = Color(0xFFFFFFFF); // Pure White
-  static const Color surfaceDark = Color(0xFF38A3A5); // Medium Teal
+  static const Color surfaceDark = Color(0xFF219EBC); // Medium Blue
   
-  // Card Theme Colors
-  static const Color navyCard = Color(0xFF1E3A8A);
-  static const Color platinumCard = Color(0xFFE5E7EB);
-  static const Color emeraldCard = Color(0xFF10B981);
-  static const Color amberCard = Color(0xFFF59E0B);
-  static const Color roseCard = Color(0xFFF43F5E);
-  static const Color indigoCard = Color(0xFF6366F1);
+  // Card Theme Colors - Updated with new palette
+  static const Color navyCard = Color(0xFF023047); // Dark Blue
+  static const Color platinumCard = Color(0xFF8ECAE6); // Light Blue
+  static const Color emeraldCard = Color(0xFF219EBC); // Medium Blue
+  static const Color amberCard = Color(0xFFFFB703); // Golden Yellow
+  static const Color roseCard = Color(0xFFFB8500); // Orange
+  static const Color indigoCard = Color(0xFF219EBC); // Medium Blue
   
-  // Gradient Colors
+  // Gradient Colors - Beautiful gradients with new palette
   static const LinearGradient primaryGradient = LinearGradient(
     colors: [primary, primaryLight],
     begin: Alignment.topLeft,
@@ -65,6 +65,19 @@ class AppColors {
   
   static const LinearGradient accentGradient = LinearGradient(
     colors: [accent, accentLight],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+  
+  // Additional beautiful gradients
+  static const LinearGradient oceanGradient = LinearGradient(
+    colors: [Color(0xFF023047), Color(0xFF219EBC), Color(0xFF8ECAE6)],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+  
+  static const LinearGradient sunsetGradient = LinearGradient(
+    colors: [Color(0xFFFB8500), Color(0xFFFFB703)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );

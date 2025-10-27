@@ -87,134 +87,127 @@ class _DigitalCardWidgetState extends State<DigitalCardWidget>
   Widget _buildFrontCard(String userName) {
     return Container(
       width: double.infinity,
-      height: 240, // Increased height for proper business card proportions
+      height: 270, // Increased from 220 to 270
       margin: const EdgeInsets.symmetric(horizontal: 16),
       constraints: const BoxConstraints(
         maxWidth: 400,
       ),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            AppColors.primary,
-            AppColors.primaryDark,
-          ],
-        ),
+        color: AppColors.white, // Clean White Background
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: AppColors.primary.withOpacity(0.3),
+            color: AppColors.primaryLight.withOpacity(0.3),
             blurRadius: 20,
-            offset: const Offset(0, 10),
+            offset: const Offset(0, 8),
           ),
         ],
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            // Top section with avatar and name
-            Row(
-              children: [
-                // User Avatar
-                Consumer<AuthService>(
-                  builder: (context, authService, child) {
-                    final profileImageUrl = authService.userModel?.profileImageUrl ?? 
-                                         authService.user?.photoURL;
-                    
-                    return CircleAvatar(
-                      radius: 40,
-                      backgroundColor: AppColors.white,
-                      backgroundImage: profileImageUrl != null 
-                          ? NetworkImage(profileImageUrl)
-                          : null,
-                      child: profileImageUrl == null
-                          ? Text(
-                              userName.isNotEmpty ? userName[0].toUpperCase() : 'U',
-                              style: const TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.primary,
-                              ),
-                            )
-                          : null,
-                    );
-                  },
-                ),
-                
-                const SizedBox(width: 16),
-                
-                // User Name
-                Expanded(
-                  child: Text(
+      child: Stack(
+        children: [
+          // Main content - Centered text
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Username
+                  Text(
                     userName,
                     style: const TextStyle(
-                      fontSize: 22,
+                      fontSize: 18,
                       fontWeight: FontWeight.bold,
-                      color: AppColors.white,
+                      color: AppColors.primaryDark, // Dark Blue
                     ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
                   ),
-                ),
-              ],
-            ),
-            
-            // Middle section with username and email
-            Consumer<AuthService>(
-              builder: (context, authService, child) {
-                final username = authService.userModel?.username ?? '';
-                final email = authService.userModel?.email ?? authService.user?.email ?? '';
-                
-                return Column(
-                  children: [
-                    if (username.isNotEmpty)
-                      Text(
-                        '@$username',
-                        style: const TextStyle(
-                          fontSize: 16,
-                          color: AppColors.white,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    if (email.isNotEmpty) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        email,
+                  
+                  const SizedBox(height: 8),
+                  
+                  // Email
+                  Consumer<AuthService>(
+                    builder: (context, authService, child) {
+                      final email = authService.userModel?.email ?? authService.user?.email ?? '';
+                      
+                      return Text(
+                        'Email $email',
                         style: const TextStyle(
                           fontSize: 14,
-                          color: AppColors.white,
+                          color: AppColors.primary, // Medium Blue
                           fontWeight: FontWeight.w400,
                         ),
+                        textAlign: TextAlign.center,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ],
+                      );
+                    },
+                  ),
+                  
+                  const SizedBox(height: 16),
+                  
+                  // Tap instruction
+                  Text(
+                    'TAP FOR QR CODE',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.secondary, // Orange
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.5,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          
+          // User Profile Picture - Top left corner
+          Positioned(
+            top: 16,
+            left: 16,
+            child: Consumer<AuthService>(
+              builder: (context, authService, child) {
+                final profileImageUrl = authService.userModel?.profileImageUrl ?? 
+                                     authService.user?.photoURL;
+                
+                return CircleAvatar(
+                  radius: 30,
+                  backgroundColor: AppColors.primary, // Medium Blue
+                  backgroundImage: profileImageUrl != null 
+                      ? NetworkImage(profileImageUrl)
+                      : null,
+                  child: profileImageUrl == null
+                      ? Text(
+                          userName.isNotEmpty ? userName[0].toUpperCase() : 'U',
+                          style: const TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.white, // White Text
+                          ),
+                        )
+                      : null,
                 );
               },
             ),
-            
-            // Bottom section with tap instruction
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: AppColors.white.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Text(
-                'Tap for QR code',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: AppColors.white,
-                  fontWeight: FontWeight.w500,
-                ),
+          ),
+          
+          // Green dot (top left) - moved down to avoid overlap
+          Positioned(
+            top: 20,
+            left: 20,
+            child: Container(
+              width: 12,
+              height: 12,
+              decoration: const BoxDecoration(
+                color: Colors.green,
+                shape: BoxShape.circle,
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -222,42 +215,36 @@ class _DigitalCardWidgetState extends State<DigitalCardWidget>
   Widget _buildBackCard() {
     return Container(
       width: double.infinity,
-      height: 240, // Match the front card height
+      height: 270, // Increased from 220 to 270 to match front card
       margin: const EdgeInsets.symmetric(horizontal: 16),
       constraints: const BoxConstraints(
         maxWidth: 400,
       ),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            AppColors.grey800,
-            AppColors.grey900,
-          ],
-        ),
+        color: AppColors.white, // Clean White Background
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: AppColors.grey800.withOpacity(0.3),
+            color: AppColors.primaryLight.withOpacity(0.3),
             blurRadius: 20,
-            offset: const Offset(0, 10),
+            offset: const Offset(0, 8),
           ),
         ],
       ),
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(16),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // QR Code
+            // QR Code - bigger size
             Container(
-              width: 140,
-              height: 140,
-              padding: const EdgeInsets.all(12),
+              width: 160,
+              height: 160,
+              padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
                 color: AppColors.white,
                 borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppColors.primaryLight, width: 1), // Light Blue Border
               ),
               child: Center(
                 child: Consumer<AuthService>(
@@ -268,30 +255,30 @@ class _DigitalCardWidgetState extends State<DigitalCardWidget>
                     return QrImageView(
                       data: qrData,
                       version: QrVersions.auto,
-                      size: 120,
-                      backgroundColor: AppColors.white,
-                      foregroundColor: AppColors.grey900,
+                      size: 140,
+                      backgroundColor: Colors.white,
+                      foregroundColor: Colors.black,
                     );
                   },
                 ),
               ),
             ),
             
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             
-            // Tap to flip back instruction
+            // Tap to flip back instruction - smaller padding
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: AppColors.white.withOpacity(0.9),
+                color: AppColors.primaryLight, // Light Blue Background
                 borderRadius: BorderRadius.circular(8),
               ),
               child: const Center(
                 child: Text(
                   'Tap to flip back',
                   style: TextStyle(
-                    fontSize: 14,
-                    color: AppColors.grey900,
+                    fontSize: 12,
+                    color: AppColors.white, // White Text
                     fontWeight: FontWeight.w600,
                   ),
                 ),

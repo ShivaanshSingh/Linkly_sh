@@ -9,6 +9,7 @@ class ConnectionModel {
   final String? contactPhone;
   final String? contactCompany;
   final String? connectionNote;
+  final String? groupId;
   final String connectionMethod;
   final DateTime createdAt;
   final bool isNewConnection;
@@ -22,6 +23,7 @@ class ConnectionModel {
     this.contactPhone,
     this.contactCompany,
     this.connectionNote,
+    this.groupId,
     required this.connectionMethod,
     required this.createdAt,
     this.isNewConnection = true,
@@ -37,6 +39,7 @@ class ConnectionModel {
       contactPhone: map['contactPhone'],
       contactCompany: map['contactCompany'],
       connectionNote: map['connectionNote'],
+      groupId: map['groupId'],
       connectionMethod: map['connectionMethod'] ?? '',
       createdAt: (map['createdAt'] as Timestamp).toDate(),
       isNewConnection: map['isNewConnection'] ?? true,
@@ -53,6 +56,7 @@ class ConnectionModel {
       'contactPhone': contactPhone,
       'contactCompany': contactCompany,
       'connectionNote': connectionNote,
+      'groupId': groupId,
       'connectionMethod': connectionMethod,
       'createdAt': Timestamp.fromDate(createdAt),
       'isNewConnection': isNewConnection,
@@ -68,6 +72,7 @@ class ConnectionModel {
     String? contactPhone,
     String? contactCompany,
     String? connectionNote,
+    String? groupId,
     String? connectionMethod,
     DateTime? createdAt,
     bool? isNewConnection,
@@ -81,6 +86,7 @@ class ConnectionModel {
       contactPhone: contactPhone ?? this.contactPhone,
       contactCompany: contactCompany ?? this.contactCompany,
       connectionNote: connectionNote ?? this.connectionNote,
+      groupId: groupId ?? this.groupId,
       connectionMethod: connectionMethod ?? this.connectionMethod,
       createdAt: createdAt ?? this.createdAt,
       isNewConnection: isNewConnection ?? this.isNewConnection,

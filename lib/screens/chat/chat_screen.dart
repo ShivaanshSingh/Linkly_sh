@@ -552,10 +552,10 @@ class _ChatScreenState extends State<ChatScreen> {
                 ),
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 decoration: BoxDecoration(
-                  color: isMe ? AppColors.primary : const Color(0xFF2D2D2D),
+                  color: isMe ? AppColors.primary : const Color(0xFF404040),
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
-                    color: isMe ? AppColors.primary.withOpacity(0.3) : const Color(0xFF404040),
+                    color: isMe ? AppColors.primary.withOpacity(0.3) : const Color(0xFF555555),
                     width: 1,
                   ),
                 ),
