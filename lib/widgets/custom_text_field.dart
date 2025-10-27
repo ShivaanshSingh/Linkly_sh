@@ -13,6 +13,8 @@ class CustomTextField extends StatelessWidget {
   final void Function(String)? onChanged;
   final int? maxLines;
   final bool enabled;
+  final Color? borderColor;
+  final Color? focusedBorderColor;
 
   const CustomTextField({
     super.key,
@@ -27,6 +29,8 @@ class CustomTextField extends StatelessWidget {
     this.onChanged,
     this.maxLines = 1,
     this.enabled = true,
+    this.borderColor,
+    this.focusedBorderColor,
   });
 
   @override
@@ -78,15 +82,15 @@ class CustomTextField extends StatelessWidget {
             fillColor: AppColors.white,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: AppColors.grey100, width: 1),
+              borderSide: BorderSide(color: borderColor ?? AppColors.grey100, width: 1),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: AppColors.grey100, width: 1),
+              borderSide: BorderSide(color: borderColor ?? AppColors.grey100, width: 1),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+              borderSide: BorderSide(color: focusedBorderColor ?? AppColors.primary, width: 1.5),
             ),
             errorBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),

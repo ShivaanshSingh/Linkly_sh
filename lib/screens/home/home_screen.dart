@@ -8,12 +8,11 @@ import '../../services/post_service.dart';
 import '../../services/notification_service.dart';
 import '../../models/post_model.dart';
 import '../connections/connections_screen.dart';
-import '../messages/messages_screen.dart';
-import '../notifications/notifications_screen.dart';
-import '../settings/settings_screen.dart';
 import '../groups/groups_screen.dart';
-import '../connections/qr_scanner_screen.dart';
+import '../profile/profile_edit_screen.dart';
+import '../settings/settings_screen.dart';
 import '../../widgets/digital_card_widget.dart';
+import '../qr_scanner_screen.dart';
 import '../../widgets/create_post_modal.dart';
 import '../../widgets/status_stories_widget.dart';
 
@@ -31,8 +30,7 @@ class _HomeScreenState extends State<HomeScreen> {
     const HomeDashboard(),
     const ConnectionsScreen(),
     const GroupsScreen(),
-    const MessagesScreen(),
-    const NotificationsScreen(),
+    const ProfileEditScreen(),
     const SettingsScreen(),
   ];
 
@@ -69,15 +67,9 @@ class _HomeScreenState extends State<HomeScreen> {
         type: BottomNavigationBarType.fixed,
         currentIndex: _selectedIndex,
         onTap: (index) {
-          if (index == 3) { // Profile tab (now index 3)
-            context.push('/profile-edit');
-          } else if (index == 4) { // Settings tab (index 4)
-            context.push('/settings');
-          } else {
-            setState(() {
-              _selectedIndex = index;
-            });
-          }
+          setState(() {
+            _selectedIndex = index;
+          });
         },
         selectedItemColor: AppColors.primary,
         unselectedItemColor: AppColors.grey500,
@@ -1319,7 +1311,7 @@ END:VCARD''';
     // Show QR code in a dialog or navigate to QR screen
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (context) => const QRScannerScreen(),
+        builder: (context) => QRScannerScreen(),
       ),
     );
   }

@@ -19,6 +19,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
+  final _usernameController = TextEditingController();
   final _bioController = TextEditingController();
   final _companyController = TextEditingController();
   final _positionController = TextEditingController();
@@ -29,6 +30,9 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
   String? _currentImageUrl;
   bool _isLoading = false;
   final ImagePicker _picker = ImagePicker();
+  bool _hasChangedUsername = false;
+  bool _isCheckingUsername = false;
+  String? _usernameError;
 
   @override
   void initState() {
@@ -48,7 +52,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
     });
   }
 
-  void _loadUserData() {
+  void _loadUserData() async {
     final authService = Provider.of<AuthService>(context, listen: false);
     debugPrint('Loading user data...');
     debugPrint('AuthService userModel: ${authService.userModel}');
@@ -58,12 +62,14 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
       debugPrint('Loading from userModel:');
       debugPrint('Full Name: ${authService.userModel!.fullName}');
       debugPrint('Email: ${authService.userModel!.email}');
+      debugPrint('Username: ${authService.userModel!.username}');
       debugPrint('Company: ${authService.userModel!.company}');
       debugPrint('Position: ${authService.userModel!.position}');
       debugPrint('Phone: ${authService.userModel!.phoneNumber}');
       
       _nameController.text = authService.userModel!.fullName;
       _emailController.text = authService.userModel!.email;
+      _usernameController.text = authService.userModel!.username;
       _companyController.text = authService.userModel!.company ?? '';
       _positionController.text = authService.userModel!.position ?? '';
       _phoneController.text = authService.userModel!.phoneNumber ?? '';
@@ -79,6 +85,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
       
       _nameController.text = authService.user!.displayName ?? '';
       _emailController.text = authService.user!.email ?? '';
+      _usernameController.text = ''; // No username in Firebase user
       _companyController.text = '';
       _positionController.text = '';
       _phoneController.text = '';
@@ -87,8 +94,61 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
       _currentImageUrl = authService.user!.photoURL;
       
       debugPrint('Controllers updated with Firebase user data');
+      
+      // If userModel is null but user exists, try to load user data
+      if (authService.userModel == null) {
+        debugPrint('UserModel is null, attempting to load user data...');
+        await authService.loadUserData();
+      }
     } else {
       debugPrint('No user data available');
+    }
+  }
+
+  Future<void> _checkUsernameExists(String username) async {
+    if (username.isEmpty || username.length < 3 || !RegExp(r'^[a-zA-Z0-9_]+$').hasMatch(username)) {
+      setState(() {
+        _usernameError = null;
+        _isCheckingUsername = false;
+      });
+      return;
+    }
+
+    // Check if username is the same as current username
+    final authService = Provider.of<AuthService>(context, listen: false);
+    if (authService.userModel?.username == username) {
+      setState(() {
+        _usernameError = null;
+        _isCheckingUsername = false;
+      });
+      return;
+    }
+
+    setState(() {
+      _isCheckingUsername = true;
+      _usernameError = null;
+    });
+
+    try {
+      final usernameExists = await authService.checkUsernameExists(username);
+      
+      if (usernameExists) {
+        setState(() {
+          _usernameError = 'Username already exists';
+        });
+      } else {
+        setState(() {
+          _usernameError = null;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _usernameError = 'Error checking username. Please try again.';
+      });
+    } finally {
+      setState(() {
+        _isCheckingUsername = false;
+      });
     }
   }
 
@@ -175,6 +235,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
       
       await authService.updateUserProfile(
         fullName: _nameController.text.trim(),
+        username: _usernameController.text.trim(),
         bio: _bioController.text.trim(),
         company: _companyController.text.trim(),
         position: _positionController.text.trim(),
@@ -294,20 +355,17 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
   void dispose() {
     _nameController.dispose();
     _emailController.dispose();
+    _usernameController.dispose();
     _bioController.dispose();
     _companyController.dispose();
     _positionController.dispose();
+    _phoneController.dispose();
     _linkedinController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    // Load user data when widget builds
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadUserData();
-    });
-    
     return Scaffold(
           appBar: AppBar(
             title: const Text('Edit Profile'),
@@ -342,6 +400,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                     label: 'Full Name',
                     hint: 'Enter your full name',
                     prefixIcon: Icons.person,
+                    enabled: false, // Name is not editable
                     validator: (value) {
                       if (value == null || value.isEmpty) {
                         return 'Please enter your full name';
@@ -357,7 +416,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                     label: 'Email',
                     hint: 'Enter your email',
                     prefixIcon: Icons.email,
-                    enabled: false, // Email is usually not editable
+                    enabled: false, // Email is not editable
                     validator: (value) {
                       if (value == null || value.isEmpty) {
                         return 'Please enter your email';
@@ -365,6 +424,142 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                       return null;
                     },
                   ),
+                  
+                  const SizedBox(height: 16),
+                  
+                  // Username field with validation
+                  CustomTextField(
+                    controller: _usernameController,
+                    label: 'Username',
+                    hint: 'Choose a unique username',
+                    prefixIcon: Icons.alternate_email,
+                    onChanged: (value) {
+                      // Track if username has been changed
+                      final authService = Provider.of<AuthService>(context, listen: false);
+                      if (authService.userModel?.username != value) {
+                        _hasChangedUsername = true;
+                      }
+                      
+                      // Debounce the username check to avoid too many API calls
+                      Future.delayed(const Duration(milliseconds: 500), () {
+                        if (_usernameController.text == value) {
+                          _checkUsernameExists(value);
+                        }
+                      });
+                    },
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Please enter a username';
+                      }
+                      if (value.length < 3) {
+                        return 'Username must be at least 3 characters';
+                      }
+                      if (!RegExp(r'^[a-zA-Z0-9_]+$').hasMatch(value)) {
+                        return 'Username can only contain letters, numbers, and underscores';
+                      }
+                      if (_usernameError != null) {
+                        return _usernameError;
+                      }
+                      return null;
+                    },
+                  ),
+                  
+                  // Username error message
+                  if (_usernameError != null)
+                    Container(
+                      margin: const EdgeInsets.only(top: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.red.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: Colors.red.withOpacity(0.3)),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.error_outline,
+                            color: Colors.red,
+                            size: 16,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              _usernameError!,
+                              style: TextStyle(
+                                color: Colors.red,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  
+                  // Username checking indicator
+                  if (_isCheckingUsername)
+                    Container(
+                      margin: const EdgeInsets.only(top: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: Colors.blue.withOpacity(0.3)),
+                      ),
+                      child: Row(
+                        children: [
+                          SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Checking username availability...',
+                            style: TextStyle(
+                              color: Colors.blue,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  
+                  // Username change limit warning
+                  if (_hasChangedUsername)
+                    Container(
+                      margin: const EdgeInsets.only(top: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: Colors.orange.withOpacity(0.3)),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.warning_outlined,
+                            color: Colors.orange,
+                            size: 16,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'You can only change your username once. Choose carefully!',
+                              style: TextStyle(
+                                color: Colors.orange,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   
                   const SizedBox(height: 16),
                   

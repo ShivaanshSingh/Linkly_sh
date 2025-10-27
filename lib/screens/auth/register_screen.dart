@@ -23,13 +23,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _phoneController = TextEditingController();
   final _companyController = TextEditingController();
   bool _obscurePassword = true;
-  final bool _obscureConfirmPassword = true;
+  bool _obscureConfirmPassword = true;
   bool _agreeToTerms = false;
   String _accountType = 'Public'; // Default to Public
+  bool _passwordsMatch = true;
+  bool _isCheckingEmail = false;
+  String? _emailError;
+  bool _isCheckingUsername = false;
+  String? _usernameError;
   
   // Progressive form state
   int _currentStep = 0;
-  final int _totalSteps = 3;
+  final int _totalSteps = 2;
 
   void _nextStep() {
     if (_currentStep < _totalSteps - 1) {
@@ -47,19 +52,106 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
+  void _checkPasswordMatch() {
+    setState(() {
+      _passwordsMatch = _passwordController.text == _confirmPasswordController.text;
+    });
+  }
+
+  Future<void> _checkEmailExists(String email) async {
+    if (email.isEmpty || !RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email)) {
+      setState(() {
+        _emailError = null;
+        _isCheckingEmail = false;
+      });
+      return;
+    }
+
+    setState(() {
+      _isCheckingEmail = true;
+      _emailError = null;
+    });
+
+    try {
+      final authService = Provider.of<AuthService>(context, listen: false);
+      final emailExists = await authService.checkEmailExists(email);
+      
+      if (emailExists) {
+        setState(() {
+          _emailError = 'This email is already linked with an account';
+        });
+      } else {
+        setState(() {
+          _emailError = null;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _emailError = 'Error checking email. Please try again.';
+      });
+    } finally {
+      setState(() {
+        _isCheckingEmail = false;
+      });
+    }
+  }
+
+  Future<void> _checkUsernameExists(String username) async {
+    if (username.isEmpty || username.length < 3 || !RegExp(r'^[a-zA-Z0-9_]+$').hasMatch(username)) {
+      setState(() {
+        _usernameError = null;
+        _isCheckingUsername = false;
+      });
+      return;
+    }
+
+    setState(() {
+      _isCheckingUsername = true;
+      _usernameError = null;
+    });
+
+    try {
+      final authService = Provider.of<AuthService>(context, listen: false);
+      final usernameExists = await authService.checkUsernameExists(username);
+      
+      if (usernameExists) {
+        setState(() {
+          _usernameError = 'Username already exists';
+        });
+      } else {
+        setState(() {
+          _usernameError = null;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _usernameError = 'Error checking username. Please try again.';
+      });
+    } finally {
+      setState(() {
+        _isCheckingUsername = false;
+      });
+    }
+  }
+
   bool _validateCurrentStep() {
     switch (_currentStep) {
       case 0: // Email and Password
         return _emailController.text.isNotEmpty && 
                _passwordController.text.isNotEmpty &&
-               _passwordController.text.length >= 6;
-      case 1: // Personal Information
+               _passwordController.text.length >= 6 &&
+               _confirmPasswordController.text.isNotEmpty &&
+               _passwordController.text == _confirmPasswordController.text &&
+               _emailError == null &&
+               !_isCheckingEmail;
+      case 1: // Personal Information and Terms
         return _fullNameController.text.isNotEmpty &&
                _usernameController.text.isNotEmpty &&
                _phoneController.text.isNotEmpty &&
-               _companyController.text.isNotEmpty;
-      case 2: // Account Type and Terms
-        return _agreeToTerms;
+               _companyController.text.isNotEmpty &&
+               _agreeToTerms &&
+               _usernameError == null &&
+               !_isCheckingUsername;
       default:
         return false;
     }
@@ -331,8 +423,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
         return 'Create Your Account';
       case 1:
         return 'Personal Information';
-      case 2:
-        return 'Account Settings';
       default:
         return 'Create Your Account';
     }
@@ -344,8 +434,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
         return _buildEmailPasswordStep();
       case 1:
         return _buildPersonalInfoStep();
-      case 2:
-        return _buildAccountTypeStep();
       default:
         return _buildEmailPasswordStep();
     }
@@ -384,6 +472,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
           hint: 'Enter your email',
           keyboardType: TextInputType.emailAddress,
           prefixIcon: Icons.email_outlined,
+          onChanged: (value) {
+            // Debounce the email check to avoid too many API calls
+            Future.delayed(const Duration(milliseconds: 500), () {
+              if (_emailController.text == value) {
+                _checkEmailExists(value);
+              }
+            });
+          },
           validator: (value) {
             if (value == null || value.isEmpty) {
               return 'Please enter your email';
@@ -391,9 +487,77 @@ class _RegisterScreenState extends State<RegisterScreen> {
             if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
               return 'Please enter a valid email';
             }
+            if (_emailError != null) {
+              return _emailError;
+            }
             return null;
           },
         ),
+        
+        // Email error message
+        if (_emailError != null)
+          Container(
+            margin: const EdgeInsets.only(top: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.red.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: Colors.red.withOpacity(0.3)),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.error_outline,
+                  color: Colors.red,
+                  size: 16,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _emailError!,
+                    style: TextStyle(
+                      color: Colors.red,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        
+        // Email checking indicator
+        if (_isCheckingEmail)
+          Container(
+            margin: const EdgeInsets.only(top: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.blue.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: Colors.blue.withOpacity(0.3)),
+            ),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Checking email availability...',
+                  style: TextStyle(
+                    color: Colors.blue,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
         
         const SizedBox(height: 24),
         
@@ -404,6 +568,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
           hint: 'Create your password',
           obscureText: _obscurePassword,
           prefixIcon: Icons.lock_outlined,
+          borderColor: !_passwordsMatch && _confirmPasswordController.text.isNotEmpty ? Colors.red : null,
+          focusedBorderColor: !_passwordsMatch && _confirmPasswordController.text.isNotEmpty ? Colors.red : null,
           suffixIcon: IconButton(
             icon: Icon(
               _obscurePassword ? Icons.visibility : Icons.visibility_off,
@@ -415,6 +581,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               });
             },
           ),
+          onChanged: (value) => _checkPasswordMatch(),
           validator: (value) {
             if (value == null || value.isEmpty) {
               return 'Please enter a password';
@@ -425,6 +592,70 @@ class _RegisterScreenState extends State<RegisterScreen> {
             return null;
           },
         ),
+        
+        const SizedBox(height: 24),
+        
+        // Confirm Password field
+        CustomTextField(
+          controller: _confirmPasswordController,
+          label: 'Confirm Password',
+          hint: 'Confirm your password',
+          obscureText: _obscureConfirmPassword,
+          prefixIcon: Icons.lock_outlined,
+          borderColor: !_passwordsMatch && _confirmPasswordController.text.isNotEmpty ? Colors.red : null,
+          focusedBorderColor: !_passwordsMatch && _confirmPasswordController.text.isNotEmpty ? Colors.red : null,
+          suffixIcon: IconButton(
+            icon: Icon(
+              _obscureConfirmPassword ? Icons.visibility : Icons.visibility_off,
+              color: AppColors.grey500,
+            ),
+            onPressed: () {
+              setState(() {
+                _obscureConfirmPassword = !_obscureConfirmPassword;
+              });
+            },
+          ),
+          onChanged: (value) => _checkPasswordMatch(),
+          validator: (value) {
+            if (value == null || value.isEmpty) {
+              return 'Please confirm your password';
+            }
+            if (value != _passwordController.text) {
+              return 'Passwords do not match';
+            }
+            return null;
+          },
+        ),
+        
+        // Password mismatch error message
+        if (!_passwordsMatch && _confirmPasswordController.text.isNotEmpty)
+          Container(
+            margin: const EdgeInsets.only(top: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.red.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: Colors.red.withOpacity(0.3)),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.error_outline,
+                  color: Colors.red,
+                  size: 16,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Passwords do not match',
+                  style: TextStyle(
+                    color: Colors.red,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
       ],
     );
   }
@@ -480,6 +711,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
           label: 'Username',
           hint: 'Choose a unique username',
           prefixIcon: Icons.alternate_email,
+          onChanged: (value) {
+            // Debounce the username check to avoid too many API calls
+            Future.delayed(const Duration(milliseconds: 500), () {
+              if (_usernameController.text == value) {
+                _checkUsernameExists(value);
+              }
+            });
+          },
           validator: (value) {
             if (value == null || value.isEmpty) {
               return 'Please enter a username';
@@ -490,9 +729,77 @@ class _RegisterScreenState extends State<RegisterScreen> {
             if (!RegExp(r'^[a-zA-Z0-9_]+$').hasMatch(value)) {
               return 'Username can only contain letters, numbers, and underscores';
             }
+            if (_usernameError != null) {
+              return _usernameError;
+            }
             return null;
           },
         ),
+        
+        // Username error message
+        if (_usernameError != null)
+          Container(
+            margin: const EdgeInsets.only(top: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.red.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: Colors.red.withOpacity(0.3)),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.error_outline,
+                  color: Colors.red,
+                  size: 16,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _usernameError!,
+                    style: TextStyle(
+                      color: Colors.red,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        
+        // Username checking indicator
+        if (_isCheckingUsername)
+          Container(
+            margin: const EdgeInsets.only(top: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.blue.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: Colors.blue.withOpacity(0.3)),
+            ),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Checking username availability...',
+                  style: TextStyle(
+                    color: Colors.blue,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
         
         const SizedBox(height: 24),
         
@@ -528,102 +835,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
             }
             return null;
           },
-        ),
-      ],
-    );
-  }
-
-  Widget _buildAccountTypeStep() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Account Settings',
-          style: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.w600,
-            color: AppColors.grey700,
-            letterSpacing: -0.6,
-          ),
-        ),
-        const SizedBox(height: 8),
-        const Text(
-          'Choose your account type and accept our terms.',
-          style: TextStyle(
-            fontSize: 15,
-            color: AppColors.grey500,
-            fontWeight: FontWeight.w400,
-            letterSpacing: -0.2,
-          ),
-        ),
-        
-        const SizedBox(height: 40),
-        
-        // Account Type selection
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Account Type',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-                color: AppColors.grey700,
-                letterSpacing: -0.3,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Container(
-              decoration: BoxDecoration(
-                color: AppColors.white,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AppColors.grey100, width: 1),
-              ),
-              child: Column(
-                children: [
-                  RadioListTile<String>(
-                    title: const Text(
-                      'Public',
-                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, letterSpacing: -0.2),
-                    ),
-                    subtitle: const Text(
-                      'Personal information (email and phone number) will be shown to your connections',
-                      style: TextStyle(fontSize: 13, color: AppColors.grey500, letterSpacing: -0.1),
-                    ),
-                    value: 'Public',
-                    groupValue: _accountType,
-                    onChanged: (value) {
-                      setState(() {
-                        _accountType = value!;
-                      });
-                    },
-                    activeColor: AppColors.primary,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                  ),
-                  const Divider(height: 1, color: AppColors.grey100),
-                  RadioListTile<String>(
-                    title: const Text(
-                      'Private',
-                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, letterSpacing: -0.2),
-                    ),
-                    subtitle: const Text(
-                      'Personal information (email and phone number) won\'t be shown to your connections',
-                      style: TextStyle(fontSize: 13, color: AppColors.grey500, letterSpacing: -0.1),
-                    ),
-                    value: 'Private',
-                    groupValue: _accountType,
-                    onChanged: (value) {
-                      setState(() {
-                        _accountType = value!;
-                      });
-                    },
-                    activeColor: AppColors.primary,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                  ),
-                ],
-              ),
-            ),
-          ],
         ),
         
         const SizedBox(height: 24),

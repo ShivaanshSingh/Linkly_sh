@@ -149,7 +149,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 icon: Icons.business_center,
                 title: 'Digital Card',
                 onTap: () {
-                  context.push('/profile-edit');
+                  context.push('/digital-card');
                 },
               ),
             ],

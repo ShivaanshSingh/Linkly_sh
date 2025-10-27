@@ -29,6 +29,7 @@ import 'screens/posts/posts_screen.dart';
 import 'screens/status/status_screen.dart';
 import 'screens/groups/groups_screen.dart';
 import 'screens/analytics/analytics_screen.dart';
+import 'screens/digital_card/digital_card_screen.dart';
 import 'screens/notifications/notifications_screen.dart';
 import 'constants/app_theme.dart';
 
@@ -218,6 +219,10 @@ GoRouter _createRouter(AuthService authService) {
     GoRoute(
       path: '/notifications',
       builder: (context, state) => const NotificationsScreen(),
+    ),
+    GoRoute(
+      path: '/digital-card',
+      builder: (context, state) => const DigitalCardScreen(),
     ),
   ],
   );

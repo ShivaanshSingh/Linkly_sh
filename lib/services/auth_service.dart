@@ -119,6 +119,46 @@ class AuthService extends ChangeNotifier {
     }
   }
 
+  Future<bool> checkUsernameExists(String username) async {
+    if (!_isFirebaseAvailable) {
+      return false; // In mock mode, assume username doesn't exist
+    }
+    
+    try {
+      // Check if username exists in Firestore users collection
+      final querySnapshot = await _firestore!
+          .collection('users')
+          .where('username', isEqualTo: username.trim())
+          .limit(1)
+          .get();
+      
+      return querySnapshot.docs.isNotEmpty;
+    } catch (e) {
+      debugPrint('Error checking username existence: $e');
+      return false; // If there's an error, allow the signup to proceed
+    }
+  }
+
+  Future<bool> checkEmailExists(String email) async {
+    if (!_isFirebaseAvailable) {
+      return false; // In mock mode, assume email doesn't exist
+    }
+    
+    try {
+      // Check if email exists in Firestore users collection
+      final querySnapshot = await _firestore!
+          .collection('users')
+          .where('email', isEqualTo: email.trim())
+          .limit(1)
+          .get();
+      
+      return querySnapshot.docs.isNotEmpty;
+    } catch (e) {
+      debugPrint('Error checking email existence: $e');
+      return false; // If there's an error, allow the signup to proceed
+    }
+  }
+
   Future<UserCredential?> signUpWithEmail(String email, String password, String fullName, {String? username, String? phoneNumber, String? company, String? accountType}) async {
     if (!_isFirebaseAvailable) {
       throw Exception('Firebase is not available. Please check your internet connection.');
@@ -152,21 +192,49 @@ class AuthService extends ChangeNotifier {
       if (credential.user != null) {
         await credential.user!.updateDisplayName(fullName.trim());
         
-        await _firestore!.collection('users').doc(credential.user!.uid).set({
-          'uid': credential.user!.uid,
-          'email': email.trim(),
-          'fullName': fullName.trim(),
-          'username': username.trim(),
-          'phoneNumber': phoneNumber?.trim() ?? '',
-          'company': company?.trim() ?? '',
-          'accountType': accountType ?? 'Public',
-          'socialLinks': {},
-          'createdAt': FieldValue.serverTimestamp(),
-          'lastSeen': FieldValue.serverTimestamp(),
-          'isOnline': true,
-        });
+        debugPrint('Creating user document in Firestore...');
         
-        // Immediately load user data after signup
+        // Retry mechanism for Firestore document creation
+        int retryCount = 0;
+        const maxRetries = 3;
+        bool documentCreated = false;
+        
+        while (retryCount < maxRetries && !documentCreated) {
+          try {
+            await _firestore!.collection('users').doc(credential.user!.uid).set({
+              'uid': credential.user!.uid,
+              'email': email.trim(),
+              'fullName': fullName.trim(),
+              'username': username.trim(),
+              'phoneNumber': phoneNumber?.trim() ?? '',
+              'company': company?.trim() ?? '',
+              'position': '', // Add position field
+              'bio': '', // Add bio field
+              'accountType': accountType ?? 'Public',
+              'socialLinks': {},
+              'createdAt': FieldValue.serverTimestamp(),
+              'lastSeen': FieldValue.serverTimestamp(),
+              'isOnline': true,
+            });
+            documentCreated = true;
+            debugPrint('✅ User document created successfully');
+          } catch (e) {
+            retryCount++;
+            debugPrint('❌ Failed to create user document (attempt $retryCount): $e');
+            if (retryCount < maxRetries) {
+              await Future.delayed(Duration(milliseconds: 500 * retryCount));
+            }
+          }
+        }
+        
+        if (!documentCreated) {
+          debugPrint('❌ Failed to create user document after $maxRetries attempts');
+          throw Exception('Failed to create user profile. Please try again.');
+        }
+        
+        // Wait a moment for Firestore to be ready, then load user data
+        debugPrint('Loading user data after signup...');
+        await Future.delayed(const Duration(milliseconds: 1000));
         await loadUserData();
       }
       
@@ -391,9 +459,12 @@ class AuthService extends ChangeNotifier {
       final userDoc = await _firestore!.collection('users').doc(_user!.uid).get();
       
       if (userDoc.exists) {
+        debugPrint('✅ User document found in Firestore');
+        debugPrint('Document data: ${userDoc.data()}');
         _userModel = UserModel.fromFirestore(userDoc);
         debugPrint('✅ User data loaded successfully: ${_userModel!.fullName}');
         debugPrint('✅ User email: ${_userModel!.email}');
+        debugPrint('✅ User username: ${_userModel!.username}');
         debugPrint('✅ User company: ${_userModel!.company}');
         debugPrint('✅ User phone: ${_userModel!.phoneNumber}');
         notifyListeners();
@@ -423,6 +494,40 @@ class AuthService extends ChangeNotifier {
   Future<void> refreshUserData() async {
     debugPrint('🔄 Force refreshing user data...');
     await loadUserData();
+    
+    // If userModel is still null after loading, try to create a basic document
+    if (_userModel == null && _user != null) {
+      debugPrint('UserModel is still null, attempting to create basic user document...');
+      await _createBasicUserDocument();
+    }
+  }
+
+  Future<void> _createBasicUserDocument() async {
+    if (!_isFirebaseAvailable || _user == null) return;
+    
+    try {
+      debugPrint('Creating basic user document for existing user...');
+      await _firestore!.collection('users').doc(_user!.uid).set({
+        'uid': _user!.uid,
+        'email': _user!.email ?? '',
+        'fullName': _user!.displayName ?? 'User',
+        'username': _user!.email?.split('@').first ?? 'user',
+        'phoneNumber': '',
+        'company': '',
+        'position': '',
+        'bio': '',
+        'accountType': 'Public',
+        'socialLinks': {},
+        'createdAt': FieldValue.serverTimestamp(),
+        'lastSeen': FieldValue.serverTimestamp(),
+        'isOnline': true,
+      }, SetOptions(merge: true));
+      
+      debugPrint('✅ Basic user document created');
+      await loadUserData();
+    } catch (e) {
+      debugPrint('❌ Error creating basic user document: $e');
+    }
   }
 
   Future<void> updateUserModel(UserModel userModel) async {
@@ -456,6 +561,7 @@ class AuthService extends ChangeNotifier {
 
   Future<void> updateUserProfile({
     required String fullName,
+    String? username,
     String? bio,
     String? company,
     String? position,
@@ -497,6 +603,7 @@ class AuthService extends ChangeNotifier {
       if (company != null && company.isNotEmpty) updateData['company'] = company;
       if (position != null && position.isNotEmpty) updateData['position'] = position;
       if (phoneNumber != null && phoneNumber.isNotEmpty) updateData['phoneNumber'] = phoneNumber;
+      if (username != null && username.isNotEmpty) updateData['username'] = username;
       if (profileImageUrl != null && profileImageUrl.isNotEmpty) {
         updateData['profileImageUrl'] = profileImageUrl;
       }
@@ -510,6 +617,10 @@ class AuthService extends ChangeNotifier {
       if (_userModel != null) {
         _userModel = _userModel!.copyWith(
           fullName: fullName,
+          username: username ?? _userModel!.username,
+          bio: bio ?? _userModel!.bio,
+          company: company ?? _userModel!.company,
+          position: position ?? _userModel!.position,
           phoneNumber: phoneNumber ?? _userModel!.phoneNumber,
           profileImageUrl: profileImageUrl ?? _userModel!.profileImageUrl,
           socialLinks: socialLinks ?? _userModel!.socialLinks,

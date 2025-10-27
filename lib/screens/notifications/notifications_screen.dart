@@ -9,8 +9,15 @@ import '../../services/notification_service.dart';
 import '../../models/connection_request_model.dart';
 import '../../widgets/connection_request_widget.dart';
 
-class NotificationsScreen extends StatelessWidget {
+class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
+
+  @override
+  State<NotificationsScreen> createState() => _NotificationsScreenState();
+}
+
+class _NotificationsScreenState extends State<NotificationsScreen> {
+  String _selectedFilter = 'All';
 
   @override
   Widget build(BuildContext context) {
@@ -29,7 +36,6 @@ class NotificationsScreen extends StatelessWidget {
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: AppColors.grey900),
           onPressed: () {
-            // Navigate back to homepage
             if (Navigator.of(context).canPop()) {
               Navigator.of(context).pop();
             } else {
@@ -37,6 +43,34 @@ class NotificationsScreen extends StatelessWidget {
             }
           },
         ),
+        actions: [
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.filter_list, color: AppColors.grey900),
+            onSelected: (String value) {
+              setState(() {
+                _selectedFilter = value;
+              });
+            },
+            itemBuilder: (BuildContext context) => [
+              const PopupMenuItem<String>(
+                value: 'All',
+                child: Text('All Notifications'),
+              ),
+              const PopupMenuItem<String>(
+                value: 'Connection Requests',
+                child: Text('Connection Requests'),
+              ),
+              const PopupMenuItem<String>(
+                value: 'Messages',
+                child: Text('Messages'),
+              ),
+              const PopupMenuItem<String>(
+                value: 'Posts',
+                child: Text('Posts'),
+              ),
+            ],
+          ),
+        ],
       ),
       body: Consumer2<AuthService, NotificationService>(
         builder: (context, authService, notificationService, child) {
@@ -53,7 +87,7 @@ class NotificationsScreen extends StatelessWidget {
           }
 
           return StreamBuilder<List<Map<String, dynamic>>>(
-            stream: notificationService.getNotifications(authService.user!.uid),
+            stream: _getNotificationsStream(authService.user!.uid),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Center(
@@ -94,9 +128,10 @@ class NotificationsScreen extends StatelessWidget {
                 );
               }
 
-              final notifications = snapshot.data ?? [];
+              final allNotifications = snapshot.data ?? [];
+              final filteredNotifications = _filterNotifications(allNotifications, _selectedFilter);
 
-              if (notifications.isEmpty) {
+              if (filteredNotifications.isEmpty) {
                 return Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -107,18 +142,18 @@ class NotificationsScreen extends StatelessWidget {
                         color: AppColors.grey400,
                       ),
                       const SizedBox(height: 16),
-                      const Text(
-                        'No new notifications',
-                        style: TextStyle(
+                      Text(
+                        _selectedFilter == 'All' ? 'No new notifications' : 'No $_selectedFilter notifications',
+                        style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
                           color: AppColors.grey900,
                         ),
                       ),
                       const SizedBox(height: 8),
-                      const Text(
-                        'You\'re all caught up!',
-                        style: TextStyle(
+                      Text(
+                        _selectedFilter == 'All' ? 'You\'re all caught up!' : 'Try selecting a different filter',
+                        style: const TextStyle(
                           fontSize: 14,
                           color: AppColors.grey600,
                         ),
@@ -128,13 +163,35 @@ class NotificationsScreen extends StatelessWidget {
                 );
               }
 
-              return ListView.builder(
-                padding: const EdgeInsets.all(16),
-                itemCount: notifications.length,
-                itemBuilder: (context, index) {
-                  final notification = notifications[index];
-                  return _buildSwipeableNotificationCard(notification, notificationService, context);
-                },
+              return Column(
+                children: [
+                  // Filter chips
+                  Container(
+                    height: 50,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: ListView(
+                      scrollDirection: Axis.horizontal,
+                      children: [
+                        _buildFilterChip('All'),
+                        _buildFilterChip('Connection Requests'),
+                        _buildFilterChip('Messages'),
+                        _buildFilterChip('Posts'),
+                      ],
+                    ),
+                  ),
+                  const Divider(height: 1),
+                  // Notifications list
+                  Expanded(
+                    child: ListView.builder(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: filteredNotifications.length,
+                      itemBuilder: (context, index) {
+                        final notification = filteredNotifications[index];
+                        return _buildNotificationCard(notification, notificationService, context);
+                      },
+                    ),
+                  ),
+                ],
               );
             },
           );
@@ -143,69 +200,69 @@ class NotificationsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildSwipeableNotificationCard(Map<String, dynamic> notification, NotificationService notificationService, BuildContext context) {
-    return Dismissible(
-      key: Key(notification['id']),
-      direction: DismissDirection.endToStart,
-      background: Container(
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: 20),
-        decoration: BoxDecoration(
-          color: Colors.red,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: const Icon(
-          Icons.delete,
-          color: Colors.white,
-          size: 24,
+  Stream<List<Map<String, dynamic>>> _getNotificationsStream(String userId) {
+    return FirebaseFirestore.instance
+        .collection('notifications')
+        .where('userId', isEqualTo: userId)
+        .orderBy('timestamp', descending: true)
+        .snapshots()
+        .map((snapshot) {
+      return snapshot.docs.map((doc) {
+        final data = doc.data();
+        data['id'] = doc.id;
+        return data;
+      }).toList();
+    });
+  }
+
+  List<Map<String, dynamic>> _filterNotifications(List<Map<String, dynamic>> notifications, String filter) {
+    if (filter == 'All') return notifications;
+    
+    return notifications.where((notification) {
+      final type = notification['type'] ?? '';
+      switch (filter) {
+        case 'Connection Requests':
+          return type == 'connection_request';
+        case 'Messages':
+          return type == 'message';
+        case 'Posts':
+          return type == 'post_like' || type == 'post_comment' || type == 'post_share';
+        default:
+          return true;
+      }
+    }).toList();
+  }
+
+  Widget _buildFilterChip(String filter) {
+    final isSelected = _selectedFilter == filter;
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: FilterChip(
+        label: Text(filter),
+        selected: isSelected,
+        onSelected: (selected) {
+          setState(() {
+            _selectedFilter = filter;
+          });
+        },
+        selectedColor: AppColors.primary.withOpacity(0.2),
+        checkmarkColor: AppColors.primary,
+        labelStyle: TextStyle(
+          color: isSelected ? AppColors.primary : AppColors.grey600,
+          fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
         ),
       ),
-      confirmDismiss: (direction) async {
-        return true; // Always allow deletion without confirmation
-      },
-      onDismissed: (direction) async {
-        try {
-          await notificationService.deleteNotification(notification['id']);
-          if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Notification deleted'),
-                backgroundColor: AppColors.primary,
-                behavior: SnackBarBehavior.floating,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            );
-          }
-        } catch (e) {
-          if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Failed to delete notification: $e'),
-                backgroundColor: Colors.red,
-                behavior: SnackBarBehavior.floating,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            );
-          }
-        }
-      },
-      child: _buildNotificationCard(notification, notificationService, context),
     );
   }
 
-
   Widget _buildNotificationCard(Map<String, dynamic> notification, NotificationService notificationService, BuildContext context) {
+    final type = notification['type'] ?? '';
     final isRead = notification['isRead'] ?? false;
-    final timestamp = notification['timestamp'];
+    final timestamp = notification['timestamp'] as Timestamp?;
+    final timeAgo = timestamp != null ? _getTimeAgo(timestamp.toDate()) : '';
     final title = notification['title'] ?? 'Notification';
-    final body = notification['body'] ?? '';
-    final data = notification['data'] ?? {};
-    final type = data['type'] ?? 'message';
-    
+    final body = notification['body'] ?? notification['message'] ?? '';
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
@@ -224,52 +281,8 @@ class NotificationsScreen extends StatelessWidget {
         ],
       ),
       child: InkWell(
-        onTap: () async {
-          // Mark as read when tapped
-          if (!isRead) {
-            await notificationService.markNotificationAsRead(notification['id']);
-          }
-          
-          // Navigate based on notification type
-          if (type == 'message') {
-            // Delete notification when navigating to chat
-            await notificationService.deleteNotification(notification['id']);
-            
-            // Navigate to messages screen
-            if (context.mounted) {
-              // Navigate to home and then to messages tab
-              context.go('/home');
-              
-              // Show a message that user should go to messages tab
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: const Text('Go to Messages tab to view the chat'),
-                  backgroundColor: AppColors.primary,
-                  behavior: SnackBarBehavior.floating,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-              );
-            }
-          } else if (type == 'connection_request') {
-            // Navigate to connections screen for connection requests
-            if (context.mounted) {
-              context.go('/home');
-              
-              // Show a message that user should go to connections tab
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: const Text('Go to Connections tab to view the request'),
-                  backgroundColor: AppColors.primary,
-                  behavior: SnackBarBehavior.floating,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-              );
-            }
-          }
+        onTap: () {
+          _handleNotificationTap(notification, context);
         },
         borderRadius: BorderRadius.circular(12),
         child: Padding(
@@ -277,31 +290,7 @@ class NotificationsScreen extends StatelessWidget {
           child: Row(
             children: [
               // Notification icon
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: type == 'message' 
-                      ? AppColors.primary.withOpacity(0.1)
-                      : type == 'connection_request'
-                      ? AppColors.success.withOpacity(0.1)
-                      : AppColors.grey200,
-                  borderRadius: BorderRadius.circular(24),
-                ),
-                child: Icon(
-                  type == 'message' 
-                      ? Icons.message 
-                      : type == 'connection_request'
-                      ? Icons.person_add
-                      : Icons.notifications,
-                  color: type == 'message' 
-                      ? AppColors.primary 
-                      : type == 'connection_request'
-                      ? AppColors.success
-                      : AppColors.grey600,
-                  size: 24,
-                ),
-              ),
+              _buildNotificationIcon(type),
               const SizedBox(width: 12),
               
               // Notification content
@@ -320,7 +309,7 @@ class NotificationsScreen extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text(
                       body,
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 14,
                         color: AppColors.grey600,
                       ),
@@ -337,7 +326,7 @@ class NotificationsScreen extends StatelessWidget {
                         ),
                         const SizedBox(width: 4),
                         Text(
-                          _formatTimestamp(timestamp),
+                          timeAgo,
                           style: const TextStyle(
                             fontSize: 12,
                             color: AppColors.grey500,
@@ -360,18 +349,34 @@ class NotificationsScreen extends StatelessWidget {
                 ),
               ),
               
-              // Action button
-              IconButton(
-                onPressed: () {
-                  if (!isRead) {
-                    notificationService.markNotificationAsRead(notification['id']);
-                  }
+              // Action menu
+              PopupMenuButton<String>(
+                icon: const Icon(Icons.more_vert, color: AppColors.grey500),
+                onSelected: (String value) {
+                  _handleNotificationAction(value, notification, notificationService);
                 },
-                icon: Icon(
-                  isRead ? Icons.check_circle_outline : Icons.circle_outlined,
-                  color: isRead ? AppColors.grey400 : AppColors.primary,
-                  size: 20,
-                ),
+                itemBuilder: (BuildContext context) => [
+                  const PopupMenuItem<String>(
+                    value: 'mark_read',
+                    child: Row(
+                      children: [
+                        Icon(Icons.mark_email_read, color: AppColors.primary),
+                        SizedBox(width: 8),
+                        Text('Mark as Read'),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem<String>(
+                    value: 'delete',
+                    child: Row(
+                      children: [
+                        Icon(Icons.delete, color: Colors.red),
+                        SizedBox(width: 8),
+                        Text('Delete'),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -380,21 +385,51 @@ class NotificationsScreen extends StatelessWidget {
     );
   }
 
-  String _formatTimestamp(dynamic timestamp) {
-    if (timestamp == null) return 'Just now';
-    
-    DateTime dateTime;
-    if (timestamp is Timestamp) {
-      dateTime = timestamp.toDate();
-    } else if (timestamp is DateTime) {
-      dateTime = timestamp;
-    } else {
-      return 'Just now';
+  Widget _buildNotificationIcon(String type) {
+    IconData icon;
+    Color color;
+
+    switch (type) {
+      case 'connection_request':
+        icon = Icons.person_add;
+        color = AppColors.primary;
+        break;
+      case 'message':
+        icon = Icons.message;
+        color = Colors.blue;
+        break;
+      case 'post_like':
+        icon = Icons.favorite;
+        color = Colors.red;
+        break;
+      case 'post_comment':
+        icon = Icons.comment;
+        color = Colors.orange;
+        break;
+      case 'post_share':
+        icon = Icons.share;
+        color = Colors.green;
+        break;
+      default:
+        icon = Icons.notifications;
+        color = AppColors.grey500;
     }
-    
+
+    return Container(
+      width: 48,
+      height: 48,
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Icon(icon, color: color, size: 24),
+    );
+  }
+
+  String _getTimeAgo(DateTime dateTime) {
     final now = DateTime.now();
     final difference = now.difference(dateTime);
-    
+
     if (difference.inDays > 0) {
       return '${difference.inDays}d ago';
     } else if (difference.inHours > 0) {
@@ -404,5 +439,85 @@ class NotificationsScreen extends StatelessWidget {
     } else {
       return 'Just now';
     }
+  }
+
+  void _handleNotificationAction(String action, Map<String, dynamic> notification, NotificationService notificationService) {
+    switch (action) {
+      case 'mark_read':
+        _markAsRead(notification['id']);
+        break;
+      case 'delete':
+        _deleteNotification(notification['id']);
+        break;
+    }
+  }
+
+  void _handleNotificationTap(Map<String, dynamic> notification, BuildContext context) {
+    final type = notification['type'] ?? '';
+    
+    // Mark as read
+    _markAsRead(notification['id']);
+
+    // Navigate based on notification type
+    switch (type) {
+      case 'connection_request':
+        // Navigate to connections screen
+        context.go('/home');
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Go to Connections tab to view the request'),
+            backgroundColor: AppColors.primary,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.all(Radius.circular(12)),
+            ),
+          ),
+        );
+        break;
+      case 'message':
+        // Navigate to home screen
+        context.go('/home');
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Go to Messages tab to view the chat'),
+            backgroundColor: AppColors.primary,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.all(Radius.circular(12)),
+            ),
+          ),
+        );
+        break;
+      case 'post_like':
+      case 'post_comment':
+      case 'post_share':
+        // Navigate to home screen
+        context.go('/home');
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Go to Home tab to view the post'),
+            backgroundColor: AppColors.primary,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.all(Radius.circular(12)),
+            ),
+          ),
+        );
+        break;
+    }
+  }
+
+  void _markAsRead(String notificationId) {
+    FirebaseFirestore.instance
+        .collection('notifications')
+        .doc(notificationId)
+        .update({'isRead': true});
+  }
+
+  void _deleteNotification(String notificationId) {
+    FirebaseFirestore.instance
+        .collection('notifications')
+        .doc(notificationId)
+        .delete();
   }
 }
