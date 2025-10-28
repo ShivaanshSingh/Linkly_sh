@@ -203,7 +203,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   Stream<List<Map<String, dynamic>>> _getNotificationsStream(String userId) {
     return FirebaseFirestore.instance
         .collection('notifications')
-        .where('userId', isEqualTo: userId)
+        .where('receiverId', isEqualTo: userId)
         .orderBy('timestamp', descending: true)
         .snapshots()
         .map((snapshot) {
@@ -216,9 +216,23 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   }
 
   List<Map<String, dynamic>> _filterNotifications(List<Map<String, dynamic>> notifications, String filter) {
-    if (filter == 'All') return notifications;
+    // First filter out self-notifications
+    final filteredNotifications = notifications.where((notification) {
+      final data = notification['data'] as Map<String, dynamic>?;
+      if (data != null) {
+        final senderId = data['senderId'];
+        final receiverId = data['receiverId'];
+        // Skip self-notifications
+        if (senderId != null && receiverId != null && senderId == receiverId) {
+          return false;
+        }
+      }
+      return true;
+    }).toList();
     
-    return notifications.where((notification) {
+    if (filter == 'All') return filteredNotifications;
+    
+    return filteredNotifications.where((notification) {
       final type = notification['type'] ?? '';
       switch (filter) {
         case 'Connection Requests':

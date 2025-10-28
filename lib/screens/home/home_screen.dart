@@ -12,7 +12,7 @@ import '../groups/groups_screen.dart';
 import '../profile/profile_edit_screen.dart';
 import '../settings/settings_screen.dart';
 import '../../widgets/digital_card_widget.dart';
-import '../qr_scanner_screen.dart';
+import '../connections/qr_scanner_screen.dart';
 import '../../widgets/create_post_modal.dart';
 import '../../widgets/status_stories_widget.dart';
 

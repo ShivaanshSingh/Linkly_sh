@@ -22,7 +22,7 @@ import 'screens/network/network_screen.dart';
 import 'screens/connections/connections_screen.dart';
 import 'screens/messages/messages_screen.dart';
 import 'screens/settings/settings_screen.dart';
-import 'screens/qr_scanner_screen.dart';
+import 'screens/connections/qr_scanner_screen.dart';
 import 'widgets/main_navigation_wrapper.dart';
 import 'screens/people_around_screen.dart';
 import 'screens/posts/posts_screen.dart';

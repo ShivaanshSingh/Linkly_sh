@@ -747,38 +747,6 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
           ),
         ],
       ),
-      floatingActionButton: Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          color: AppColors.secondary, // Orange from new palette
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.secondary.withOpacity(0.4),
-              blurRadius: 8,
-              offset: const Offset(0, 3),
-            ),
-          ],
-        ),
-        child: FloatingActionButton(
-          onPressed: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (context) => const QRScannerScreen(),
-              ),
-            );
-          },
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          child: const Icon(
-            Icons.qr_code_scanner,
-            color: Colors.white,
-            size: 18,
-          ),
-        ),
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       body: SingleChildScrollView(
         padding: const EdgeInsets.only(bottom: 20),
         child: Column(
@@ -1062,9 +1030,9 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
   Widget _buildConnectionCard(ConnectionModel connection) {
     return Container(
       margin: const EdgeInsets.only(bottom: 20),
-      height: 220, // Made cards taller
+      height: 280, // Increased height from 220 to 280 for taller cards
       decoration: BoxDecoration(
-        color: const Color(0xFF4A5568), // Modern slate blue-grey that complements light backgrounds
+        color: const Color(0xFF2D5A87), // Eye-catching deep blue that complements the light background
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(

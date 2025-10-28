@@ -87,7 +87,7 @@ class _DigitalCardWidgetState extends State<DigitalCardWidget>
   Widget _buildFrontCard(String userName) {
     return Container(
       width: double.infinity,
-      height: 270, // Increased from 220 to 270
+      height: 270, // Reverted back to original height
       margin: const EdgeInsets.symmetric(horizontal: 16),
       constraints: const BoxConstraints(
         maxWidth: 400,
@@ -215,7 +215,7 @@ class _DigitalCardWidgetState extends State<DigitalCardWidget>
   Widget _buildBackCard() {
     return Container(
       width: double.infinity,
-      height: 270, // Increased from 220 to 270 to match front card
+      height: 270, // Reverted back to original height
       margin: const EdgeInsets.symmetric(horizontal: 16),
       constraints: const BoxConstraints(
         maxWidth: 400,

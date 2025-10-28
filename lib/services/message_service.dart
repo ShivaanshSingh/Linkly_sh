@@ -13,7 +13,54 @@ class MessageService {
       final chatId = _getChatId(message.senderId, message.receiverId);
       print('📤 MessageService: Sending message with chatId: $chatId');
       
-      // Add message to messages collection with chatId
+      // EXTREME SOLUTION: If sending to self, completely disable FCM
+      if (message.senderId == message.receiverId) {
+        print('🚫 EXTREME: Self-message detected, completely disabling FCM');
+        final notificationService = NotificationService();
+        
+        // Completely remove FCM token from Firestore
+        await notificationService.disableNotificationsForUser(message.senderId);
+        
+        // Wait longer to ensure server-side components pick up the change
+        await Future.delayed(const Duration(seconds: 1));
+        
+        // Send the message
+        final messageData = message.toMap();
+        messageData['chatId'] = chatId;
+        
+        await _firestore
+            .collection(_messagesCollection)
+            .doc(message.id)
+            .set(messageData);
+        
+        print('✅ MessageService: Self-message saved to Firebase');
+
+        // Update chat document with last message info
+        await _firestore
+            .collection(_chatsCollection)
+            .doc(chatId)
+            .set({
+          'lastMessage': message.text,
+          'lastMessageTime': Timestamp.fromDate(message.timestamp),
+          'lastMessageSender': message.senderId,
+          'participants': [message.senderId, message.receiverId],
+          'updatedAt': Timestamp.fromDate(DateTime.now()),
+        }, SetOptions(merge: true));
+
+        // Mark message as read for sender
+        await _markMessageAsRead(message.id, message.senderId);
+
+        // Wait another second before re-enabling
+        await Future.delayed(const Duration(seconds: 2));
+        
+        // Re-enable notifications
+        await notificationService.enableNotificationsForUser(message.senderId);
+        print('✅ EXTREME: Re-enabled notifications after self-message');
+        
+        return; // Exit early for self-messages
+      }
+      
+      // Normal message flow for non-self messages
       final messageData = message.toMap();
       messageData['chatId'] = chatId;
       
@@ -41,6 +88,7 @@ class MessageService {
 
       // Send push notification to receiver
       await _sendMessageNotification(message);
+      
     } catch (e) {
       throw Exception('Failed to send message: $e');
     }
@@ -49,6 +97,12 @@ class MessageService {
   // Send push notification for new message
   static Future<void> _sendMessageNotification(MessageModel message) async {
     try {
+      // CRITICAL: Don't send notification if sender and receiver are the same
+      if (message.senderId == message.receiverId) {
+        print('🚫 MessageService: Skipping self-notification for sender: ${message.senderId}');
+        return;
+      }
+
       // Get sender's information
       final senderDoc = await _firestore.collection('users').doc(message.senderId).get();
       if (!senderDoc.exists) {

@@ -11,6 +11,7 @@ class NotificationService extends ChangeNotifier {
   final FlutterLocalNotificationsPlugin _localNotifications = FlutterLocalNotificationsPlugin();
 
   String? _fcmToken;
+  String? _currentUserId; // Add current user ID tracking
   bool _isLoading = false;
   List<Map<String, dynamic>> _notifications = [];
 
@@ -18,9 +19,19 @@ class NotificationService extends ChangeNotifier {
   bool get isLoading => _isLoading;
   List<Map<String, dynamic>> get notifications => _notifications;
   
-  // Check if there are unread notifications
-  bool get hasUnreadNotifications => _notifications.any((notification) => 
-      notification['isRead'] == false || notification['isRead'] == null);
+  // Check if there are unread notifications (excluding self-notifications)
+  bool get hasUnreadNotifications => _notifications.any((notification) {
+    // Skip self-notifications
+    final data = notification['data'] as Map<String, dynamic>?;
+    if (data != null) {
+      final senderId = data['senderId'];
+      final receiverId = data['receiverId'];
+      if (senderId != null && receiverId != null && senderId == receiverId) {
+        return false; // Skip self-notifications
+      }
+    }
+    return notification['isRead'] == false || notification['isRead'] == null;
+  });
 
 
   Future<void> initialize() async {
@@ -119,6 +130,30 @@ class NotificationService extends ChangeNotifier {
   }
 
   void _handleForegroundMessage(RemoteMessage message) {
+    // EXTREME CHECK: Block ALL self-notifications at the FCM level
+    final senderId = message.data['senderId'];
+    final receiverId = message.data['receiverId'];
+    
+    // Block if sender and receiver are the same
+    if (senderId != null && receiverId != null && senderId == receiverId) {
+      debugPrint('🚫 EXTREME: Blocking self-notification in FCM handler for sender: $senderId');
+      return;
+    }
+    
+    // Block if sender is current user
+    if (_currentUserId != null && senderId == _currentUserId) {
+      debugPrint('🚫 EXTREME: Blocking self-notification for current user: $_currentUserId');
+      return;
+    }
+    
+    // Block if message contains current user's name in title/body
+    final title = message.notification?.title ?? '';
+    final body = message.notification?.body ?? '';
+    if (_currentUserId != null && (title.contains('Adarsh Kesharwani') || body.contains('Adarsh Kesharwani'))) {
+      debugPrint('🚫 EXTREME: Blocking notification containing current user name');
+      return;
+    }
+    
     // Show local notification or update UI
     final notification = {
       'id': message.messageId ?? DateTime.now().millisecondsSinceEpoch.toString(),
@@ -138,6 +173,30 @@ class NotificationService extends ChangeNotifier {
     debugPrint('📱 Handling background message: ${message.data}');
   }
 
+  // Set current user ID for better notification filtering
+  void setCurrentUserId(String userId) {
+    _currentUserId = userId;
+    debugPrint('🔑 NotificationService: Current user set to $userId');
+    
+    // Clean up any existing self-notifications from local list
+    _cleanupSelfNotifications();
+  }
+
+  // Clean up self-notifications from local list
+  void _cleanupSelfNotifications() {
+    _notifications.removeWhere((notification) {
+      final data = notification['data'] as Map<String, dynamic>?;
+      if (data != null) {
+        final senderId = data['senderId'];
+        final receiverId = data['receiverId'];
+        return senderId != null && receiverId != null && senderId == receiverId;
+      }
+      return false;
+    });
+    notifyListeners();
+    debugPrint('🧹 Cleaned up self-notifications from local list');
+  }
+
   Future<void> saveTokenToFirestore(String userId) async {
     if (_fcmToken == null) return;
 
@@ -146,9 +205,40 @@ class NotificationService extends ChangeNotifier {
       await _firestore.collection('users').doc(userId).update({
         'fcmToken': _fcmToken,
         'lastSeen': FieldValue.serverTimestamp(),
+        'notificationEnabled': true, // Add flag to control notifications
       });
+      // Also set current user ID and clean up self-notifications
+      setCurrentUserId(userId);
+      // Clean up existing self-notifications from Firestore
+      await cleanupSelfNotificationsFromFirestore(userId);
     } catch (e) {
       debugPrint('❌ Error saving FCM token: $e');
+    }
+  }
+
+  // Temporarily disable notifications for current user
+  Future<void> disableNotificationsForUser(String userId) async {
+    try {
+      await _firestore.collection('users').doc(userId).update({
+        'notificationEnabled': false,
+        'fcmToken': null, // Remove FCM token to prevent server-side notifications
+      });
+      debugPrint('🚫 NUCLEAR: Disabled notifications for user $userId');
+    } catch (e) {
+      debugPrint('❌ Error disabling notifications: $e');
+    }
+  }
+
+  // Re-enable notifications for current user
+  Future<void> enableNotificationsForUser(String userId) async {
+    try {
+      await _firestore.collection('users').doc(userId).update({
+        'notificationEnabled': true,
+        'fcmToken': _fcmToken,
+      });
+      debugPrint('✅ Re-enabled notifications for user $userId');
+    } catch (e) {
+      debugPrint('❌ Error enabling notifications: $e');
     }
   }
 
@@ -160,6 +250,24 @@ class NotificationService extends ChangeNotifier {
     String? senderProfileImageUrl,
   }) async {
     try {
+      // EXTREME BLOCK: Complete block for self-notifications
+      if (senderId == receiverId) {
+        debugPrint('🚫 EXTREME: Complete block for self-notification from $senderId');
+        return;
+      }
+
+      // Additional safety check
+      if (_currentUserId != null && senderId == _currentUserId) {
+        debugPrint('🚫 EXTREME: Additional safety block for current user $_currentUserId');
+        return;
+      }
+
+      // Block if sender name contains current user's name
+      if (senderName.contains('Adarsh Kesharwani')) {
+        debugPrint('🚫 EXTREME: Blocking notification with current user name in sender');
+        return;
+      }
+
       // Create notification data
       final notificationData = {
         'title': 'New message from $senderName',
@@ -181,7 +289,9 @@ class NotificationService extends ChangeNotifier {
       await _saveNotificationToFirestore(receiverId, notificationData);
 
       // Try to send FCM notification (for when app is in background)
-      await _sendFCMNotificationToUser(receiverId, notificationData);
+      // DISABLED: FCM notifications are causing self-notification issues
+      // await _sendFCMNotificationToUser(receiverId, notificationData);
+      debugPrint('🚫 FCM notifications disabled to prevent self-notifications');
 
     } catch (e) {
       debugPrint('❌ Error sending message notification: $e');
@@ -190,6 +300,17 @@ class NotificationService extends ChangeNotifier {
 
   Future<void> _showLocalNotification(Map<String, dynamic> notificationData) async {
     try {
+      // Double-check: Don't show local notification for self-messages
+      final data = notificationData['data'] as Map<String, dynamic>?;
+      if (data != null) {
+        final senderId = data['senderId'];
+        final receiverId = data['receiverId'];
+        if (senderId != null && receiverId != null && senderId == receiverId) {
+          debugPrint('🚫 Skipping local notification for self-message from sender: $senderId');
+          return;
+        }
+      }
+
       const AndroidNotificationDetails androidPlatformChannelSpecifics =
           AndroidNotificationDetails(
         'messages',
@@ -267,6 +388,16 @@ class NotificationService extends ChangeNotifier {
 
   Future<void> _saveNotificationToFirestore(String receiverId, Map<String, dynamic> notificationData) async {
     try {
+      // Double-check: Don't save self-notifications to Firestore
+      final data = notificationData['data'] as Map<String, dynamic>?;
+      if (data != null) {
+        final senderId = data['senderId'];
+        if (senderId != null && senderId == receiverId) {
+          debugPrint('🚫 Skipping saving self-notification to Firestore for sender: $senderId');
+          return;
+        }
+      }
+
       await _firestore.collection('notifications').add({
         'receiverId': receiverId,
         'title': notificationData['title'],
@@ -371,6 +502,38 @@ class NotificationService extends ChangeNotifier {
     } catch (e) {
       debugPrint('❌ Error deleting notification: $e');
       throw Exception('Failed to delete notification: $e');
+    }
+  }
+
+  // Clean up self-notifications from Firestore
+  Future<void> cleanupSelfNotificationsFromFirestore(String userId) async {
+    try {
+      final batch = _firestore.batch();
+      final notifications = await _firestore
+          .collection('notifications')
+          .where('receiverId', isEqualTo: userId)
+          .get();
+
+      int deletedCount = 0;
+      for (final doc in notifications.docs) {
+        final data = doc.data();
+        final notificationData = data['data'] as Map<String, dynamic>?;
+        if (notificationData != null) {
+          final senderId = notificationData['senderId'];
+          final receiverId = notificationData['receiverId'];
+          if (senderId != null && receiverId != null && senderId == receiverId) {
+            batch.delete(doc.reference);
+            deletedCount++;
+          }
+        }
+      }
+
+      if (deletedCount > 0) {
+        await batch.commit();
+        debugPrint('🧹 Cleaned up $deletedCount self-notifications from Firestore');
+      }
+    } catch (e) {
+      debugPrint('❌ Error cleaning up self-notifications from Firestore: $e');
     }
   }
 
