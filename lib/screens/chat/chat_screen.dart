@@ -585,13 +585,15 @@ class _ChatScreenState extends State<ChatScreen> {
                   onPressed: _isUploading ? null : _showAttachmentOptions,
                 ),
                 Expanded(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: AppColors.white, // White background for better text visibility
-                      borderRadius: BorderRadius.circular(25),
-                      border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
-                    ),
-                    child: TextField(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(28),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: AppColors.white, // White background for better text visibility
+                        borderRadius: BorderRadius.circular(28),
+                        border: Border.all(color: AppColors.primary.withValues(alpha: 0.25)),
+                      ),
+                      child: TextField(
                       controller: _messageController,
                       focusNode: _focusNode,
                       style: const TextStyle(
@@ -609,7 +611,7 @@ class _ChatScreenState extends State<ChatScreen> {
                         focusedBorder: InputBorder.none,
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: 20,
-                          vertical: 12,
+                          vertical: 14,
                         ),
                       ),
                       cursorColor: AppColors.primary, // Blue cursor for visibility
@@ -618,6 +620,7 @@ class _ChatScreenState extends State<ChatScreen> {
                       onSubmitted: (_) => _sendMessage(),
                     ),
                   ),
+                ),
                 ),
                 const SizedBox(width: 8),
                 Container(

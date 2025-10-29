@@ -67,15 +67,17 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
       debugPrint('Position: ${authService.userModel!.position}');
       debugPrint('Phone: ${authService.userModel!.phoneNumber}');
       
-      _nameController.text = authService.userModel!.fullName;
-      _emailController.text = authService.userModel!.email;
-      _usernameController.text = authService.userModel!.username;
-      _companyController.text = authService.userModel!.company ?? '';
-      _positionController.text = authService.userModel!.position ?? '';
-      _phoneController.text = authService.userModel!.phoneNumber ?? '';
-      _bioController.text = authService.userModel!.bio ?? '';
-      _linkedinController.text = authService.userModel!.socialLinks['linkedin'] ?? '';
-      _currentImageUrl = authService.userModel!.profileImageUrl;
+      setState(() {
+        _nameController.text = authService.userModel!.fullName;
+        _emailController.text = authService.userModel!.email;
+        _usernameController.text = authService.userModel!.username;
+        _companyController.text = authService.userModel!.company ?? '';
+        _positionController.text = authService.userModel!.position ?? '';
+        _phoneController.text = authService.userModel!.phoneNumber ?? '';
+        _bioController.text = authService.userModel!.bio ?? '';
+        _linkedinController.text = authService.userModel!.socialLinks['linkedin'] ?? '';
+        _currentImageUrl = authService.userModel!.profileImageUrl;
+      });
       
       debugPrint('Controllers updated with userModel data');
     } else if (authService.user != null) {
@@ -83,15 +85,17 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
       debugPrint('Display Name: ${authService.user!.displayName}');
       debugPrint('Email: ${authService.user!.email}');
       
-      _nameController.text = authService.user!.displayName ?? '';
-      _emailController.text = authService.user!.email ?? '';
-      _usernameController.text = ''; // No username in Firebase user
-      _companyController.text = '';
-      _positionController.text = '';
-      _phoneController.text = '';
-      _bioController.text = '';
-      _linkedinController.text = '';
-      _currentImageUrl = authService.user!.photoURL;
+      setState(() {
+        _nameController.text = authService.user!.displayName ?? '';
+        _emailController.text = authService.user!.email ?? '';
+        _usernameController.text = ''; // No username in Firebase user
+        _companyController.text = '';
+        _positionController.text = '';
+        _phoneController.text = '';
+        _bioController.text = '';
+        _linkedinController.text = '';
+        _currentImageUrl = authService.user!.photoURL;
+      });
       
       debugPrint('Controllers updated with Firebase user data');
       
@@ -99,6 +103,11 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
       if (authService.userModel == null) {
         debugPrint('UserModel is null, attempting to load user data...');
         await authService.loadUserData();
+        if (mounted && authService.userModel != null) {
+          setState(() {
+            _currentImageUrl = authService.userModel!.profileImageUrl ?? _currentImageUrl;
+          });
+        }
       }
     } else {
       debugPrint('No user data available');

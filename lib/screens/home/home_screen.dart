@@ -37,7 +37,9 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    _initializeNotifications();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initializeNotifications();
+    });
   }
 
   Future<void> _initializeNotifications() async {
@@ -463,9 +465,9 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       decoration: BoxDecoration(
-        color: AppColors.white, // Clean White Background
+        color: AppColors.grey700, // Lighter matte panel for contrast
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.primaryLight, width: 1), // Light Blue Border
+        border: Border.all(color: AppColors.primary.withOpacity(0.35), width: 1), // Subtle blue border
         boxShadow: [
           BoxShadow(
             color: AppColors.primaryLight.withOpacity(0.2),
@@ -505,7 +507,7 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
                         child: AnimatedDefaultTextStyle(
                           duration: const Duration(milliseconds: 100),
                           style: TextStyle(
-                            color: _pageOffset < 0.5 ? AppColors.white : AppColors.primary,
+                            color: _pageOffset < 0.5 ? AppColors.white : AppColors.textMuted,
                             fontWeight: FontWeight.w600,
                             fontSize: 15,
                             letterSpacing: -0.2,
@@ -526,7 +528,7 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
                         child: AnimatedDefaultTextStyle(
                           duration: const Duration(milliseconds: 100),
                           style: TextStyle(
-                            color: _pageOffset >= 0.5 ? AppColors.white : AppColors.primary,
+                            color: _pageOffset >= 0.5 ? AppColors.white : AppColors.textMuted,
                             fontWeight: FontWeight.w600,
                             fontSize: 15,
                             letterSpacing: -0.2,
@@ -642,7 +644,7 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(32),
       decoration: BoxDecoration(
-        color: AppColors.white,
+        color: AppColors.grey50,
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
@@ -709,7 +711,7 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        color: AppColors.white,
+        color: AppColors.grey50,
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
@@ -1023,7 +1025,7 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
                         height: 48,
                         margin: const EdgeInsets.symmetric(horizontal: 4),
                         decoration: BoxDecoration(
-                          color: AppColors.white, // Clean White Background
+                          color: AppColors.grey50, // Matte dark panel
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(color: AppColors.primaryLight, width: 1), // Light Blue Border
                           boxShadow: [
@@ -1071,7 +1073,7 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
                         height: 48,
                         margin: const EdgeInsets.symmetric(horizontal: 4),
                         decoration: BoxDecoration(
-                          color: AppColors.white, // Clean White Background
+                          color: AppColors.grey50, // Matte dark panel
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(color: AppColors.secondaryLight, width: 1), // Golden Yellow Border
                           boxShadow: [
@@ -1133,7 +1135,7 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
         width: 80,
         height: 80,
         decoration: BoxDecoration(
-          color: AppColors.white,
+          color: AppColors.grey50,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: AppColors.grey100, width: 1),
           boxShadow: [
@@ -1352,7 +1354,7 @@ class _CommentsModalState extends State<CommentsModal> {
     return Container(
       height: MediaQuery.of(context).size.height * 0.7,
       decoration: const BoxDecoration(
-        color: AppColors.white,
+        color: AppColors.grey50,
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       child: Column(
@@ -1565,7 +1567,7 @@ class ShareModal extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: const BoxDecoration(
-        color: AppColors.white,
+        color: AppColors.grey50,
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       child: Column(

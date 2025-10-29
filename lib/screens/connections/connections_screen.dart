@@ -32,6 +32,8 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
   List<ConnectionRequestModel> _pendingRequests = [];
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final ConnectionRequestService _connectionRequestService = ConnectionRequestService();
+  bool _selectionMode = false;
+  final Set<String> _selectedConnectionIds = <String>{};
 
   @override
   void initState() {
@@ -82,6 +84,108 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
         });
       }
     });
+  }
+
+  void _toggleSelectionMode() {
+    setState(() {
+      _selectionMode = !_selectionMode;
+      if (!_selectionMode) {
+        _selectedConnectionIds.clear();
+      }
+    });
+  }
+
+  void _toggleSelectConnection(ConnectionModel c) {
+    if (!_selectionMode) return;
+    setState(() {
+      if (_selectedConnectionIds.contains(c.id)) {
+        _selectedConnectionIds.remove(c.id);
+      } else {
+        _selectedConnectionIds.add(c.id);
+      }
+    });
+  }
+
+  Future<void> _showAddSelectedToGroupDialog() async {
+    if (_selectedConnectionIds.isEmpty) return;
+    final auth = Provider.of<AuthService>(context, listen: false);
+    String? selectedGroupId = _groups.isNotEmpty ? _groups.first.id : null;
+
+    await showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: AppColors.grey800,
+          title: const Text('Add to Group', style: TextStyle(color: AppColors.textPrimary)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Choose a group or create a new one:', style: TextStyle(color: AppColors.textSecondary)),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                value: selectedGroupId,
+                dropdownColor: AppColors.grey800,
+                decoration: const InputDecoration(
+                  filled: true,
+                  fillColor: AppColors.grey50,
+                  border: OutlineInputBorder(),
+                  labelText: 'Group',
+                  labelStyle: TextStyle(color: AppColors.textSecondary),
+                ),
+                items: [
+                  ..._groups.map((g) => DropdownMenuItem<String>(
+                        value: g.id,
+                        child: Text(g.name, style: const TextStyle(color: AppColors.textPrimary)),
+                      )),
+                  const DropdownMenuItem<String>(
+                    value: '__create__',
+                    child: Text('Create New Group', style: TextStyle(color: AppColors.textPrimary)),
+                  ),
+                ],
+                onChanged: (val) async {
+                  if (val == '__create__') {
+                    Navigator.of(context).pop();
+                    _showCreateGroupDialogGeneric();
+                  } else {
+                    selectedGroupId = val;
+                  }
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel', style: TextStyle(color: AppColors.textSecondary)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
+              onPressed: () async {
+                if (selectedGroupId == null) return;
+                final sel = _connections.where((c) => _selectedConnectionIds.contains(c.id)).toList();
+                for (final c in sel) {
+                  await GroupService.addConnectionToGroup(
+                    groupId: selectedGroupId!,
+                    connectionId: c.id,
+                    connectionUserId: c.contactUserId,
+                  );
+                }
+                if (mounted) Navigator.of(context).pop();
+                setState(() {
+                  _selectionMode = false;
+                  _selectedConnectionIds.clear();
+                });
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Added ${sel.length} connection(s) to group')),
+                );
+              },
+              child: const Text('Add', style: TextStyle(color: AppColors.white)),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   void _loadPendingRequests() {
@@ -677,6 +781,29 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
           ],
         ),
         actions: [
+          ...(_selectionMode
+              ? [
+                  Center(
+                    child: Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: Text(
+                        '${_selectedConnectionIds.length} selected',
+                        style: const TextStyle(color: AppColors.textPrimary, fontSize: 12),
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Add selected to group',
+                    icon: const Icon(Icons.group_add, color: AppColors.textPrimary),
+                    onPressed: _showAddSelectedToGroupDialog,
+                  ),
+                  IconButton(
+                    tooltip: 'Cancel selection',
+                    icon: const Icon(Icons.close, color: AppColors.textPrimary),
+                    onPressed: _toggleSelectionMode,
+                  ),
+                ]
+              : [
           Container(
             width: 40,
             height: 40,
@@ -727,6 +854,20 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
           Container(
             width: 40,
             height: 40,
+            decoration: const BoxDecoration(
+              color: AppColors.grey700,
+              shape: BoxShape.circle,
+            ),
+            child: IconButton(
+              tooltip: 'Select multiple',
+              icon: const Icon(Icons.checklist, color: AppColors.textPrimary, size: 20),
+              onPressed: _toggleSelectionMode,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            width: 40,
+            height: 40,
             decoration: BoxDecoration(
               color: AppColors.primary,
               shape: BoxShape.circle,
@@ -746,6 +887,7 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
               tooltip: 'Refresh',
             ),
           ),
+          ]),
         ],
       ),
       body: SingleChildScrollView(
@@ -1031,7 +1173,62 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
                   children: _filteredConnections.map((connection) => 
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      child: _buildConnectionCard(connection),
+                      child: GestureDetector(
+                        onLongPress: () {
+                          if (!_selectionMode) {
+                            _toggleSelectionMode();
+                            _toggleSelectConnection(connection);
+                          }
+                        },
+                        onTap: () {
+                          if (_selectionMode) {
+                            _toggleSelectConnection(connection);
+                          }
+                        },
+                        child: Stack(
+                          children: [
+                            _buildConnectionCard(connection),
+                            if (_selectionMode)
+                              Positioned(
+                                top: 10,
+                                left: 10,
+                                child: Builder(
+                                  builder: (context) {
+                                    final bool isSelected = _selectedConnectionIds.contains(connection.id);
+                                    return GestureDetector(
+                                      onTap: () => _toggleSelectConnection(connection),
+                                      child: AnimatedContainer(
+                                        duration: const Duration(milliseconds: 150),
+                                        width: 28,
+                                        height: 28,
+                                        decoration: BoxDecoration(
+                                          color: isSelected ? AppColors.primary : Colors.transparent,
+                                          shape: BoxShape.circle,
+                                          border: Border.all(
+                                            color: isSelected ? AppColors.primary : Colors.white.withOpacity(0.9),
+                                            width: 2,
+                                          ),
+                                          boxShadow: isSelected
+                                              ? [
+                                                  BoxShadow(
+                                                    color: AppColors.primary.withOpacity(0.4),
+                                                    blurRadius: 6,
+                                                    offset: const Offset(0, 2),
+                                                  ),
+                                                ]
+                                              : null,
+                                        ),
+                                        child: isSelected
+                                            ? const Icon(Icons.check, color: Colors.white, size: 18)
+                                            : null,
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
                     ),
                   ).toList(),
                 ),

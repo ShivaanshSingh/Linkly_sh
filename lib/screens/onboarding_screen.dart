@@ -79,7 +79,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     child: const Text(
                       'Skip',
                       style: TextStyle(
-                        color: AppColors.grey600,
+                        color: AppColors.textSecondary,
                         fontSize: 16,
                       ),
                     ),
@@ -192,7 +192,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             style: const TextStyle(
               fontSize: 28,
               fontWeight: FontWeight.bold,
-              color: AppColors.grey900,
+              color: AppColors.textPrimary,
             ),
             textAlign: TextAlign.center,
           ),
@@ -204,7 +204,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             data.description,
             style: const TextStyle(
               fontSize: 16,
-              color: AppColors.grey600,
+              color: AppColors.textSecondary,
               height: 1.5,
             ),
             textAlign: TextAlign.center,

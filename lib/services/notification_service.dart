@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class NotificationService extends ChangeNotifier {
   final FirebaseMessaging _messaging = FirebaseMessaging.instance;
@@ -14,6 +16,8 @@ class NotificationService extends ChangeNotifier {
   String? _currentUserId; // Add current user ID tracking
   bool _isLoading = false;
   List<Map<String, dynamic>> _notifications = [];
+  final Set<String> _seenNotificationDocIds = <String>{};
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _userNotifSub;
 
   String? get fcmToken => _fcmToken;
   bool get isLoading => _isLoading;
@@ -59,9 +63,25 @@ class NotificationService extends ChangeNotifier {
         return;
       }
 
+      // Ensure foreground presentation on iOS
+      await _messaging.setForegroundNotificationPresentationOptions(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
+
+      // Register background handler
+      FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+
       // Get FCM token
       _fcmToken = await _messaging.getToken();
       debugPrint('🔑 FCM Token: $_fcmToken');
+
+      // Ensure current user id is set even before token save
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid != null) {
+        setCurrentUserId(uid);
+      }
 
       // Set up message handlers
       _setupMessageHandlers();
@@ -181,6 +201,36 @@ class NotificationService extends ChangeNotifier {
     
     // Clean up any existing self-notifications from local list
     _cleanupSelfNotifications();
+
+    // Start listening to Firestore notifications for this user (to show local notifications)
+    _userNotifSub?.cancel();
+    _userNotifSub = _firestore
+        .collection('notifications')
+        .where('receiverId', isEqualTo: userId)
+        .snapshots()
+        .listen((snapshot) {
+      for (final doc in snapshot.docChanges) {
+        if (doc.type != DocumentChangeType.added) continue;
+        final id = doc.doc.id;
+        if (_seenNotificationDocIds.contains(id)) continue;
+        _seenNotificationDocIds.add(id);
+        final data = doc.doc.data();
+        if (data == null) continue;
+        final payload = data['data'] as Map<String, dynamic>?;
+        final senderId = payload?['senderId'];
+        final receiverId = payload?['receiverId'];
+        // Skip self notifications
+        if (senderId != null && receiverId != null && senderId == receiverId) continue;
+        // Only show if this device belongs to the receiver
+        if (_currentUserId != null && receiverId == _currentUserId) {
+          _showLocalNotification({
+            'title': data['title'],
+            'body': data['body'],
+            'data': payload ?? <String, dynamic>{},
+          });
+        }
+      }
+    });
   }
 
   // Clean up self-notifications from local list
@@ -256,26 +306,8 @@ class NotificationService extends ChangeNotifier {
       return;
     }
     
-    // SECOND CHECK: Block if sender is current user
-    if (_currentUserId != null && (senderId == _currentUserId || senderId.trim() == (_currentUserId?.trim()))) {
-      debugPrint('🚫 ABSOLUTE BLOCK: Notification blocked - sender ($senderId) is current user ($_currentUserId)');
-      return;
-    }
-    
     try {
 
-      // CRITICAL: Block if sender is current user (prevent self-notifications)
-      if (_currentUserId != null && senderId == _currentUserId) {
-        debugPrint('🚫 CRITICAL: Blocking notification - sender ($senderId) is current user ($_currentUserId)');
-        return;
-      }
-      
-      // Block if receiver is current user AND sender is current user (double-check)
-      if (_currentUserId != null && receiverId == _currentUserId && senderId == _currentUserId) {
-        debugPrint('🚫 CRITICAL: Blocking self-notification - both sender and receiver are current user');
-        return;
-      }
-      
       // Block if receiver matches sender (already checked above, but extra safety)
       if (receiverId == senderId) {
         debugPrint('🚫 CRITICAL: Blocking notification - receiver and sender are the same: $senderId');
@@ -296,16 +328,12 @@ class NotificationService extends ChangeNotifier {
         }
       };
 
-      // Send local notification immediately
-      await _showLocalNotification(notificationData);
-
       // Save notification to Firestore
       await _saveNotificationToFirestore(receiverId, notificationData);
 
       // Try to send FCM notification (for when app is in background)
-      // DISABLED: FCM notifications are causing self-notification issues
-      // await _sendFCMNotificationToUser(receiverId, notificationData);
-      debugPrint('🚫 FCM notifications disabled to prevent self-notifications');
+      // Note: Implementation may require a server key; this call is safe no-op if token missing
+      await _sendFCMNotificationToUser(receiverId, notificationData);
 
     } catch (e) {
       debugPrint('❌ Error sending message notification: $e');
@@ -424,12 +452,6 @@ class NotificationService extends ChangeNotifier {
         // Block if sender and receiver are the same
         if (senderId != null && senderId == receiverId) {
           debugPrint('🚫 Skipping saving self-notification to Firestore for sender: $senderId');
-          return;
-        }
-        
-        // Block if sender is current user
-        if (_currentUserId != null && senderId != null && senderId == _currentUserId) {
-          debugPrint('🚫 Skipping saving notification - sender is current user: $_currentUserId');
           return;
         }
       }
@@ -578,6 +600,11 @@ class NotificationService extends ChangeNotifier {
     notifyListeners();
   }
 
+  @override
+  void dispose() {
+    _userNotifSub?.cancel();
+    super.dispose();
+  }
 }
 
 // Background message handler

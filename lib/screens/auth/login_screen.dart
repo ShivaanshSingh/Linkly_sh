@@ -110,7 +110,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   style: TextStyle(
                     fontSize: 32,
                     fontWeight: FontWeight.bold,
-                    color: AppColors.primary,
+                    color: AppColors.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -118,7 +118,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   'Welcome back to Linkly',
                   style: TextStyle(
                     fontSize: 16,
-                    color: AppColors.grey600,
+                    color: AppColors.textSecondary,
                   ),
                 ),
                 
@@ -150,7 +150,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               'Email',
                               textAlign: TextAlign.center,
                               style: TextStyle(
-                                color: _isEmailMode ? Colors.white : AppColors.grey600,
+                                color: _isEmailMode ? Colors.white : AppColors.grey900,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
@@ -174,7 +174,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               'Username',
                               textAlign: TextAlign.center,
                               style: TextStyle(
-                                color: !_isEmailMode ? Colors.white : AppColors.grey600,
+                                color: !_isEmailMode ? Colors.white : AppColors.grey900,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
@@ -261,7 +261,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         const Text(
                           'Remember me',
-                          style: TextStyle(color: AppColors.grey600),
+                          style: TextStyle(color: AppColors.textSecondary),
                         ),
                       ],
                     ),
@@ -306,7 +306,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       child: Text(
                         'OR',
                         style: TextStyle(
-                          color: AppColors.grey500,
+                          color: AppColors.textSecondary,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -347,7 +347,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   children: [
                     const Text(
                       "Don't have an account? ",
-                      style: TextStyle(color: AppColors.grey600),
+                      style: TextStyle(color: AppColors.textSecondary),
                     ),
                     TextButton(
                       onPressed: () => context.go('/register'),

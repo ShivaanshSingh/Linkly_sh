@@ -68,7 +68,12 @@ class StatusService {
       
       // Get connection user IDs
       List<String> connectionUserIds = connectionsSnapshot.docs
-          .map((doc) => doc.data()['contactUserId'] as String)
+          .map((doc) {
+            final data = doc.data() as Map<String, dynamic>;
+            final dynamic raw = data['contactUserId'];
+            return raw is String && raw.isNotEmpty ? raw : null;
+          })
+          .whereType<String>()
           .toList();
       
       if (connectionUserIds.isEmpty) {

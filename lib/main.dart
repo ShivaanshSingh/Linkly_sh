@@ -32,6 +32,8 @@ import 'screens/analytics/analytics_screen.dart';
 import 'screens/digital_card/digital_card_screen.dart';
 import 'screens/notifications/notifications_screen.dart';
 import 'constants/app_theme.dart';
+import 'screens/legal/terms_of_service_screen.dart';
+import 'screens/legal/privacy_policy_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -120,7 +122,12 @@ GoRouter _createRouter(AuthService authService) {
       }
 
       // List of routes accessible to unauthenticated users
-      final bool isAuthRoute = currentPath == '/login' || currentPath == '/register' || currentPath == '/onboarding';
+      final bool isAuthRoute =
+          currentPath == '/login' ||
+          currentPath == '/register' ||
+          currentPath == '/onboarding' ||
+          currentPath == '/terms' ||
+          currentPath == '/privacy';
 
       // If not authenticated
       if (!isAuthenticated) {
@@ -219,6 +226,14 @@ GoRouter _createRouter(AuthService authService) {
     GoRoute(
       path: '/notifications',
       builder: (context, state) => const NotificationsScreen(),
+    ),
+    GoRoute(
+      path: '/terms',
+      builder: (context, state) => const TermsOfServiceScreen(),
+    ),
+    GoRoute(
+      path: '/privacy',
+      builder: (context, state) => const PrivacyPolicyScreen(),
     ),
     GoRoute(
       path: '/digital-card',

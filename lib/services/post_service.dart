@@ -59,7 +59,12 @@ class PostService extends ChangeNotifier {
           .get();
 
       List<String> connectionUserIds = connectionsSnapshot.docs
-          .map((doc) => doc.data()['contactUserId'] as String)
+          .map((doc) {
+            final data = doc.data() as Map<String, dynamic>;
+            final dynamic raw = data['contactUserId'];
+            return raw is String && raw.isNotEmpty ? raw : null;
+          })
+          .whereType<String>()
           .toList();
 
       // Add current user to the list so they see their own posts
@@ -201,7 +206,12 @@ class PostService extends ChangeNotifier {
         .snapshots()
         .asyncMap((connectionsSnapshot) async {
       List<String> connectionUserIds = connectionsSnapshot.docs
-          .map((doc) => doc.data()['contactUserId'] as String)
+          .map((doc) {
+            final data = doc.data() as Map<String, dynamic>;
+            final dynamic raw = data['contactUserId'];
+            return raw is String && raw.isNotEmpty ? raw : null;
+          })
+          .whereType<String>()
           .toList();
       
       // Add current user to the list

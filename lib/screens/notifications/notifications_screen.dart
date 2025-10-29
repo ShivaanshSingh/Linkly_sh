@@ -5,6 +5,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../constants/app_colors.dart';
 import '../../services/auth_service.dart';
 import '../../services/connection_request_service.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../models/user_model.dart';
+import '../chat/chat_screen.dart';
 import '../../services/notification_service.dart';
 import '../../models/connection_request_model.dart';
 import '../../widgets/connection_request_widget.dart';
@@ -187,7 +190,26 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                       itemCount: filteredNotifications.length,
                       itemBuilder: (context, index) {
                         final notification = filteredNotifications[index];
-                        return _buildNotificationCard(notification, notificationService, context);
+                        return Dismissible(
+                          key: Key(notification['id'] ?? '$index'),
+                          direction: DismissDirection.endToStart,
+                          background: Container(
+                            alignment: Alignment.centerRight,
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            decoration: BoxDecoration(
+                              color: Colors.red.withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Icon(Icons.delete, color: Colors.red),
+                          ),
+                          onDismissed: (_) {
+                            _deleteNotification(notification['id']);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Notification deleted')),
+                            );
+                          },
+                          child: _buildNotificationCard(notification, notificationService, context),
+                        );
                       },
                     ),
                   ),
@@ -204,14 +226,36 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     return FirebaseFirestore.instance
         .collection('notifications')
         .where('receiverId', isEqualTo: userId)
-        .orderBy('timestamp', descending: true)
         .snapshots()
         .map((snapshot) {
-      return snapshot.docs.map((doc) {
+      final list = snapshot.docs.map((doc) {
         final data = doc.data();
         data['id'] = doc.id;
         return data;
       }).toList();
+      // Sort client-side to avoid composite index requirement
+      list.sort((a, b) {
+        final ta = a['timestamp'];
+        final tb = b['timestamp'];
+        DateTime da;
+        DateTime db;
+        if (ta is Timestamp) {
+          da = ta.toDate();
+        } else if (ta is DateTime) {
+          da = ta;
+        } else {
+          da = DateTime.fromMillisecondsSinceEpoch(0);
+        }
+        if (tb is Timestamp) {
+          db = tb.toDate();
+        } else if (tb is DateTime) {
+          db = tb;
+        } else {
+          db = DateTime.fromMillisecondsSinceEpoch(0);
+        }
+        return db.compareTo(da);
+      });
+      return list;
     });
   }
 
@@ -466,8 +510,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     }
   }
 
-  void _handleNotificationTap(Map<String, dynamic> notification, BuildContext context) {
+  void _handleNotificationTap(Map<String, dynamic> notification, BuildContext context) async {
     final type = notification['type'] ?? '';
+    final auth = Provider.of<AuthService>(context, listen: false);
     
     // Mark as read
     _markAsRead(notification['id']);
@@ -475,32 +520,30 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     // Navigate based on notification type
     switch (type) {
       case 'connection_request':
-        // Navigate to connections screen
-        context.go('/home');
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Go to Connections tab to view the request'),
-            backgroundColor: AppColors.primary,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.all(Radius.circular(12)),
-            ),
-          ),
-        );
+        // Delete the notification after opening connections
+        _deleteNotification(notification['id']);
+        context.go('/connections');
         break;
       case 'message':
-        // Navigate to home screen
+        final data = notification['data'] as Map<String, dynamic>?;
+        final currentUserId = auth.user?.uid;
+        final senderId = data?['senderId'] as String?;
+        final receiverId = data?['receiverId'] as String?;
+        final otherUserId = currentUserId == senderId ? receiverId : senderId;
+        if (otherUserId != null) {
+          final userDoc = await FirebaseFirestore.instance.collection('users').doc(otherUserId).get();
+          if (userDoc.exists) {
+            final userModel = UserModel.fromFirestore(userDoc);
+            if (context.mounted) {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => ChatScreen(user: userModel)),
+              );
+            }
+            break;
+          }
+        }
+        // Fallback
         context.go('/home');
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Go to Messages tab to view the chat'),
-            backgroundColor: AppColors.primary,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.all(Radius.circular(12)),
-            ),
-          ),
-        );
         break;
       case 'post_like':
       case 'post_comment':

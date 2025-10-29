@@ -104,12 +104,8 @@ class MessageService {
         return;
       }
       
-      // Additional check: Don't notify the device if the sender is the current Firebase user
-      final currentUserId = FirebaseAuth.instance.currentUser?.uid;
-      if (currentUserId != null && currentUserId == message.senderId) {
-        print('🚫 MessageService: Current user is sender, skipping notification');
-        return;
-      }
+      // Do not block notifications just because current device is the sender.
+      // Only skip for true self-messages handled above.
 
       // Get sender's information
       final senderDoc = await _firestore.collection('users').doc(message.senderId).get();
@@ -122,10 +118,26 @@ class MessageService {
       final senderName = senderData['fullName'] ?? senderData['username'] ?? 'Someone';
       final senderProfileImageUrl = senderData['profileImageUrl'];
 
-      // Create notification service instance
+      // Write notification document directly (ensures it appears in receiver feed)
+      await _firestore.collection('notifications').add({
+        'receiverId': message.receiverId,
+        'title': 'New message from $senderName',
+        'body': message.text.length > 50 ? '${message.text.substring(0, 50)}...' : message.text,
+        'data': {
+          'type': 'message',
+          'senderId': message.senderId,
+          'senderName': senderName,
+          'receiverId': message.receiverId,
+          'messageText': message.text,
+          'timestamp': DateTime.now().toIso8601String(),
+        },
+        'timestamp': Timestamp.fromDate(DateTime.now()),
+        'isRead': false,
+        'type': 'message',
+      });
+
+      // Fire best-effort push via NotificationService
       final notificationService = NotificationService();
-      
-      // Send notification
       await notificationService.sendMessageNotification(
         senderId: message.senderId,
         senderName: senderName,

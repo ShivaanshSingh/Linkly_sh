@@ -33,8 +33,12 @@ class StatusModel {
       userProfileImageUrl: map['userProfileImageUrl'],
       text: map['text'],
       imageUrl: map['imageUrl'],
-      createdAt: (map['createdAt'] as Timestamp).toDate(),
-      expiresAt: (map['expiresAt'] as Timestamp).toDate(),
+      createdAt: map['createdAt'] != null
+          ? (map['createdAt'] as Timestamp).toDate()
+          : DateTime.now(),
+      expiresAt: map['expiresAt'] != null
+          ? (map['expiresAt'] as Timestamp).toDate()
+          : DateTime.now().add(const Duration(hours: 24)),
       viewers: List<String>.from(map['viewers'] ?? []),
       isViewed: map['isViewed'] ?? false,
     );
