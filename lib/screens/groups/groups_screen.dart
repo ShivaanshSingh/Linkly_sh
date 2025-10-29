@@ -17,7 +17,6 @@ class GroupsScreen extends StatefulWidget {
 }
 
 class _GroupsScreenState extends State<GroupsScreen> {
-  String _selectedFilter = 'All Groups';
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
 
@@ -131,19 +130,15 @@ class _GroupsScreenState extends State<GroupsScreen> {
                       ),
                       child: DropdownButtonHideUnderline(
                         child: DropdownButton<String>(
-                          value: _selectedFilter,
+                          value: 'Create New Group',
                           isExpanded: true,
-                          items: ['All Groups', 'Work', 'Personal', 'Networking', 'Create New Group']
+                          items: ['Create New Group']
                               .map((String value) {
                             return DropdownMenuItem<String>(
                               value: value,
                               child: Row(
                                 children: [
-                                  if (value == 'All Groups') Icon(Icons.group, color: AppColors.primary),
-                                  if (value == 'Work') Icon(Icons.work, color: AppColors.primary),
-                                  if (value == 'Personal') Icon(Icons.person, color: AppColors.success),
-                                  if (value == 'Networking') Icon(Icons.network_check, color: AppColors.warning),
-                                  if (value == 'Create New Group') Icon(Icons.add, color: AppColors.primary),
+                                  const Icon(Icons.add, color: AppColors.primary),
                                   const SizedBox(width: 8),
                                   Text(
                                     value,
@@ -161,10 +156,6 @@ class _GroupsScreenState extends State<GroupsScreen> {
                           onChanged: (String? newValue) {
                             if (newValue == 'Create New Group') {
                               _showCreateGroupDialog();
-                            } else if (newValue != null) {
-                              setState(() {
-                                _selectedFilter = newValue;
-                              });
                             }
                           },
                         ),
@@ -259,15 +250,6 @@ class _GroupsScreenState extends State<GroupsScreen> {
                       if (_searchQuery.isNotEmpty) {
                         if (!group.name.toLowerCase().contains(_searchQuery.toLowerCase()) &&
                             !group.description.toLowerCase().contains(_searchQuery.toLowerCase())) {
-                          return false;
-                        }
-                      }
-                      
-                      // Apply category filter
-                      if (_selectedFilter != 'All Groups') {
-                        // This is a simple implementation - in a real app you'd have group categories
-                        // For now, we'll just filter by group name containing the filter term
-                        if (!group.name.toLowerCase().contains(_selectedFilter.toLowerCase())) {
                           return false;
                         }
                       }

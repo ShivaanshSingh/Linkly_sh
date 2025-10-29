@@ -130,27 +130,28 @@ class NotificationService extends ChangeNotifier {
   }
 
   void _handleForegroundMessage(RemoteMessage message) {
-    // EXTREME CHECK: Block ALL self-notifications at the FCM level
-    final senderId = message.data['senderId'];
-    final receiverId = message.data['receiverId'];
+    // ABSOLUTE FIRST CHECK: Block ALL self-notifications at the FCM level
+    final senderId = message.data['senderId']?.toString();
+    final receiverId = message.data['receiverId']?.toString();
     
-    // Block if sender and receiver are the same
-    if (senderId != null && receiverId != null && senderId == receiverId) {
-      debugPrint('🚫 EXTREME: Blocking self-notification in FCM handler for sender: $senderId');
+    // Block if sender and receiver are the same (with trim check)
+    if (senderId != null && receiverId != null && 
+        (senderId == receiverId || senderId.trim() == receiverId.trim())) {
+      debugPrint('🚫 ABSOLUTE BLOCK: Blocking self-notification in FCM handler - senderId: $senderId, receiverId: $receiverId');
       return;
     }
     
-    // Block if sender is current user
-    if (_currentUserId != null && senderId == _currentUserId) {
-      debugPrint('🚫 EXTREME: Blocking self-notification for current user: $_currentUserId');
+    // Block if sender is current user (with trim check)
+    if (_currentUserId != null && senderId != null && 
+        (senderId == _currentUserId || senderId.trim() == (_currentUserId?.trim()))) {
+      debugPrint('🚫 ABSOLUTE BLOCK: Blocking notification in FCM - sender ($senderId) is current user ($_currentUserId)');
       return;
     }
     
-    // Block if message contains current user's name in title/body
-    final title = message.notification?.title ?? '';
-    final body = message.notification?.body ?? '';
-    if (_currentUserId != null && (title.contains('Adarsh Kesharwani') || body.contains('Adarsh Kesharwani'))) {
-      debugPrint('🚫 EXTREME: Blocking notification containing current user name');
+    // Block if receiver is current user AND sender is also current user (double-check)
+    if (_currentUserId != null && receiverId != null && senderId != null &&
+        receiverId == _currentUserId && senderId == _currentUserId) {
+      debugPrint('🚫 ABSOLUTE BLOCK: Blocking self-notification - both sender and receiver are current user');
       return;
     }
     
@@ -249,22 +250,35 @@ class NotificationService extends ChangeNotifier {
     required String messageText,
     String? senderProfileImageUrl,
   }) async {
+    // ABSOLUTE FIRST CHECK: Return immediately if sender == receiver (before any processing)
+    if (senderId == receiverId || senderId.trim() == receiverId.trim()) {
+      debugPrint('🚫 ABSOLUTE BLOCK: Self-notification blocked immediately - senderId: $senderId, receiverId: $receiverId');
+      return;
+    }
+    
+    // SECOND CHECK: Block if sender is current user
+    if (_currentUserId != null && (senderId == _currentUserId || senderId.trim() == (_currentUserId?.trim()))) {
+      debugPrint('🚫 ABSOLUTE BLOCK: Notification blocked - sender ($senderId) is current user ($_currentUserId)');
+      return;
+    }
+    
     try {
-      // EXTREME BLOCK: Complete block for self-notifications
-      if (senderId == receiverId) {
-        debugPrint('🚫 EXTREME: Complete block for self-notification from $senderId');
-        return;
-      }
 
-      // Additional safety check
+      // CRITICAL: Block if sender is current user (prevent self-notifications)
       if (_currentUserId != null && senderId == _currentUserId) {
-        debugPrint('🚫 EXTREME: Additional safety block for current user $_currentUserId');
+        debugPrint('🚫 CRITICAL: Blocking notification - sender ($senderId) is current user ($_currentUserId)');
         return;
       }
-
-      // Block if sender name contains current user's name
-      if (senderName.contains('Adarsh Kesharwani')) {
-        debugPrint('🚫 EXTREME: Blocking notification with current user name in sender');
+      
+      // Block if receiver is current user AND sender is current user (double-check)
+      if (_currentUserId != null && receiverId == _currentUserId && senderId == _currentUserId) {
+        debugPrint('🚫 CRITICAL: Blocking self-notification - both sender and receiver are current user');
+        return;
+      }
+      
+      // Block if receiver matches sender (already checked above, but extra safety)
+      if (receiverId == senderId) {
+        debugPrint('🚫 CRITICAL: Blocking notification - receiver and sender are the same: $senderId');
         return;
       }
 
@@ -305,8 +319,22 @@ class NotificationService extends ChangeNotifier {
       if (data != null) {
         final senderId = data['senderId'];
         final receiverId = data['receiverId'];
+        
+        // Block if sender and receiver are the same
         if (senderId != null && receiverId != null && senderId == receiverId) {
           debugPrint('🚫 Skipping local notification for self-message from sender: $senderId');
+          return;
+        }
+        
+        // Block if sender is current user
+        if (_currentUserId != null && senderId != null && senderId == _currentUserId) {
+          debugPrint('🚫 Skipping local notification - sender is current user: $_currentUserId');
+          return;
+        }
+        
+        // Block if receiver is not current user (can't notify yourself)
+        if (_currentUserId != null && receiverId != null && receiverId == _currentUserId && senderId == _currentUserId) {
+          debugPrint('🚫 Skipping local notification - self-message detected');
           return;
         }
       }
@@ -392,8 +420,16 @@ class NotificationService extends ChangeNotifier {
       final data = notificationData['data'] as Map<String, dynamic>?;
       if (data != null) {
         final senderId = data['senderId'];
+        
+        // Block if sender and receiver are the same
         if (senderId != null && senderId == receiverId) {
           debugPrint('🚫 Skipping saving self-notification to Firestore for sender: $senderId');
+          return;
+        }
+        
+        // Block if sender is current user
+        if (_currentUserId != null && senderId != null && senderId == _currentUserId) {
+          debugPrint('🚫 Skipping saving notification - sender is current user: $_currentUserId');
           return;
         }
       }

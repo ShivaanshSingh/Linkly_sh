@@ -346,6 +346,30 @@ class ConnectionRequestService {
     }
   }
 
+  // Remove connection ONLY from the initiator's side (one-way removal)
+  Future<void> removeConnectionOneSide(String userId, String contactUserId) async {
+    try {
+      // Find connections where the initiator is the owner of the connection doc
+      final connections = await _firestore
+          .collection('connections')
+          .where('userId', isEqualTo: userId)
+          .where('contactUserId', isEqualTo: contactUserId)
+          .get();
+
+      if (connections.docs.isEmpty) {
+        return; // Nothing to delete on initiator side
+      }
+
+      final batch = _firestore.batch();
+      for (final doc in connections.docs) {
+        batch.delete(doc.reference);
+      }
+      await batch.commit();
+    } catch (e) {
+      throw Exception('Failed to remove connection (one-way): ${e.toString()}');
+    }
+  }
+
   // Create notification for connection request
   Future<void> _createConnectionRequestNotification({
     required String receiverId,

@@ -114,15 +114,27 @@ class HomeDashboard extends StatefulWidget {
 
 class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateMixin {
   int _selectedTab = 0; // 0 for Feeds, 1 for Digital Card
-  late PageController _pageController;
   late AnimationController _tabAnimationController;
+  late AnimationController _slideAnimationController;
+  double _pageOffset = 0.0; // Track page scroll position for smooth indicator animation (0.0 = Feeds, 1.0 = Digital Card)
+  late ScrollController _scrollController;
+  double _scrollOffset = 0.0; // Track scroll position for fade effect
 
   @override
   void initState() {
     super.initState();
-    _pageController = PageController(initialPage: 0);
+    _scrollController = ScrollController();
+    _scrollController.addListener(() {
+      setState(() {
+        _scrollOffset = _scrollController.offset;
+      });
+    });
     _tabAnimationController = AnimationController(
       duration: const Duration(milliseconds: 300),
+      vsync: this,
+    );
+    _slideAnimationController = AnimationController(
+      duration: const Duration(milliseconds: 250),
       vsync: this,
     );
     
@@ -136,8 +148,9 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
 
   @override
   void dispose() {
-    _pageController.dispose();
+    _scrollController.dispose();
     _tabAnimationController.dispose();
+    _slideAnimationController.dispose();
     super.dispose();
   }
 
@@ -146,9 +159,9 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.backgroundLight, // Beautiful Light Blue Background
+      backgroundColor: Color(0xFF0E1624), // Beautiful Light Blue Background
       appBar: AppBar(
-        backgroundColor: AppColors.white, // Clean White App Bar
+        backgroundColor: Color(0xFF101B2D), // Clean White App Bar
         elevation: 0,
         surfaceTintColor: AppColors.white,
         automaticallyImplyLeading: false,
@@ -179,43 +192,136 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
         ],
       ),
       body: SafeArea(
-        child: Column(
+        child: Stack(
           children: [
-            // Header with greeting and profile
-            _buildHeader(),
-            
-            // Status section
-            const StatusStoriesWidget(),
-            const SizedBox(height: 6),
-            
-            // Tab Bar
-            _buildTabBar(),
-            
-            // Content with smooth transitions
-            Expanded(
-              child: PageView(
-                controller: _pageController,
-                physics: const BouncingScrollPhysics(),
-                allowImplicitScrolling: false,
-                onPageChanged: (index) {
+            // Content area that slides horizontally - takes full screen
+            GestureDetector(
+                onHorizontalDragUpdate: (details) {
+                  // Only handle horizontal drag if not actively scrolling vertically
+                  if (_scrollController.hasClients && _scrollController.offset > 10) {
+                    return;
+                  }
+                  final screenWidth = MediaQuery.of(context).size.width;
+                  final delta = details.delta.dx / screenWidth;
                   setState(() {
-                    _selectedTab = index;
-                  });
-                  _tabAnimationController.forward().then((_) {
-                    _tabAnimationController.reset();
+                    _pageOffset = (_pageOffset - delta).clamp(0.0, 1.0);
                   });
                 },
-                children: [
-                  _buildFeedsContentWrapper(),
-                  _buildDigitalCardContentWrapper(),
-                ],
+                onHorizontalDragEnd: (details) {
+                  // Only handle horizontal drag end if not actively scrolling vertically
+                  if (_scrollController.hasClients && _scrollController.offset > 10) {
+                    return;
+                  }
+                  final velocity = details.primaryVelocity ?? 0;
+                  final threshold = 0.5;
+                  
+                  int targetTab;
+                  double targetOffset;
+                  
+                  if (velocity < -500 || _pageOffset > threshold) {
+                    // Swipe left or past threshold -> Digital Card
+                    targetTab = 1;
+                    targetOffset = 1.0;
+                  } else if (velocity > 500 || _pageOffset < (1 - threshold)) {
+                    // Swipe right or past threshold -> Feeds
+                    targetTab = 0;
+                    targetOffset = 0.0;
+                  } else {
+                    // Snap to nearest
+                    targetTab = _pageOffset >= threshold ? 1 : 0;
+                    targetOffset = targetTab.toDouble();
+                  }
+                  
+                  setState(() {
+                    _selectedTab = targetTab;
+                  });
+                  
+                  // Animate smoothly to target offset
+                  final startOffset = _pageOffset;
+                  _slideAnimationController.reset();
+                  final animation = Tween<double>(begin: startOffset, end: targetOffset).animate(
+                    CurvedAnimation(parent: _slideAnimationController, curve: Curves.easeOutCubic),
+                  );
+                  animation.addListener(() {
+                    setState(() {
+                      _pageOffset = animation.value;
+                    });
+                  });
+                  _slideAnimationController.forward();
+                  _tabAnimationController.forward().then((_) { 
+                    _tabAnimationController.reset(); 
+                  });
+                },
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final screenWidth = constraints.maxWidth;
+                    // Calculate horizontal offset: 0 = Feeds visible, -screenWidth = Digital Card visible
+                    final horizontalOffset = -_pageOffset * screenWidth;
+                    
+                    return Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        // Feeds content - slides left when swiping right
+                        Transform.translate(
+                          offset: Offset(horizontalOffset, 0),
+                          child: SizedBox(
+                            width: screenWidth,
+                            height: constraints.maxHeight,
+                            child: _buildFeedsContentWrapper(),
+                          ),
+                        ),
+                        // Digital Card content - slides in from right when swiping left
+                        Transform.translate(
+                          offset: Offset(horizontalOffset + screenWidth, 0),
+                          child: SizedBox(
+                            width: screenWidth,
+                            height: constraints.maxHeight,
+                            child: _buildDigitalCardContentWrapper(),
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ),
+            // Header, status, and tabs overlay on top (fade on scroll in Feeds mode)
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: Opacity(
+                opacity: _selectedTab == 0 
+                    ? (1.0 - (_scrollOffset / 100).clamp(0.0, 1.0))
+                    : 1.0,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildHeader(),
+                    const StatusStoriesWidget(),
+                    const SizedBox(height: 6),
+                    _buildTabBar(),
+                  ],
+                ),
               ),
             ),
           ],
         ),
       ),
-      floatingActionButton: null,
-      // FloatingActionButton removed as requested
+      floatingActionButton: _selectedTab == 0
+          ? FloatingActionButton(
+              heroTag: 'fab_create_post',
+              backgroundColor: AppColors.primary,
+              foregroundColor: AppColors.white,
+              child: const Icon(Icons.add),
+              onPressed: () {
+                showDialog(
+                  context: context,
+                  builder: (context) => const CreatePostModal(),
+                );
+              },
+            )
+          : null,
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
     );
   }
 
@@ -368,63 +474,76 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
           ),
         ],
       ),
-      child: Row(
-        children: [
-          Expanded(
-            child: GestureDetector(
-              onTap: () => _switchToTab(0),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 300),
-                curve: Curves.easeInOut,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                decoration: BoxDecoration(
-                  color: _selectedTab == 0 ? AppColors.secondary : Colors.transparent, // Orange
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: AnimatedDefaultTextStyle(
-                  duration: const Duration(milliseconds: 300),
-                  style: TextStyle(
-                    color: _selectedTab == 0 ? AppColors.white : AppColors.primary, // Medium Blue
-                    fontWeight: FontWeight.w600,
-                    fontSize: 15,
-                    letterSpacing: -0.2,
-                  ),
-                  child: const Text(
-                    'Feeds',
-                    textAlign: TextAlign.center,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final tabWidth = constraints.maxWidth / 2;
+          final indicatorPosition = _pageOffset.clamp(0.0, 1.0) * tabWidth;
+          
+          return Stack(
+            children: [
+              // Sliding indicator background that follows swipe
+              Positioned(
+                left: indicatorPosition,
+                top: 4,
+                bottom: 4,
+                child: Container(
+                  width: tabWidth,
+                  decoration: BoxDecoration(
+                    color: AppColors.secondary, // Orange
+                    borderRadius: BorderRadius.circular(10),
                   ),
                 ),
               ),
-            ),
-          ),
-          Expanded(
-            child: GestureDetector(
-              onTap: () => _switchToTab(1),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 300),
-                curve: Curves.easeInOut,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                decoration: BoxDecoration(
-                  color: _selectedTab == 1 ? AppColors.secondary : Colors.transparent, // Orange
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: AnimatedDefaultTextStyle(
-                  duration: const Duration(milliseconds: 300),
-                  style: TextStyle(
-                    color: _selectedTab == 1 ? AppColors.white : AppColors.primary, // Medium Blue
-                    fontWeight: FontWeight.w600,
-                    fontSize: 15,
-                    letterSpacing: -0.2,
+              // Tab buttons
+              Row(
+                children: [
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () => _switchToTab(0),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        child: AnimatedDefaultTextStyle(
+                          duration: const Duration(milliseconds: 100),
+                          style: TextStyle(
+                            color: _pageOffset < 0.5 ? AppColors.white : AppColors.primary,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 15,
+                            letterSpacing: -0.2,
+                          ),
+                          child: const Text(
+                            'Feeds',
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
-                  child: const Text(
-                    'Digital Card',
-                    textAlign: TextAlign.center,
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () => _switchToTab(1),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        child: AnimatedDefaultTextStyle(
+                          duration: const Duration(milliseconds: 100),
+                          style: TextStyle(
+                            color: _pageOffset >= 0.5 ? AppColors.white : AppColors.primary,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 15,
+                            letterSpacing: -0.2,
+                          ),
+                          child: const Text(
+                            'Digital Card',
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
-                ),
+                ],
               ),
-            ),
-          ),
-        ],
+            ],
+          );
+        },
       ),
     );
   }
@@ -433,89 +552,42 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
     setState(() {
       _selectedTab = index;
     });
-    _pageController.animateToPage(
-      index,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeInOut,
+    // Animate _pageOffset smoothly
+    final targetOffset = index.toDouble();
+    final startOffset = _pageOffset;
+    _slideAnimationController.reset();
+    final animation = Tween<double>(begin: startOffset, end: targetOffset).animate(
+      CurvedAnimation(parent: _slideAnimationController, curve: Curves.easeOutCubic),
     );
+    animation.addListener(() {
+      setState(() {
+        _pageOffset = animation.value;
+      });
+    });
+    _slideAnimationController.forward();
     _tabAnimationController.forward().then((_) {
       _tabAnimationController.reset();
     });
   }
 
+
+  // Wrapper around feeds content (only posts list, no headers)
   Widget _buildFeedsContentWrapper() {
-    return GestureDetector(
-      onHorizontalDragEnd: (details) {
-        // Allow horizontal swipes to pass through to PageView
-        if (details.primaryVelocity != null) {
-          if (details.primaryVelocity! > 0 && _selectedTab > 0) {
-            // Swipe right - go to previous page
-            _switchToTab(_selectedTab - 1);
-          } else if (details.primaryVelocity! < 0 && _selectedTab < 1) {
-            // Swipe left - go to next page
-            _switchToTab(_selectedTab + 1);
-          }
-        }
-      },
-      child: _buildFeedsContent(),
-    );
-  }
-
-  Widget _buildDigitalCardContentWrapper() {
-    return GestureDetector(
-      onHorizontalDragEnd: (details) {
-        // Allow horizontal swipes to pass through to PageView
-        if (details.primaryVelocity != null) {
-          if (details.primaryVelocity! > 0 && _selectedTab > 0) {
-            // Swipe right - go to previous page
-            _switchToTab(_selectedTab - 1);
-          } else if (details.primaryVelocity! < 0 && _selectedTab < 1) {
-            // Swipe left - go to next page
-            _switchToTab(_selectedTab + 1);
-          }
-        }
-      },
-      child: _buildDigitalCardContent(),
-    );
-  }
-
-  Widget _buildFeedsContent() {
     return Consumer<PostService>(
       builder: (context, postService, child) {
         if (postService.isLoading) {
-          return const Center(
-            child: CircularProgressIndicator(),
-          );
+          return const Center(child: CircularProgressIndicator());
         }
-
         if (postService.error != null) {
           return Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(
-                  Icons.error_outline,
-                  size: 64,
-                  color: AppColors.grey400,
-                ),
+                Icon(Icons.error_outline, size: 64, color: AppColors.grey400),
                 const SizedBox(height: 16),
-                Text(
-                  'Error loading posts',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.grey900,
-                  ),
-                ),
+                Text('Error loading posts', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.grey900)),
                 const SizedBox(height: 8),
-                Text(
-                  postService.error!,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: AppColors.grey600,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
+                Text(postService.error!, style: TextStyle(fontSize: 14, color: AppColors.grey600), textAlign: TextAlign.center),
                 const SizedBox(height: 16),
                 ElevatedButton(
                   onPressed: () {
@@ -523,105 +595,47 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
                     postService.getPosts(currentUserId: authService.user?.uid);
                   },
                   child: const Text('Retry'),
-                ),
+                )
               ],
             ),
           );
         }
-
-        if (postService.posts.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.feed_outlined,
-                  size: 64,
-                  color: AppColors.grey400,
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'No posts yet',
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.grey700,
-                    letterSpacing: -0.3,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Be the first to share something!',
-                  style: TextStyle(
-                    fontSize: 15,
-                    color: AppColors.grey500,
-                    fontWeight: FontWeight.w400,
-                    letterSpacing: -0.2,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [AppColors.primary, AppColors.primaryLight],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.primary.withOpacity(0.3),
-                        blurRadius: 8,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: ElevatedButton.icon(
-                    onPressed: () {
-                      showDialog(
-                        context: context,
-                        builder: (context) => const CreatePostModal(),
-                      );
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.transparent,
-                      shadowColor: Colors.transparent,
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    icon: const Icon(Icons.add, color: Colors.white, size: 20),
-                    label: const Text(
-                      'Create Post',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: -0.2,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          );
-        }
-
+        
         return ListView(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
+          controller: _scrollController,
+          padding: EdgeInsets.zero,
           physics: const ClampingScrollPhysics(),
           children: [
-            // Posts section
-            if (postService.posts.isEmpty)
-              _buildEmptyPostsState()
-            else
-              ...postService.posts.map((post) => _buildFeedPost(post, postService.posts.indexOf(post))),
+            // Spacer for header height - allows posts to scroll to top
+            SizedBox(
+              height: 280, // Header + status + tabs height with extra clearance
+            ),
+            // Posts section or empty state
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: postService.posts.isEmpty
+                  ? _buildEmptyPostsState()
+                  : Column(
+                      children: postService.posts
+                          .map((post) => _buildFeedPost(post, postService.posts.indexOf(post)))
+                          .toList(),
+                    ),
+            ),
           ],
         );
       },
     );
   }
+
+  // Wrapper around digital card content (only card content, no headers)
+  Widget _buildDigitalCardContentWrapper() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.only(top: 280), // Match header height for consistency
+      child: _buildDigitalCardContent(),
+    );
+  }
+
+  
 
   Widget _buildEmptyPostsState() {
     return Container(
@@ -907,7 +921,7 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
   }
 
   Widget _buildDigitalCardContent() {
-    return SingleChildScrollView(
+    return Padding(
       padding: const EdgeInsets.symmetric(vertical: 16),
       child: Column(
         mainAxisSize: MainAxisSize.min,

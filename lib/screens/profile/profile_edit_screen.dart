@@ -244,6 +244,9 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
         socialLinks: socialLinks,
       );
 
+      // Refresh user data to ensure profile image is updated
+      await authService.loadUserData();
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(

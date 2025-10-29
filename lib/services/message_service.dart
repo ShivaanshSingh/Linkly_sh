@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/message_model.dart';
 import 'notification_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class MessageService {
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -100,6 +101,13 @@ class MessageService {
       // CRITICAL: Don't send notification if sender and receiver are the same
       if (message.senderId == message.receiverId) {
         print('🚫 MessageService: Skipping self-notification for sender: ${message.senderId}');
+        return;
+      }
+      
+      // Additional check: Don't notify the device if the sender is the current Firebase user
+      final currentUserId = FirebaseAuth.instance.currentUser?.uid;
+      if (currentUserId != null && currentUserId == message.senderId) {
+        print('🚫 MessageService: Current user is sender, skipping notification');
         return;
       }
 

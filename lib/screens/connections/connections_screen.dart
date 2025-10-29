@@ -1027,6 +1027,37 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
     );
   }
 
+  Future<String?> _getUserProfileImageUrl(String userId) async {
+    try {
+      final userDoc = await _firestore.collection('users').doc(userId).get();
+      if (userDoc.exists) {
+        final userData = userDoc.data();
+        return userData?['profileImageUrl'] as String?;
+      }
+      return null;
+    } catch (e) {
+      debugPrint('Error fetching user profile image: $e');
+      return null;
+    }
+  }
+
+  Widget _buildDefaultAvatar(String name) {
+    final initial = name.isNotEmpty ? name[0].toUpperCase() : 'A';
+    return Container(
+      color: Colors.purple,
+      child: Center(
+        child: Text(
+          initial,
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 24,
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildConnectionCard(ConnectionModel connection) {
     return Container(
       margin: const EdgeInsets.only(bottom: 20),
@@ -1051,33 +1082,38 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
             Row(
               children: [
                 // Profile image with circular design like reference
-                Container(
-                  width: 60,
-                  height: 60,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.purple, width: 3), // Purple border like reference
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.2),
-                        blurRadius: 8,
-                        offset: const Offset(0, 3),
+                FutureBuilder<String?>(
+                  future: _getUserProfileImageUrl(connection.contactUserId),
+                  builder: (context, snapshot) {
+                    final profileImageUrl = snapshot.data;
+                    return Container(
+                      width: 60,
+                      height: 60,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.purple, width: 3), // Purple border like reference
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.2),
+                            blurRadius: 8,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                  child: Center(
-                    child: Text(
-                      connection.contactName.isNotEmpty 
-                          ? connection.contactName[0].toUpperCase() 
-                          : 'A',
-                      style: const TextStyle(
-                        color: Color(0xFF2D2D2D),
-                        fontWeight: FontWeight.bold,
-                        fontSize: 24,
+                      child: ClipOval(
+                        child: profileImageUrl != null
+                            ? Image.network(
+                                profileImageUrl,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) {
+                                  return _buildDefaultAvatar(connection.contactName);
+                                },
+                              )
+                            : _buildDefaultAvatar(connection.contactName),
                       ),
-                    ),
-                  ),
+                    );
+                  },
                 ),
                 const SizedBox(width: 16),
                 
@@ -1879,8 +1915,8 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
         ),
       );
 
-      // Remove connection from Firebase
-      await connectionRequestService.removeConnectionByUserIds(
+      // Remove connection ONLY from current user's side (one-way removal)
+      await connectionRequestService.removeConnectionOneSide(
         authService.user!.uid,
         connection.contactUserId,
       );
