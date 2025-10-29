@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../constants/app_colors.dart';
 import '../../models/connection_model.dart';
 import '../../models/connection_request_model.dart';
@@ -639,17 +640,17 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.backgroundLight,
+      backgroundColor: AppColors.grey900, // Overall Background - matching homepage
       appBar: AppBar(
-        backgroundColor: AppColors.white,
+        backgroundColor: AppColors.grey800, // Sidebar/AppBar Background - matching homepage
         elevation: 0,
-        surfaceTintColor: AppColors.white,
+        surfaceTintColor: AppColors.grey800,
         title: Row(
           children: [
             const Text(
               'My Connections',
               style: TextStyle(
-                color: AppColors.grey700,
+                color: AppColors.textPrimary, // Bright White Text - matching homepage
                 fontWeight: FontWeight.w600,
                 fontSize: 20,
                 letterSpacing: -0.3,
@@ -680,11 +681,11 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: AppColors.grey50,
+              color: AppColors.grey700, // Dark Violet for Secondary Buttons
               shape: BoxShape.circle,
             ),
             child: IconButton(
-              icon: const Icon(Icons.person_add, color: AppColors.grey600, size: 20),
+              icon: const Icon(Icons.person_add, color: AppColors.textPrimary, size: 20),
               onPressed: () {
                 Navigator.of(context).push(
                   MaterialPageRoute(
@@ -700,7 +701,7 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: _pendingRequests.isNotEmpty ? AppColors.primary : AppColors.grey50,
+              color: _pendingRequests.isNotEmpty ? AppColors.primary : AppColors.grey700, // Dark Violet for Secondary Buttons
               shape: BoxShape.circle,
               boxShadow: _pendingRequests.isNotEmpty ? [
                 BoxShadow(
@@ -713,7 +714,7 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
             child: IconButton(
               icon: Icon(
                 Icons.person_add_alt_1, 
-                color: _pendingRequests.isNotEmpty ? Colors.white : AppColors.grey600, 
+                color: _pendingRequests.isNotEmpty ? Colors.white : AppColors.textPrimary, // White for visibility 
                 size: 20
               ),
               onPressed: () {
@@ -764,14 +765,14 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
               children: [
                 Icon(
                   Icons.people,
-                  color: AppColors.grey600,
+                  color: AppColors.textPrimary, // White icon for visibility on dark background
                   size: 20,
                 ),
                 const SizedBox(width: 12),
                 Text(
                   '${_filteredConnections.length} connections found',
                   style: const TextStyle(
-                    color: AppColors.grey700,
+                    color: AppColors.textPrimary, // White text for visibility on dark background
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
                     letterSpacing: -0.2,
@@ -840,26 +841,39 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
                 controller: _searchController,
                 onChanged: (value) => _filterConnections(),
                 style: const TextStyle(
-                  color: AppColors.grey700,
+                  color: AppColors.grey900, // Dark text for white background
                   fontSize: 15,
                   fontWeight: FontWeight.w400,
                   letterSpacing: -0.2,
                 ),
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   hintText: 'Search by name, email, or company...',
-                  hintStyle: TextStyle(
+                  hintStyle: const TextStyle(
                     color: AppColors.grey400,
                     fontSize: 15,
                     fontWeight: FontWeight.w400,
                     letterSpacing: -0.2,
                   ),
-                  prefixIcon: Icon(
+                  filled: true,
+                  fillColor: AppColors.white, // Ensure white background
+                  prefixIcon: const Icon(
                     Icons.search,
                     color: AppColors.grey400,
                     size: 20,
                   ),
-                  border: InputBorder.none,
-                  contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: AppColors.primary, width: 2),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                 ),
               ),
             ),
@@ -1041,6 +1055,91 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
     }
   }
 
+  Future<String?> _getUserPhoneNumber(String userId) async {
+    try {
+      final userDoc = await _firestore.collection('users').doc(userId).get();
+      if (userDoc.exists) {
+        final data = userDoc.data();
+        if (data == null) return null;
+        // Try multiple common keys and return the first non-empty string
+        final possibleKeys = [
+          'phoneNumber',
+          'phone',
+          'mobile',
+          'mobileNumber',
+          'contactNumber',
+          'phone_number',
+        ];
+        for (final key in possibleKeys) {
+          final value = data[key];
+          if (value is String && value.trim().isNotEmpty) {
+            return value.trim();
+          }
+        }
+      }
+      return null;
+    } catch (e) {
+      debugPrint('Error fetching user phone number: $e');
+      return null;
+    }
+  }
+
+  Future<String?> _getUserLinkedInUrl(String userId) async {
+    try {
+      final userDoc = await _firestore.collection('users').doc(userId).get();
+      if (userDoc.exists) {
+        final data = userDoc.data();
+        if (data == null) return null;
+        
+        // Check socialLinks map for LinkedIn
+        if (data['socialLinks'] != null && data['socialLinks'] is Map) {
+          final socialLinks = data['socialLinks'] as Map;
+          final linkedInUrl = socialLinks['linkedin'];
+          if (linkedInUrl is String && linkedInUrl.trim().isNotEmpty) {
+            return linkedInUrl.trim();
+          }
+        }
+        
+        // Fallback: check direct linkedin field
+        final linkedIn = data['linkedin'];
+        if (linkedIn is String && linkedIn.trim().isNotEmpty) {
+          return linkedIn.trim();
+        }
+      }
+      return null;
+    } catch (e) {
+      debugPrint('Error fetching user LinkedIn URL: $e');
+      return null;
+    }
+  }
+
+  Future<void> _launchEmail(String email) async {
+    final Uri emailUri = Uri(
+      scheme: 'mailto',
+      path: email,
+    );
+    if (await canLaunchUrl(emailUri)) {
+      await launchUrl(emailUri);
+    } else {
+      debugPrint('Could not launch email: $email');
+    }
+  }
+
+  Future<void> _launchLinkedIn(String url) async {
+    String linkedInUrl = url;
+    // Ensure URL has a scheme
+    if (!linkedInUrl.startsWith('http://') && !linkedInUrl.startsWith('https://')) {
+      linkedInUrl = 'https://$linkedInUrl';
+    }
+    
+    final Uri linkedInUri = Uri.parse(linkedInUrl);
+    if (await canLaunchUrl(linkedInUri)) {
+      await launchUrl(linkedInUri, mode: LaunchMode.externalApplication);
+    } else {
+      debugPrint('Could not launch LinkedIn URL: $url');
+    }
+  }
+
   Widget _buildDefaultAvatar(String name) {
     final initial = name.isNotEmpty ? name[0].toUpperCase() : 'A';
     return Container(
@@ -1203,60 +1302,126 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  // Email
-                  Row(
-                    children: [
-                      Icon(Icons.email_outlined, color: Colors.white, size: 16),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          connection.contactEmail,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w400,
-                            letterSpacing: 0.2,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                  
-                  // LinkedIn
-                  Row(
-                    children: [
-                      Icon(Icons.link, color: Colors.white, size: 16),
-                      const SizedBox(width: 8),
-                      const Text(
-                        'LinkedIn Profile',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w400,
-                          letterSpacing: 0.2,
-                        ),
-                      ),
-                    ],
-                  ),
-                  
-                  // Phone (if available)
-                  if (connection.contactPhone != null && connection.contactPhone!.isNotEmpty)
-                    Row(
+                  // Email (clickable)
+                  GestureDetector(
+                    onTap: () => _launchEmail(connection.contactEmail),
+                    child: Row(
                       children: [
-                        Icon(Icons.phone_outlined, color: Colors.white, size: 16),
+                        Icon(Icons.email_outlined, color: Colors.white, size: 16),
                         const SizedBox(width: 8),
-                        Text(
-                          connection.contactPhone!,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w400,
-                            letterSpacing: 0.2,
+                        Expanded(
+                          child: Text(
+                            connection.contactEmail,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w400,
+                              letterSpacing: 0.2,
+                              decoration: TextDecoration.underline,
+                              decorationColor: Colors.white,
+                            ),
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       ],
                     ),
+                  ),
+                  
+                  // LinkedIn (clickable)
+                  FutureBuilder<String?>(
+                    future: _getUserLinkedInUrl(connection.contactUserId),
+                    builder: (context, snapshot) {
+                      final linkedInUrl = snapshot.data;
+                      if (linkedInUrl != null && linkedInUrl.isNotEmpty) {
+                        return GestureDetector(
+                          onTap: () => _launchLinkedIn(linkedInUrl),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.link, color: Colors.white, size: 16),
+                              const SizedBox(width: 8),
+                              const Text(
+                                'LinkedIn Profile',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w400,
+                                  letterSpacing: 0.2,
+                                  decoration: TextDecoration.underline,
+                                  decorationColor: Colors.white,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }
+                      // If no LinkedIn URL, show non-clickable text
+                      return const Row(
+                        children: [
+                          Icon(Icons.link, color: Colors.white70, size: 16),
+                          SizedBox(width: 8),
+                          Text(
+                            'LinkedIn Profile',
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w400,
+                              letterSpacing: 0.2,
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                  
+                  // Phone (fetched from Firestore)
+                  FutureBuilder<String?>(
+                    future: _getUserPhoneNumber(connection.contactUserId),
+                    builder: (context, snapshot) {
+                      final phoneNumber = snapshot.data;
+                      if (phoneNumber != null && phoneNumber.isNotEmpty) {
+                        return Row(
+                          children: [
+                            const Icon(Icons.phone_outlined, color: Colors.white, size: 16),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                phoneNumber,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w400,
+                                  letterSpacing: 0.2,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        );
+                      }
+                      // If phone number is not available, check connection.contactPhone as fallback
+                      if (connection.contactPhone != null && connection.contactPhone!.isNotEmpty) {
+                        return Row(
+                          children: [
+                            const Icon(Icons.phone_outlined, color: Colors.white, size: 16),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                connection.contactPhone!,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w400,
+                                  letterSpacing: 0.2,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        );
+                      }
+                      return const SizedBox.shrink(); // Return empty widget if no phone number
+                    },
+                  ),
                   
                   // Bottom section with Message and Date
                   Row(

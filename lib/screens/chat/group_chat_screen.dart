@@ -517,23 +517,32 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                 Expanded(
                   child: Container(
                     decoration: BoxDecoration(
-                      color: const Color(0xFF1A1A1A),
+                      color: AppColors.white, // White background for better text visibility
                       borderRadius: BorderRadius.circular(25),
-                      border: Border.all(color: const Color(0xFF404040)),
+                      border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
                     ),
                     child: TextField(
                       controller: _messageController,
                       focusNode: _focusNode,
-                      style: const TextStyle(color: Colors.white),
-                      decoration: const InputDecoration(
+                      style: const TextStyle(
+                        color: AppColors.grey900, // Very dark text for maximum visibility
+                        fontSize: 16,
+                        fontWeight: FontWeight.w400,
+                      ),
+                      decoration: InputDecoration(
                         hintText: 'Type a message...',
-                        hintStyle: TextStyle(color: Color(0xFF9CA3AF)),
+                        hintStyle: const TextStyle(color: AppColors.grey400), // Muted gray for placeholder
+                        filled: true,
+                        fillColor: AppColors.white, // Explicitly set white fill color
                         border: InputBorder.none,
-                        contentPadding: EdgeInsets.symmetric(
+                        enabledBorder: InputBorder.none,
+                        focusedBorder: InputBorder.none,
+                        contentPadding: const EdgeInsets.symmetric(
                           horizontal: 20,
                           vertical: 12,
                         ),
                       ),
+                      cursorColor: AppColors.primary, // Blue cursor for visibility
                       maxLines: null,
                       textCapitalization: TextCapitalization.sentences,
                       onSubmitted: (_) => _sendMessage(),

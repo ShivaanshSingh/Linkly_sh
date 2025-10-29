@@ -55,11 +55,11 @@ class GroupService {
     );
   }
 
-  // Get all groups for a user (simplified to avoid index requirements)
+  // Get all groups for a user (one-sided: only groups created by the user)
   static Stream<List<GroupModel>> getUserGroups(String userId) {
     return _firestore
         .collection(_groupsCollection)
-        .where('members', arrayContains: userId)
+        .where('createdBy', isEqualTo: userId)
         .snapshots()
         .map((snapshot) {
       final groups = snapshot.docs.map((doc) => GroupModel.fromFirestore(doc)).toList();
@@ -151,6 +151,7 @@ class GroupService {
     String? name,
     String? description,
     String? imageUrl,
+    String? color,
   }) async {
     try {
       final updateData = <String, dynamic>{
@@ -160,6 +161,7 @@ class GroupService {
       if (name != null) updateData['name'] = name;
       if (description != null) updateData['description'] = description;
       if (imageUrl != null) updateData['imageUrl'] = imageUrl;
+      if (color != null) updateData['color'] = color;
 
       await _firestore.collection(_groupsCollection).doc(groupId).update(updateData);
     } catch (e) {

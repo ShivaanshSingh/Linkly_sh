@@ -1,83 +1,88 @@
 import 'package:flutter/material.dart';
 
 class AppColors {
-  // Primary Colors - Beautiful Blue Theme from Coolors Palette
-  static const Color primary = Color(0xFF219EBC); // Medium Blue
-  static const Color primaryLight = Color(0xFF8ECAE6); // Light Blue
-  static const Color primaryDark = Color(0xFF023047); // Dark Blue
+  // Primary Colors - Deep Blue Gradient for Cards (#0D47A1 → #002171)
+  static const Color primary = Color(0xFF0D47A1); // Deep Blue
+  static const Color primaryLight = Color(0xFF1565C0); // Medium Deep Blue
+  static const Color primaryDark = Color(0xFF002171); // Navy
   
-  // Secondary Colors
-  static const Color secondary = Color(0xFFFB8500); // Orange
-  static const Color secondaryLight = Color(0xFFFFB703); // Golden Yellow
-  static const Color secondaryDark = Color(0xFFE67E00); // Darker Orange
+  // Secondary Colors - Orange to Gold Gradient for Actions (#F79E1B → #FFB300)
+  static const Color secondary = Color(0xFFF79E1B); // Orange
+  static const Color secondaryLight = Color(0xFFFFB300); // Gold
+  static const Color secondaryDark = Color(0xFFE68900); // Darker Orange
   
-  // Accent Colors
-  static const Color accent = Color(0xFFFFB703); // Golden Yellow
-  static const Color accentLight = Color(0xFFFFD54F); // Light Yellow
+  // Accent Colors - Warm Yellow Highlights
+  static const Color accent = Color(0xFFF8B334); // Warm Yellow
+  static const Color accentLight = Color(0xFFFFC947); // Light Warm Yellow
   static const Color accentDark = Color(0xFFE6A500); // Darker Yellow
   
-  // Neutral Colors
-  static const Color white = Color(0xFFFFFFFF);
+  // Neutral Colors - Text on Dark Panels
+  static const Color white = Color(0xFFFFFFFF); // Bright White
   static const Color black = Color(0xFF000000);
-  static const Color grey50 = Color(0xFFF8F9FA); // Very Light Grey
-  static const Color grey100 = Color(0xFFE9ECEF); // Light Grey
-  static const Color grey200 = Color(0xFFDEE2E6); // Medium Light Grey
-  static const Color grey300 = Color(0xFFCED4DA); // Medium Grey
-  static const Color grey400 = Color(0xFF6C757D); // Medium Dark Grey
-  static const Color grey500 = Color(0xFF495057); // Dark Grey
-  static const Color grey600 = Color(0xFF343A40); // Darker Grey
-  static const Color grey700 = Color(0xFF212529); // Very Dark Grey
-  static const Color grey800 = Color(0xFF1A1D20); // Almost Black
-  static const Color grey900 = Color(0xFF000000); // Pure Black
+  static const Color grey50 = Color(0xFF1A2436); // Deep Neutral for Panels/Modals
+  static const Color grey100 = Color(0xFFB0B8C5); // Muted Gray for Secondary Text
+  static const Color grey200 = Color(0xFF9CA3B0); // Medium Muted Gray
+  static const Color grey300 = Color(0xFF7A8190); // Medium Gray
+  static const Color grey400 = Color(0xFF5A6375); // Medium Dark Gray
+  static const Color grey500 = Color(0xFF4A5263); // Dark Gray
+  static const Color grey600 = Color(0xFF3A4152); // Darker Gray
+  static const Color grey700 = Color(0xFF2C2F48); // Dark Violet for Secondary Buttons
+  static const Color grey800 = Color(0xFF101B2D); // Sidebar/AppBar Background
+  static const Color grey900 = Color(0xFF0E1624); // Overall Background
+  
+  // 🔤 Text Colors
+  static const Color textPrimary = Color(0xFFFFFFFF); // Bright White for Primary Text
+  static const Color textSecondary = Color(0xFFB0B8C5); // Muted Gray for Secondary Text
+  static const Color textMuted = Color(0xFFE1E6F0); // Light Purple for Muted Text
   
   // Status Colors
-  static const Color success = Color(0xFF219EBC); // Medium Blue
-  static const Color warning = Color(0xFFFFB703); // Golden Yellow
+  static const Color success = Color(0xFF0D47A1); // Deep Blue
+  static const Color warning = Color(0xFFF8B334); // Warm Yellow
   static const Color error = Color(0xFFE53E3E); // Red for liked hearts
-  static const Color info = Color(0xFF8ECAE6); // Light Blue
+  static const Color info = Color(0xFFE1E6F0); // Light Purple for Icons
   
-  // Background Colors - Beautiful Blue Theme
-  static const Color backgroundLight = Color(0xFFF0F8FF); // Very Light Blue
-  static const Color backgroundDark = Color(0xFF023047); // Dark Blue
-  static const Color surfaceLight = Color(0xFFFFFFFF); // Pure White
-  static const Color surfaceDark = Color(0xFF219EBC); // Medium Blue
+  // Background Colors - Fintech Dashboard Theme
+  static const Color backgroundLight = Color(0xFF1A2436); // Deep Neutral for Panels
+  static const Color backgroundDark = Color(0xFF0E1624); // Overall Dark Navy-Black
+  static const Color surfaceLight = Color(0xFF1A2436); // Panels and Modals
+  static const Color surfaceDark = Color(0xFF101B2D); // Sidebar Background
   
-  // Card Theme Colors - Updated with new palette
-  static const Color navyCard = Color(0xFF023047); // Dark Blue
-  static const Color platinumCard = Color(0xFF8ECAE6); // Light Blue
-  static const Color emeraldCard = Color(0xFF219EBC); // Medium Blue
-  static const Color amberCard = Color(0xFFFFB703); // Golden Yellow
-  static const Color roseCard = Color(0xFFFB8500); // Orange
-  static const Color indigoCard = Color(0xFF219EBC); // Medium Blue
+  // Card Theme Colors - Deep Blue Gradient Cards
+  static const Color navyCard = Color(0xFF002171); // Navy (end of gradient)
+  static const Color platinumCard = Color(0xFFE1E6F0); // Light Purple for Icons
+  static const Color emeraldCard = Color(0xFF0D47A1); // Deep Blue (start of gradient)
+  static const Color amberCard = Color(0xFFF8B334); // Warm Yellow Highlights
+  static const Color roseCard = Color(0xFFF79E1B); // Orange
+  static const Color indigoCard = Color(0xFF0D47A1); // Deep Blue
   
-  // Gradient Colors - Beautiful gradients with new palette
+  // Gradient Colors - Fintech Dashboard Gradients
   static const LinearGradient primaryGradient = LinearGradient(
-    colors: [primary, primaryLight],
+    colors: [Color(0xFF0D47A1), Color(0xFF002171)], // Deep Blue to Navy
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
   
   static const LinearGradient secondaryGradient = LinearGradient(
-    colors: [secondary, secondaryLight],
+    colors: [Color(0xFFF79E1B), Color(0xFFFFB300)], // Orange to Gold
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
   
   static const LinearGradient accentGradient = LinearGradient(
-    colors: [accent, accentLight],
+    colors: [Color(0xFFF79E1B), Color(0xFFFFB300)], // Orange to Gold for Actions
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
   
-  // Additional beautiful gradients
+  // Additional gradients
   static const LinearGradient oceanGradient = LinearGradient(
-    colors: [Color(0xFF023047), Color(0xFF219EBC), Color(0xFF8ECAE6)],
+    colors: [Color(0xFF0D47A1), Color(0xFF002171)], // Deep Blue to Navy for Cards
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
   
   static const LinearGradient sunsetGradient = LinearGradient(
-    colors: [Color(0xFFFB8500), Color(0xFFFFB703)],
+    colors: [Color(0xFFF79E1B), Color(0xFFFFB300)], // Orange to Gold
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );

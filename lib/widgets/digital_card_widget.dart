@@ -93,7 +93,14 @@ class _DigitalCardWidgetState extends State<DigitalCardWidget>
         maxWidth: 400,
       ),
       decoration: BoxDecoration(
-        color: AppColors.white, // Clean White Background
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFF0D47A1), // Bright Royal Blue (top-left)
+            Color(0xFF002171), // Deep Navy Blue (bottom-right)
+          ],
+        ),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
@@ -120,7 +127,7 @@ class _DigitalCardWidgetState extends State<DigitalCardWidget>
                     style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
-                      color: AppColors.primaryDark, // Dark Blue
+                      color: AppColors.textPrimary, // White text for dark gradient background
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -133,10 +140,10 @@ class _DigitalCardWidgetState extends State<DigitalCardWidget>
                       final email = authService.userModel?.email ?? authService.user?.email ?? '';
                       
                       return Text(
-                        'Email $email',
+                        email,
                         style: const TextStyle(
                           fontSize: 14,
-                          color: AppColors.primary, // Medium Blue
+                          color: AppColors.textSecondary, // Light gray for secondary text on dark background
                           fontWeight: FontWeight.w400,
                         ),
                         textAlign: TextAlign.center,
@@ -153,7 +160,7 @@ class _DigitalCardWidgetState extends State<DigitalCardWidget>
                     'TAP FOR QR CODE',
                     style: const TextStyle(
                       fontSize: 12,
-                      color: AppColors.secondary, // Orange
+                      color: AppColors.secondary, // Orange for accent
                       fontWeight: FontWeight.w600,
                       letterSpacing: 0.5,
                     ),
@@ -221,7 +228,14 @@ class _DigitalCardWidgetState extends State<DigitalCardWidget>
         maxWidth: 400,
       ),
       decoration: BoxDecoration(
-        color: AppColors.white, // Clean White Background
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFF0D47A1), // Bright Royal Blue (top-left)
+            Color(0xFF002171), // Deep Navy Blue (bottom-right)
+          ],
+        ),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
@@ -244,7 +258,7 @@ class _DigitalCardWidgetState extends State<DigitalCardWidget>
               decoration: BoxDecoration(
                 color: AppColors.white,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AppColors.primaryLight, width: 1), // Light Blue Border
+                border: Border.all(color: AppColors.white, width: 1), // White border for visibility on dark gradient
               ),
               child: Center(
                 child: Consumer<AuthService>(

@@ -117,8 +117,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.grey900, // Overall Background - matching homepage
       appBar: AppBar(
-        title: const Text('Settings'),
+        backgroundColor: AppColors.grey800, // Sidebar/AppBar Background - matching homepage
+        title: const Text(
+          'Settings',
+          style: TextStyle(color: AppColors.textPrimary), // Bright White Text
+        ),
         actions: [
           Consumer<AuthService>(
             builder: (context, authService, child) {

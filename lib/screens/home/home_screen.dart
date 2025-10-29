@@ -159,16 +159,16 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Color(0xFF0E1624), // Beautiful Light Blue Background
+      backgroundColor: AppColors.grey900, // Overall Background
       appBar: AppBar(
-        backgroundColor: Color(0xFF101B2D), // Clean White App Bar
+        backgroundColor: AppColors.grey800, // Sidebar/AppBar Background
         elevation: 0,
         surfaceTintColor: AppColors.white,
         automaticallyImplyLeading: false,
         title: const Text(
           'Linkly',
           style: TextStyle(
-            color: AppColors.primaryDark, // Dark Blue Text
+            color: AppColors.textPrimary, // Bright White Text
             fontWeight: FontWeight.bold,
             fontSize: 24,
           ),
@@ -176,7 +176,7 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
         actions: [
           // Debug button to refresh user data
           IconButton(
-            icon: const Icon(Icons.refresh, color: AppColors.primary), // Medium Blue
+            icon: const Icon(Icons.refresh, color: AppColors.textPrimary), // Bright White Icon
             onPressed: () {
               final authService = Provider.of<AuthService>(context, listen: false);
               authService.refreshUserData();
@@ -353,7 +353,7 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
                       style: const TextStyle(
                         fontSize: 28,
                         fontWeight: FontWeight.w600,
-                        color: AppColors.primaryDark, // Dark Blue
+                        color: AppColors.textPrimary, // Bright White Text
                         letterSpacing: -0.5,
                       ),
                     ),
@@ -362,7 +362,7 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
                       'Ready to connect today?',
                       style: TextStyle(
                         fontSize: 15,
-                        color: AppColors.primary, // Medium Blue
+                        color: AppColors.textSecondary, // Muted Gray for Secondary Text
                         fontWeight: FontWeight.w400,
                         letterSpacing: -0.2,
                       ),
@@ -585,9 +585,9 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
               children: [
                 Icon(Icons.error_outline, size: 64, color: AppColors.grey400),
                 const SizedBox(height: 16),
-                Text('Error loading posts', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.grey900)),
+                Text('Error loading posts', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
                 const SizedBox(height: 8),
-                Text(postService.error!, style: TextStyle(fontSize: 14, color: AppColors.grey600), textAlign: TextAlign.center),
+                Text(postService.error!, style: TextStyle(fontSize: 14, color: AppColors.textSecondary), textAlign: TextAlign.center),
                 const SizedBox(height: 16),
                 ElevatedButton(
                   onPressed: () {
@@ -665,7 +665,7 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
-              color: AppColors.primaryDark,
+              color: AppColors.textPrimary, // Bright White Text
             ),
           ),
           const SizedBox(height: 8),
@@ -748,7 +748,7 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: AppColors.primaryDark,
+                          color: AppColors.textPrimary, // Bright White Text
                         ),
                       ),
                       Text(
@@ -937,7 +937,7 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: AppColors.primaryDark, // Dark Blue
+                    color: AppColors.textPrimary, // Bright White Text
                   ),
                   textAlign: TextAlign.center,
                 ),
@@ -946,7 +946,7 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
                   'Share your professional identity in style',
                   style: TextStyle(
                     fontSize: 13,
-                    color: AppColors.primary, // Medium Blue
+                    color: AppColors.textSecondary, // Muted Gray for Secondary Text
                   ),
                   textAlign: TextAlign.center,
                 ),

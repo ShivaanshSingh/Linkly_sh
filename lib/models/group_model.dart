@@ -56,8 +56,12 @@ class GroupModel {
       createdBy: data['createdBy'] ?? '',
       imageUrl: data['imageUrl'],
       members: List<String>.from(data['members'] ?? []),
-      createdAt: (data['createdAt'] as Timestamp).toDate(),
-      updatedAt: (data['updatedAt'] as Timestamp).toDate(),
+      createdAt: data['createdAt'] != null 
+          ? (data['createdAt'] as Timestamp).toDate()
+          : DateTime.now(),
+      updatedAt: data['updatedAt'] != null
+          ? (data['updatedAt'] as Timestamp).toDate()
+          : DateTime.now(),
       qrCode: data['qrCode'],
       isPublic: data['isPublic'] ?? false,
       inviteCode: data['inviteCode'],

@@ -43,7 +43,7 @@ class _StatusStoriesWidgetState extends State<StatusStoriesWidget> {
                   child: Text(
                     'Error loading statuses',
                     style: TextStyle(
-                      color: AppColors.grey600,
+                      color: AppColors.textSecondary, // Muted Gray for Secondary Text
                       fontSize: 14,
                     ),
                   ),
@@ -76,6 +76,10 @@ class _StatusStoriesWidgetState extends State<StatusStoriesWidget> {
   }
 
   Widget _buildAddStatusStory() {
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final String displayName = authService.userModel?.fullName ?? 'User';
+    final String? photoUrl = authService.userModel?.profileImageUrl;
+
     return Container(
       width: 80,
       margin: const EdgeInsets.only(right: 12),
@@ -87,17 +91,48 @@ class _StatusStoriesWidgetState extends State<StatusStoriesWidget> {
               width: 60,
               height: 60,
               decoration: BoxDecoration(
-                color: AppColors.grey100,
-                borderRadius: BorderRadius.circular(30),
+                shape: BoxShape.circle,
                 border: Border.all(
                   color: AppColors.grey300,
                   width: 2,
                 ),
               ),
-              child: const Icon(
-                Icons.add,
-                color: AppColors.grey600,
-                size: 24,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  ClipOval(
+                    child: photoUrl != null && photoUrl.isNotEmpty
+                        ? Image.network(
+                            photoUrl,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              return _buildDefaultAvatar(displayName);
+                            },
+                          )
+                        : _buildDefaultAvatar(displayName),
+                  ),
+                  Center(
+                    child: Container(
+                      width: 22,
+                      height: 22,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.9),
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.15),
+                            blurRadius: 4,
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.add,
+                        size: 16,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -106,7 +141,7 @@ class _StatusStoriesWidgetState extends State<StatusStoriesWidget> {
             'Status',
             style: TextStyle(
               fontSize: 12,
-              color: AppColors.grey600,
+              color: AppColors.textSecondary, // Muted Gray for Secondary Text
             ),
             textAlign: TextAlign.center,
           ),
@@ -153,7 +188,7 @@ class _StatusStoriesWidgetState extends State<StatusStoriesWidget> {
             _getDisplayName(status.userName),
             style: const TextStyle(
               fontSize: 12,
-              color: AppColors.grey600,
+              color: AppColors.textSecondary, // Muted Gray for Secondary Text
             ),
             textAlign: TextAlign.center,
             maxLines: 1,

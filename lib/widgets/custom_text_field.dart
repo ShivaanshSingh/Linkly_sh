@@ -56,9 +56,9 @@ class CustomTextField extends StatelessWidget {
           onChanged: onChanged,
           maxLines: maxLines,
           enabled: enabled,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 15,
-            color: AppColors.grey700,
+            color: enabled ? AppColors.grey700 : AppColors.textSecondary, // Lighter text when disabled
             fontWeight: FontWeight.w400,
             letterSpacing: -0.2,
           ),
@@ -79,7 +79,7 @@ class CustomTextField extends StatelessWidget {
                 : null,
             suffixIcon: suffixIcon,
             filled: true,
-            fillColor: AppColors.white,
+            fillColor: enabled ? AppColors.white : AppColors.grey50, // Gray background when disabled (Deep Neutral for Panels)
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
               borderSide: BorderSide(color: borderColor ?? AppColors.grey100, width: 1),

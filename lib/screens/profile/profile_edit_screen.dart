@@ -370,8 +370,13 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+          backgroundColor: AppColors.grey900, // Overall Background - matching homepage
           appBar: AppBar(
-            title: const Text('Edit Profile'),
+            backgroundColor: AppColors.grey800, // Sidebar/AppBar Background - matching homepage
+            title: const Text(
+              'Edit Profile',
+              style: TextStyle(color: AppColors.textPrimary), // Bright White Text
+            ),
             actions: [
               TextButton(
                 onPressed: _isLoading ? null : _saveProfile,

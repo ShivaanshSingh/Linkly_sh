@@ -41,7 +41,7 @@ class DigitalCardScreen extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
-                      color: AppColors.primaryDark,
+                      color: AppColors.textPrimary, // Bright White Text
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -86,7 +86,7 @@ class DigitalCardScreen extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
-                      color: AppColors.primaryDark,
+                      color: AppColors.textPrimary, // Bright White Text
                     ),
                   ),
                   const SizedBox(height: 16),

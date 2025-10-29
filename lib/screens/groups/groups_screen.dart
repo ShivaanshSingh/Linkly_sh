@@ -1,13 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:qr_flutter/qr_flutter.dart';
 import '../../constants/app_colors.dart';
 import '../../models/group_model.dart';
 import '../../models/user_model.dart';
 import '../../services/auth_service.dart';
 import '../../services/group_service.dart';
-import '../chat/group_chat_screen.dart';
-import '../connections/qr_scanner_screen.dart';
 
 class GroupsScreen extends StatefulWidget {
   const GroupsScreen({super.key});
@@ -29,15 +26,15 @@ class _GroupsScreenState extends State<GroupsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.backgroundLight,
+      backgroundColor: AppColors.grey900, // Overall Background - matching homepage
       appBar: AppBar(
-        backgroundColor: AppColors.white,
+        backgroundColor: AppColors.grey800, // Sidebar/AppBar Background - matching homepage
         elevation: 0,
-        surfaceTintColor: AppColors.white,
+        surfaceTintColor: AppColors.grey800,
         title: const Text(
           'Groups',
           style: TextStyle(
-            color: AppColors.grey700,
+            color: AppColors.textPrimary, // Bright White Text - matching homepage
             fontWeight: FontWeight.w600,
             fontSize: 20,
             letterSpacing: -0.3,
@@ -64,7 +61,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
               // Search and Filter Section
               Container(
                 padding: const EdgeInsets.all(16),
-                color: AppColors.white,
+                color: AppColors.grey900, // Match background
                 child: Column(
                   children: [
                     // Search Bar
@@ -89,26 +86,39 @@ class _GroupsScreenState extends State<GroupsScreen> {
                           });
                         },
                         style: const TextStyle(
-                          color: AppColors.grey700,
+                          color: AppColors.grey900, // Dark text for white background
                           fontSize: 15,
                           fontWeight: FontWeight.w400,
                           letterSpacing: -0.2,
                         ),
-                        decoration: const InputDecoration(
-                          hintText: 'Search by name, email, or...',
-                          hintStyle: TextStyle(
+                        decoration: InputDecoration(
+                          hintText: 'Search groups by name or description...',
+                          hintStyle: const TextStyle(
                             color: AppColors.grey400,
                             fontSize: 15,
                             fontWeight: FontWeight.w400,
                             letterSpacing: -0.2,
                           ),
-                          prefixIcon: Icon(
+                          filled: true,
+                          fillColor: AppColors.white, // Ensure white background
+                          prefixIcon: const Icon(
                             Icons.search,
                             color: AppColors.grey400,
                             size: 20,
                           ),
-                          border: InputBorder.none,
-                          contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide.none,
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide.none,
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(color: AppColors.primary, width: 2),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                         ),
                       ),
                     ),
@@ -200,7 +210,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
                       ),
                       const SizedBox(height: 10),
                       const Text(
-                        'Create a new group or join one by scanning a QR code!',
+                        'Create a new group to get started!',
                         style: TextStyle(
                           color: Color(0xFF9CA3AF),
                           fontSize: 16,
@@ -221,20 +231,6 @@ class _GroupsScreenState extends State<GroupsScreen> {
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      TextButton.icon(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (context) => const QRScannerScreen()),
-                          );
-                        },
-                        icon: const Icon(Icons.qr_code_scanner, color: AppColors.primary),
-                        label: const Text(
-                          'Scan QR to Join Group',
-                          style: TextStyle(color: AppColors.primary),
                         ),
                       ),
                     ],
@@ -311,8 +307,8 @@ class _GroupsScreenState extends State<GroupsScreen> {
                       ),
                       const SizedBox(height: 8),
                       const Text(
-                        'Create a group or scan a QR code to join one',
-                        style: const TextStyle(
+                        'Create a group to get started',
+                        style: TextStyle(
                           fontSize: 15,
                           color: AppColors.grey500,
                           fontWeight: FontWeight.w400,
@@ -381,187 +377,411 @@ class _GroupsScreenState extends State<GroupsScreen> {
           ),
         ],
       ),
-      child: InkWell(
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => GroupChatScreen(
-                group: group,
-                currentUser: currentUser,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            // Group avatar
+            CircleAvatar(
+              radius: 24,
+              backgroundColor: Color(int.parse(group.color.replaceFirst('#', '0xFF'))),
+              child: const Icon(
+                Icons.group,
+                color: Colors.white,
+                size: 24,
               ),
             ),
-          );
-        },
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              // Group avatar
-              CircleAvatar(
-                radius: 24,
-                backgroundColor: Color(int.parse(group.color.replaceFirst('#', '0xFF'))),
-                child: const Icon(
-                  Icons.group,
-                  color: Colors.white,
-                  size: 24,
-                ),
-              ),
-              const SizedBox(width: 16),
-              
-              // Group info
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      group.name,
-                      style: const TextStyle(
-                        color: AppColors.grey900,
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
+            const SizedBox(width: 16),
+            
+            // Group info
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    group.name,
+                    style: const TextStyle(
+                      color: AppColors.grey900,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      group.description,
-                      style: const TextStyle(
-                        color: AppColors.grey600,
-                        fontSize: 14,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    group.description,
+                    style: const TextStyle(
+                      color: AppColors.grey600,
+                      fontSize: 14,
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${group.members.length} members',
-                      style: const TextStyle(
-                        color: AppColors.grey500,
-                        fontSize: 12,
-                      ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${group.members.length} members',
+                    style: const TextStyle(
+                      color: AppColors.grey500,
+                      fontSize: 12,
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-              
-              // QR Code button
-              IconButton(
-                onPressed: () => _showGroupQRCode(group),
-                icon: const Icon(
-                  Icons.qr_code,
-                  color: AppColors.primary,
-                ),
+            ),
+            // Three dots menu
+            PopupMenuButton<String>(
+              icon: const Icon(
+                Icons.more_vert,
+                color: AppColors.grey500,
               ),
-            ],
-          ),
+              onSelected: (value) {
+                if (value == 'delete') {
+                  _deleteGroup(group);
+                } else if (value == 'rename') {
+                  _renameGroup(group);
+                } else if (value == 'recolor') {
+                  _recolorGroup(group);
+                }
+              },
+              itemBuilder: (context) => [
+                const PopupMenuItem(
+                  value: 'recolor',
+                  child: Row(
+                    children: [
+                      Icon(Icons.color_lens, color: AppColors.grey700, size: 20),
+                      SizedBox(width: 12),
+                      Text('Recolor', style: TextStyle(color: AppColors.grey700)),
+                    ],
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'rename',
+                  child: Row(
+                    children: [
+                      Icon(Icons.edit, color: AppColors.grey700, size: 20),
+                      SizedBox(width: 12),
+                      Text('Rename', style: TextStyle(color: AppColors.grey700)),
+                    ],
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'delete',
+                  child: Row(
+                    children: [
+                      Icon(Icons.delete, color: Colors.red, size: 20),
+                      SizedBox(width: 12),
+                      Text('Delete', style: TextStyle(color: Colors.red)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );
   }
 
-  void _showGroupQRCode(GroupModel group) {
-    showModalBottomSheet(
+  void _deleteGroup(GroupModel group) {
+    showDialog(
       context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(24),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-            // Group info
-            CircleAvatar(
-              radius: 40,
-              backgroundColor: Color(int.parse(group.color.replaceFirst('#', '0xFF'))),
-              child: const Icon(
-                Icons.group,
-                color: Colors.white,
-                size: 40,
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              group.name,
-              style: const TextStyle(
-                color: AppColors.grey900,
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Share this QR code to invite others',
-              style: const TextStyle(
-                color: AppColors.grey600,
-                fontSize: 16,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 24),
-            
-            // QR Code
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppColors.grey200),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: QrImageView(
-                data: group.qrCode ?? 'linkly://group/${group.inviteCode}',
-                version: QrVersions.auto,
-                size: 200,
-                backgroundColor: Colors.white,
-                foregroundColor: Colors.black,
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Invite Code: ${group.inviteCode}',
-              style: const TextStyle(
-                color: AppColors.grey500,
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(height: 24),
-            
-            // Close button
-            Container(
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: AppColors.primary,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text(
-                  'Close',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
-                ),
-              ),
-            ),
-            ],
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        title: const Text(
+          'Delete Group',
+          style: TextStyle(
+            color: AppColors.grey900,
+            fontWeight: FontWeight.bold,
           ),
         ),
+        content: Text(
+          'Are you sure you want to delete "${group.name}"? This action cannot be undone.',
+          style: const TextStyle(color: AppColors.grey700),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: AppColors.grey600),
+            ),
+          ),
+          TextButton(
+            onPressed: () async {
+              try {
+                await GroupService.deleteGroup(group.id);
+                if (context.mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Group "${group.name}" deleted successfully'),
+                      backgroundColor: AppColors.primary,
+                      behavior: SnackBarBehavior.floating,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Failed to delete group: $e'),
+                      backgroundColor: Colors.red,
+                      behavior: SnackBarBehavior.floating,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  );
+                }
+              }
+            },
+            child: const Text(
+              'Delete',
+              style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
       ),
     );
   }
+
+  void _renameGroup(GroupModel group) {
+    final nameController = TextEditingController(text: group.name);
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        title: const Text(
+          'Rename Group',
+          style: TextStyle(
+            color: AppColors.grey900,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        content: TextField(
+          controller: nameController,
+          style: const TextStyle(color: AppColors.grey900), // Dark text for white dialog background
+          decoration: InputDecoration(
+            labelText: 'Group Name',
+            labelStyle: const TextStyle(color: AppColors.grey600), // Muted gray for label
+            filled: true,
+            fillColor: AppColors.white, // White background for dialog text field
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide.none,
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide.none,
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: AppColors.primary, width: 2),
+            ),
+          ),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: AppColors.grey600),
+            ),
+          ),
+          Container(
+            decoration: BoxDecoration(
+              color: AppColors.primary,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: TextButton(
+              onPressed: () async {
+                if (nameController.text.trim().isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Please enter a group name'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                  return;
+                }
+
+                try {
+                  await GroupService.updateGroup(
+                    groupId: group.id,
+                    name: nameController.text.trim(),
+                  );
+                  if (context.mounted) {
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Group renamed to "${nameController.text.trim()}"'),
+                        backgroundColor: AppColors.primary,
+                        behavior: SnackBarBehavior.floating,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Failed to rename group: $e'),
+                        backgroundColor: Colors.red,
+                        behavior: SnackBarBehavior.floating,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    );
+                  }
+                }
+              },
+              child: const Text(
+                'Save',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _recolorGroup(GroupModel group) {
+    final colors = [
+      '#3B82F6', // Blue
+      '#10B981', // Green
+      '#F59E0B', // Amber
+      '#EF4444', // Red
+      '#8B5CF6', // Purple
+      '#EC4899', // Pink
+      '#06B6D4', // Cyan
+      '#84CC16', // Lime
+      '#F97316', // Orange
+      '#6366F1', // Indigo
+      '#14B8A6', // Teal
+      '#A855F7', // Violet
+    ];
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        title: const Text(
+          'Choose Color',
+          style: TextStyle(
+            color: AppColors.grey900,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        content: Container(
+          width: double.maxFinite,
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          child: Wrap(
+            spacing: 16,
+            runSpacing: 16,
+            alignment: WrapAlignment.center,
+            children: colors.map((colorHex) {
+              final isSelected = group.color == colorHex;
+              return GestureDetector(
+                onTap: () async {
+                  try {
+                    await GroupService.updateGroup(
+                      groupId: group.id,
+                      color: colorHex,
+                    );
+                    if (context.mounted) {
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: const Text('Group color updated successfully'),
+                          backgroundColor: AppColors.primary,
+                          behavior: SnackBarBehavior.floating,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      );
+                    }
+                  } catch (e) {
+                    if (context.mounted) {
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Failed to update color: $e'),
+                          backgroundColor: Colors.red,
+                          behavior: SnackBarBehavior.floating,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      );
+                    }
+                  }
+                },
+                child: Container(
+                  width: 50,
+                  height: 50,
+                  decoration: BoxDecoration(
+                    color: Color(int.parse(colorHex.replaceFirst('#', '0xFF'))),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: isSelected ? AppColors.primary : Colors.transparent,
+                      width: 3,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: isSelected
+                      ? const Icon(
+                          Icons.check,
+                          color: Colors.white,
+                          size: 24,
+                        )
+                      : null,
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: AppColors.grey600),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
 
   void _showCreateGroupDialog() {
     final nameController = TextEditingController();

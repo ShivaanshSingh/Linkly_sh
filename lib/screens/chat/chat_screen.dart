@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'dart:io';
 import '../../constants/app_colors.dart';
 import '../../models/message_model.dart';
 import '../../models/user_model.dart';
@@ -25,9 +28,11 @@ class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final FocusNode _focusNode = FocusNode();
+  final ImagePicker _imagePicker = ImagePicker();
   
   List<MessageModel> _messages = [];
   final bool _isOnline = true;
+  bool _isUploading = false;
 
   @override
   void initState() {
@@ -142,6 +147,164 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
+  void _showAttachmentOptions() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.grey50,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Container(
+        padding: const EdgeInsets.symmetric(vertical: 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_library, color: AppColors.textPrimary),
+              title: const Text(
+                'Choose from Gallery',
+                style: TextStyle(color: AppColors.textPrimary),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                _pickImageFromGallery();
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.camera_alt, color: AppColors.textPrimary),
+              title: const Text(
+                'Take Photo',
+                style: TextStyle(color: AppColors.textPrimary),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                _takePhoto();
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pickImageFromGallery() async {
+    try {
+      final XFile? image = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1920,
+        maxHeight: 1920,
+        imageQuality: 85,
+      );
+
+      if (image != null) {
+        await _uploadAndSendImage(File(image.path));
+      }
+    } catch (e) {
+      debugPrint('Error picking image: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to pick image: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _takePhoto() async {
+    try {
+      final XFile? image = await _imagePicker.pickImage(
+        source: ImageSource.camera,
+        maxWidth: 1920,
+        maxHeight: 1920,
+        imageQuality: 85,
+      );
+
+      if (image != null) {
+        await _uploadAndSendImage(File(image.path));
+      }
+    } catch (e) {
+      debugPrint('Error taking photo: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to take photo: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _uploadAndSendImage(File imageFile) async {
+    final authService = Provider.of<AuthService>(context, listen: false);
+    if (authService.user == null) return;
+
+    setState(() {
+      _isUploading = true;
+    });
+
+    try {
+      // Upload image to Firebase Storage
+      final fileName = 'message_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final ref = FirebaseStorage.instance
+          .ref()
+          .child('message_images')
+          .child(authService.user!.uid)
+          .child(fileName);
+
+      await ref.putFile(imageFile);
+      final downloadUrl = await ref.getDownloadURL();
+
+      debugPrint('✅ Image uploaded successfully: $downloadUrl');
+
+      // Create message with image
+      final message = MessageModel(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        senderId: authService.user!.uid,
+        receiverId: widget.user.uid,
+        text: _messageController.text.trim().isEmpty ? '📷 Image' : _messageController.text.trim(),
+        imageUrl: downloadUrl,
+        timestamp: DateTime.now(),
+        messageType: 'image',
+      );
+
+      // Send message
+      await MessageService.sendMessage(message);
+      debugPrint('✅ Message with image sent successfully');
+
+      // Clear text input
+      _messageController.clear();
+      _scrollToBottom();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Image sent successfully'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('❌ Error uploading image: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to send image: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isUploading = false;
+        });
+      }
+    }
+  }
 
   void _showMessageOptions(MessageModel message) {
     final authService = Provider.of<AuthService>(context, listen: false);
@@ -382,51 +545,6 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
           ],
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.videocam, color: Colors.white),
-            onPressed: () {
-              // TODO: Implement video call
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.phone, color: Colors.white),
-            onPressed: () {
-              // TODO: Implement voice call
-            },
-          ),
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert, color: Colors.white),
-            color: const Color(0xFF2D2D2D),
-            onSelected: (value) {
-              switch (value) {
-                case 'view_profile':
-                  // TODO: Navigate to profile
-                  break;
-                case 'block':
-                  // TODO: Block user
-                  break;
-                case 'clear_chat':
-                  _clearChat();
-                  break;
-              }
-            },
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'view_profile',
-                child: Text('View Profile', style: TextStyle(color: Colors.white)),
-              ),
-              const PopupMenuItem(
-                value: 'block',
-                child: Text('Block User', style: TextStyle(color: Colors.red)),
-              ),
-              const PopupMenuItem(
-                value: 'clear_chat',
-                child: Text('Clear Chat', style: TextStyle(color: Colors.white)),
-              ),
-            ],
-          ),
-        ],
       ),
       body: Column(
         children: [
@@ -454,31 +572,47 @@ class _ChatScreenState extends State<ChatScreen> {
             child: Row(
               children: [
                 IconButton(
-                  icon: const Icon(Icons.attach_file, color: AppColors.primary),
-                  onPressed: () {
-                    // TODO: Implement file attachment
-                  },
+                  icon: _isUploading
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
+                          ),
+                        )
+                      : const Icon(Icons.attach_file, color: AppColors.primary),
+                  onPressed: _isUploading ? null : _showAttachmentOptions,
                 ),
                 Expanded(
                   child: Container(
                     decoration: BoxDecoration(
-                      color: const Color(0xFF1A1A1A),
+                      color: AppColors.white, // White background for better text visibility
                       borderRadius: BorderRadius.circular(25),
-                      border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+                      border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
                     ),
                     child: TextField(
                       controller: _messageController,
                       focusNode: _focusNode,
-                      style: const TextStyle(color: Colors.black),
-                      decoration: const InputDecoration(
+                      style: const TextStyle(
+                        color: AppColors.grey900, // Very dark text for maximum visibility
+                        fontSize: 16,
+                        fontWeight: FontWeight.w400,
+                      ),
+                      decoration: InputDecoration(
                         hintText: 'Type a message...',
-                        hintStyle: TextStyle(color: Color(0xFF9CA3AF)),
+                        hintStyle: const TextStyle(color: AppColors.grey400), // Muted gray for placeholder
+                        filled: true,
+                        fillColor: AppColors.white, // Explicitly set white fill color
                         border: InputBorder.none,
-                        contentPadding: EdgeInsets.symmetric(
+                        enabledBorder: InputBorder.none,
+                        focusedBorder: InputBorder.none,
+                        contentPadding: const EdgeInsets.symmetric(
                           horizontal: 20,
                           vertical: 12,
                         ),
                       ),
+                      cursorColor: AppColors.primary, // Blue cursor for visibility
                       maxLines: null,
                       textCapitalization: TextCapitalization.sentences,
                       onSubmitted: (_) => _sendMessage(),
@@ -591,13 +725,55 @@ class _ChatScreenState extends State<ChatScreen> {
                       ),
                       const SizedBox(height: 4),
                     ],
-                    Text(
-                      message.text,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
+                    // Display image if available
+                    if (message.imageUrl != null && message.imageUrl!.isNotEmpty) ...[
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.network(
+                          message.imageUrl!,
+                          width: 200,
+                          height: 200,
+                          fit: BoxFit.cover,
+                          loadingBuilder: (context, child, loadingProgress) {
+                            if (loadingProgress == null) return child;
+                            return Container(
+                              width: 200,
+                              height: 200,
+                              color: Colors.grey[800],
+                              child: Center(
+                                child: CircularProgressIndicator(
+                                  value: loadingProgress.expectedTotalBytes != null
+                                      ? loadingProgress.cumulativeBytesLoaded /
+                                          loadingProgress.expectedTotalBytes!
+                                      : null,
+                                  valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+                                ),
+                              ),
+                            );
+                          },
+                          errorBuilder: (context, error, stackTrace) {
+                            return Container(
+                              width: 200,
+                              height: 200,
+                              color: Colors.grey[800],
+                              child: const Icon(Icons.error, color: Colors.red),
+                            );
+                          },
+                        ),
                       ),
-                    ),
+                      if (message.text.isNotEmpty && message.text != '📷 Image') ...[
+                        const SizedBox(height: 8),
+                      ],
+                    ],
+                    // Display text message
+                    if (message.text.isNotEmpty)
+                      Text(
+                        message.text,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                        ),
+                      ),
                     if (message.reactions.isNotEmpty) ...[
                       const SizedBox(height: 4),
                       Wrap(
