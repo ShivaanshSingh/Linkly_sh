@@ -17,6 +17,13 @@ class _StatusStoriesWidgetState extends State<StatusStoriesWidget> {
   final StatusService _statusService = StatusService();
 
   @override
+  void initState() {
+    super.initState();
+    // Opportunistic cleanup to ensure only <24h stories are retained
+    _statusService.cleanupExpiredStatuses();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Consumer<AuthService>(
       builder: (context, authService, child) {

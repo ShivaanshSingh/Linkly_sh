@@ -17,6 +17,12 @@ class _StatusListWidgetState extends State<StatusListWidget> {
   final StatusService _statusService = StatusService();
 
   @override
+  void initState() {
+    super.initState();
+    _statusService.cleanupExpiredStatuses();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Consumer<AuthService>(
       builder: (context, authService, child) {

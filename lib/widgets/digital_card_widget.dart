@@ -85,13 +85,13 @@ class _DigitalCardWidgetState extends State<DigitalCardWidget>
   }
 
   Widget _buildFrontCard(String userName) {
-    return Container(
-      width: double.infinity,
-      height: 270, // Reverted back to original height
+    return Center(
+      child: Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       constraints: const BoxConstraints(
-        maxWidth: 400,
+        maxWidth: 360,
       ),
+      clipBehavior: Clip.hardEdge,
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
@@ -110,7 +110,9 @@ class _DigitalCardWidgetState extends State<DigitalCardWidget>
           ),
         ],
       ),
-      child: Stack(
+      child: AspectRatio(
+        aspectRatio: 3.5 / 2.2,
+        child: Stack(
         children: [
           // Main content - Centered text
           Center(
@@ -215,18 +217,20 @@ class _DigitalCardWidgetState extends State<DigitalCardWidget>
             ),
           ),
         ],
+        ),
       ),
+    ),
     );
   }
 
   Widget _buildBackCard() {
-    return Container(
-      width: double.infinity,
-      height: 270, // Reverted back to original height
+    return Center(
+      child: Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       constraints: const BoxConstraints(
-        maxWidth: 400,
+        maxWidth: 360,
       ),
+      clipBehavior: Clip.hardEdge,
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
@@ -245,62 +249,66 @@ class _DigitalCardWidgetState extends State<DigitalCardWidget>
           ),
         ],
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // QR Code - bigger size
-            Container(
-              width: 160,
-              height: 160,
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: AppColors.white,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AppColors.white, width: 1), // White border for visibility on dark gradient
-              ),
-              child: Center(
-                child: Consumer<AuthService>(
-                  builder: (context, authService, child) {
-                    final userId = authService.user?.uid ?? '';
-                    final qrData = userId.isNotEmpty ? 'linkly://user/$userId' : 'linkly://user/unknown';
-                    
-                    return QrImageView(
-                      data: qrData,
-                      version: QrVersions.auto,
-                      size: 140,
-                      backgroundColor: Colors.white,
-                      foregroundColor: Colors.black,
-                    );
-                  },
+      child: AspectRatio(
+        aspectRatio: 3.5 / 2.2,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // QR Code - adjusted size to prevent overflow on smaller screens
+              Container(
+                width: 150,
+                height: 150,
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: AppColors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppColors.white, width: 1), // White border for visibility on dark gradient
                 ),
-              ),
-            ),
-            
-            const SizedBox(height: 12),
-            
-            // Tap to flip back instruction - smaller padding
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: AppColors.primaryLight, // Light Blue Background
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Center(
-                child: Text(
-                  'Tap to flip back',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppColors.white, // White Text
-                    fontWeight: FontWeight.w600,
+                child: Center(
+                  child: Consumer<AuthService>(
+                    builder: (context, authService, child) {
+                      final userId = authService.user?.uid ?? '';
+                      final qrData = userId.isNotEmpty ? 'linkly://user/$userId' : 'linkly://user/unknown';
+                      
+                      return QrImageView(
+                        data: qrData,
+                        version: QrVersions.auto,
+                        size: 130,
+                        backgroundColor: Colors.white,
+                        foregroundColor: Colors.black,
+                      );
+                    },
                   ),
                 ),
               ),
-            ),
-          ],
+              
+              const SizedBox(height: 10),
+              
+              // Tap to flip back instruction - smaller padding
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryLight, // Light Blue Background
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Center(
+                  child: Text(
+                    'Tap to flip back',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.white, // White Text
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
+    ),
     );
   }
 

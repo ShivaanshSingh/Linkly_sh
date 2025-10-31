@@ -57,10 +57,17 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
       if (mounted) {
         setState(() {
           _connections = snapshot.docs
-              .map((doc) => ConnectionModel.fromMap(doc.data()))
+              .map((doc) {
+                final data = doc.data();
+                return ConnectionModel.fromMap({
+                  ...data,
+                  'id': data['id'] ?? doc.id,
+                });
+              })
               .toList();
-          _filteredConnections = _connections;
         });
+        // Respect current filters/search when live data changes
+        _filterConnections();
       }
     });
   }
@@ -84,6 +91,51 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
         });
       }
     });
+  }
+
+  Future<void> _refreshData() async {
+    try {
+      final authService = Provider.of<AuthService>(context, listen: false);
+      final user = authService.user;
+      if (user == null) return;
+
+      // Fetch current connections once (keeps the live listener intact)
+      final connSnap = await _firestore
+          .collection('connections')
+          .where('userId', isEqualTo: user.uid)
+          .orderBy('createdAt', descending: true)
+          .get();
+
+      final freshConnections = connSnap.docs.map((doc) {
+        final data = doc.data();
+        return ConnectionModel.fromMap({
+          ...data,
+          'id': data['id'] ?? doc.id,
+        });
+      }).toList();
+
+      // Fetch groups and pending requests once
+      final freshGroups = await GroupService.getUserGroups(user.uid).first;
+      final freshPending = await _connectionRequestService.getPendingRequests(user.uid).first;
+
+      if (!mounted) return;
+      setState(() {
+        _connections = freshConnections;
+        _filteredConnections = _connections;
+        _groups = freshGroups;
+        _pendingRequests = freshPending;
+      });
+      _filterConnections();
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Connections refreshed')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Refresh failed: $e')),
+      );
+    }
   }
 
   void _toggleSelectionMode() {
@@ -385,8 +437,12 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
     );
   }
 
-  void _showAddToGroupDialog(ConnectionModel connection) {
-    // Reload groups to ensure newly created groups are shown
+  void _showAddToGroupDialog(ConnectionModel connection) async {
+    // Ensure default groups exist for this user, then reload groups
+    final authService = Provider.of<AuthService>(context, listen: false);
+    if (authService.user != null) {
+      await GroupService.ensureDefaultGroups(authService.user!.uid);
+    }
     _loadGroups();
     
     showDialog(
@@ -881,9 +937,7 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
             ),
             child: IconButton(
               icon: const Icon(Icons.refresh, color: Colors.white, size: 20),
-              onPressed: () {
-                _loadConnections();
-              },
+              onPressed: _refreshData,
               tooltip: 'Refresh',
             ),
           ),
@@ -1310,6 +1364,50 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
     }
   }
 
+  Future<String?> _getUserFullName(String userId) async {
+    try {
+      final userDoc = await _firestore.collection('users').doc(userId).get();
+      if (!userDoc.exists) return null;
+      final data = userDoc.data();
+      if (data == null) return null;
+      final fullName = data['fullName'] ?? data['name'] ?? data['displayName'];
+      if (fullName is String && fullName.trim().isNotEmpty) return fullName.trim();
+      final email = data['email'];
+      if (email is String && email.contains('@')) return email.split('@').first;
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<String?> _getUserCompany(String userId) async {
+    try {
+      final userDoc = await _firestore.collection('users').doc(userId).get();
+      if (!userDoc.exists) return null;
+      final data = userDoc.data();
+      if (data == null) return null;
+      final company = data['company'] ?? data['organization'] ?? data['org'];
+      if (company is String && company.trim().isNotEmpty) return company.trim();
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<String?> _getUserEmail(String userId) async {
+    try {
+      final userDoc = await _firestore.collection('users').doc(userId).get();
+      if (!userDoc.exists) return null;
+      final data = userDoc.data();
+      if (data == null) return null;
+      final email = data['email'] ?? data['mail'];
+      if (email is String && email.trim().isNotEmpty) return email.trim();
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<void> _launchEmail(String email) async {
     final Uri emailUri = Uri(
       scheme: 'mailto',
@@ -1378,10 +1476,15 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
             Row(
               children: [
                 // Profile image with circular design like reference
-                FutureBuilder<String?>(
-                  future: _getUserProfileImageUrl(connection.contactUserId),
+                FutureBuilder<List<String?>>(
+                  future: Future.wait([
+                    _getUserProfileImageUrl(connection.contactUserId),
+                    _getUserFullName(connection.contactUserId),
+                  ]),
                   builder: (context, snapshot) {
-                    final profileImageUrl = snapshot.data;
+                    final profileImageUrl = snapshot.data?[0];
+                    final userName = snapshot.data?[1] ?? connection.contactName;
+                    final displayName = userName.isNotEmpty ? userName : 'Contact';
                     return Container(
                       width: 60,
                       height: 60,
@@ -1403,10 +1506,10 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
                                 profileImageUrl,
                                 fit: BoxFit.cover,
                                 errorBuilder: (context, error, stackTrace) {
-                                  return _buildDefaultAvatar(connection.contactName);
+                                  return _buildDefaultAvatar(displayName);
                                 },
                               )
-                            : _buildDefaultAvatar(connection.contactName),
+                            : _buildDefaultAvatar(displayName),
                       ),
                     );
                   },
@@ -1418,29 +1521,57 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        connection.contactName,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 20,
-                          letterSpacing: 0.5,
+                      // Name with fallback to user profile when missing
+                      if (connection.contactName.trim().isNotEmpty)
+                        Text(
+                          connection.contactName,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 20,
+                            letterSpacing: 0.5,
+                          ),
+                        )
+                      else
+                        FutureBuilder<String?>(
+                          future: _getUserFullName(connection.contactUserId),
+                          builder: (context, snapshot) {
+                            final name = (snapshot.data ?? '').trim();
+                            return Text(
+                              name.isNotEmpty ? name : 'Contact',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 20,
+                                letterSpacing: 0.5,
+                              ),
+                            );
+                          },
                         ),
-                      ),
                       const SizedBox(height: 4),
-                      Text(
-                        connection.contactCompany ?? 'Professional',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w400,
-                          letterSpacing: 0.3,
-                        ),
+                      // Company with fallback to user profile
+                      FutureBuilder<String?>(
+                        future: connection.contactCompany != null && connection.contactCompany!.trim().isNotEmpty
+                            ? Future.value(connection.contactCompany)
+                            : _getUserCompany(connection.contactUserId),
+                        builder: (context, snapshot) {
+                          final company = (snapshot.data ?? '').trim();
+                          return Text(
+                            company.isNotEmpty ? company : 'Professional',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w400,
+                              letterSpacing: 0.3,
+                            ),
+                          );
+                        },
                       ),
                       const SizedBox(height: 2),
-                      Text(
-                        'Company Name', // Placeholder for company
-                        style: const TextStyle(
+                      // Subtle placeholder line below company
+                      const Text(
+                        'Company Name',
+                        style: TextStyle(
                           color: Colors.white,
                           fontSize: 14,
                           fontWeight: FontWeight.w400,
@@ -1499,29 +1630,37 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  // Email (clickable)
-                  GestureDetector(
-                    onTap: () => _launchEmail(connection.contactEmail),
-                    child: Row(
-                      children: [
-                        Icon(Icons.email_outlined, color: Colors.white, size: 16),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            connection.contactEmail,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w400,
-                              letterSpacing: 0.2,
-                              decoration: TextDecoration.underline,
-                              decorationColor: Colors.white,
+                  // Email (clickable) with fallback from user profile
+                  FutureBuilder<String?>(
+                    future: connection.contactEmail.trim().isNotEmpty
+                        ? Future.value(connection.contactEmail)
+                        : _getUserEmail(connection.contactUserId),
+                    builder: (context, snapshot) {
+                      final email = (snapshot.data ?? '').trim();
+                      return GestureDetector(
+                        onTap: email.isNotEmpty ? () => _launchEmail(email) : null,
+                        child: Row(
+                          children: [
+                            Icon(Icons.email_outlined, color: Colors.white, size: 16),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                email.isNotEmpty ? email : 'Email',
+                                style: TextStyle(
+                                  color: Colors.white.withOpacity(email.isNotEmpty ? 1 : 0.7),
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w400,
+                                  letterSpacing: 0.2,
+                                  decoration: email.isNotEmpty ? TextDecoration.underline : TextDecoration.none,
+                                  decorationColor: Colors.white,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
+                          ],
                         ),
-                      ],
-                    ),
+                      );
+                    },
                   ),
                   
                   // LinkedIn (clickable)
@@ -1697,12 +1836,12 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
                 style: const TextStyle(color: Colors.black),
                 decoration: const InputDecoration(
                   labelText: 'Group Name',
-                  labelStyle: TextStyle(color: Color(0xFF9CA3AF)),
+                  labelStyle: TextStyle(color: AppColors.grey900),
                   filled: true,
                   fillColor: Colors.white,
                   border: OutlineInputBorder(),
                   enabledBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: Color(0xFF9CA3AF)),
+                    borderSide: BorderSide(color: AppColors.grey300),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderSide: BorderSide(color: AppColors.primary),
@@ -1715,12 +1854,12 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
                 style: const TextStyle(color: Colors.black),
                 decoration: const InputDecoration(
                   labelText: 'Description (Optional)',
-                  labelStyle: TextStyle(color: Color(0xFF9CA3AF)),
+                  labelStyle: TextStyle(color: AppColors.grey900),
                   filled: true,
                   fillColor: Colors.white,
                   border: OutlineInputBorder(),
                   enabledBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: Color(0xFF9CA3AF)),
+                    borderSide: BorderSide(color: AppColors.grey300),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderSide: BorderSide(color: AppColors.primary),
@@ -1851,12 +1990,12 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
                 style: const TextStyle(color: Colors.black), // Changed to black for visibility
                 decoration: const InputDecoration(
                   labelText: 'Group Name',
-                  labelStyle: TextStyle(color: Color(0xFF9CA3AF)),
+                  labelStyle: TextStyle(color: AppColors.grey900),
                   filled: true,
                   fillColor: Colors.white, // White background
                   border: OutlineInputBorder(),
                   enabledBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: Color(0xFF9CA3AF)),
+                    borderSide: BorderSide(color: AppColors.grey300),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderSide: BorderSide(color: AppColors.primary),
@@ -1869,12 +2008,12 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
                 style: const TextStyle(color: Colors.black), // Changed to black for visibility
                 decoration: const InputDecoration(
                   labelText: 'Description (Optional)',
-                  labelStyle: TextStyle(color: Color(0xFF9CA3AF)),
+                  labelStyle: TextStyle(color: AppColors.grey900),
                   filled: true,
                   fillColor: Colors.white, // White background
                   border: OutlineInputBorder(),
                   enabledBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: Color(0xFF9CA3AF)),
+                    borderSide: BorderSide(color: AppColors.grey300),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderSide: BorderSide(color: AppColors.primary),
@@ -2111,7 +2250,7 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
               style: const TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.w600,
-                color: AppColors.grey700,
+                color: AppColors.textMuted,
                 letterSpacing: -0.3,
               ),
             ),
@@ -2123,7 +2262,7 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 16,
-                color: AppColors.grey500,
+                color: AppColors.textSecondary,
                 fontWeight: FontWeight.w400,
                 letterSpacing: -0.2,
                 height: 1.5,
@@ -2249,7 +2388,7 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
               'Make connections to view them here',
               style: TextStyle(
                 fontSize: 14,
-                color: Colors.white.withValues(alpha: 0.5),
+                color: AppColors.textSecondary.withValues(alpha: 0.8),
                 fontStyle: FontStyle.italic,
               ),
             ),
@@ -2277,7 +2416,10 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
         ),
       );
 
-      // Remove connection ONLY from current user's side (one-way removal)
+      // Remove the exact connection document by id (more reliable)
+      await connectionRequestService.removeConnectionById(connection.id);
+
+      // Additionally ensure one-way cleanup by user/contact ids
       await connectionRequestService.removeConnectionOneSide(
         authService.user!.uid,
         connection.contactUserId,
@@ -2288,6 +2430,11 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
 
       // Show success message
       if (mounted) {
+        // Optimistically remove from local lists so UI updates immediately
+        setState(() {
+          _connections.removeWhere((c) => c.id == connection.id);
+          _filteredConnections.removeWhere((c) => c.id == connection.id);
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('${connection.contactName} removed from connections'),

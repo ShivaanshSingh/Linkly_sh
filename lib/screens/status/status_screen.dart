@@ -18,6 +18,13 @@ class _StatusScreenState extends State<StatusScreen> {
   final StatusService _statusService = StatusService();
 
   @override
+  void initState() {
+    super.initState();
+    // Clean up expired statuses (older than 24h) when opening the screen
+    _statusService.cleanupExpiredStatuses();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.white,
@@ -141,10 +148,27 @@ class _StatusScreenState extends State<StatusScreen> {
 
               return ListView.builder(
                 padding: const EdgeInsets.all(16),
+                physics: const BouncingScrollPhysics(),
                 itemCount: statuses.length,
                 itemBuilder: (context, index) {
                   final status = statuses[index];
-                  return _buildStatusCard(status);
+                  return TweenAnimationBuilder<double>(
+                    tween: Tween(begin: 0.95, end: 1.0),
+                    duration: const Duration(milliseconds: 220),
+                    curve: Curves.easeOut,
+                    builder: (context, scale, child) {
+                      return AnimatedOpacity(
+                        duration: const Duration(milliseconds: 220),
+                        opacity: 1.0,
+                        child: Transform.scale(
+                          scale: scale,
+                          alignment: Alignment.topCenter,
+                          child: child,
+                        ),
+                      );
+                    },
+                    child: _buildStatusCard(status),
+                  );
                 },
               );
             },
@@ -158,7 +182,11 @@ class _StatusScreenState extends State<StatusScreen> {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        color: AppColors.white,
+        gradient: const LinearGradient(
+          colors: [Color(0xFFFDFDFE), Color(0xFFF7FAFF)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppColors.grey200),
         boxShadow: [
@@ -265,10 +293,11 @@ class _StatusScreenState extends State<StatusScreen> {
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(8),
-                child: Image.network(
-                  status.imageUrl!,
+                child: FadeInImage.assetNetwork(
+                  placeholder: 'assets/images/placeholder.png',
+                  image: status.imageUrl!,
                   fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) {
+                  imageErrorBuilder: (context, error, stackTrace) {
                     return Container(
                       color: AppColors.grey100,
                       child: const Icon(

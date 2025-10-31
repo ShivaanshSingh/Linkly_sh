@@ -30,18 +30,40 @@ class ConnectionModel {
   });
 
   factory ConnectionModel.fromMap(Map<String, dynamic> map) {
+    DateTime safeCreatedAt;
+    final dynamic created = map['createdAt'];
+    if (created is Timestamp) {
+      safeCreatedAt = created.toDate();
+    } else if (created is DateTime) {
+      safeCreatedAt = created;
+    } else if (created is String) {
+      // Attempt to parse ISO strings if present
+      safeCreatedAt = DateTime.tryParse(created) ?? DateTime.fromMillisecondsSinceEpoch(0);
+    } else {
+      // Fallback for legacy docs missing createdAt
+      safeCreatedAt = DateTime.fromMillisecondsSinceEpoch(0);
+    }
+
+    String asString(dynamic v) => v is String ? v : (v?.toString() ?? '');
+
     return ConnectionModel(
-      id: map['id'] ?? '',
-      userId: map['userId'] ?? '',
-      contactUserId: map['contactUserId'] ?? '',
-      contactName: map['contactName'] ?? '',
-      contactEmail: map['contactEmail'] ?? '',
-      contactPhone: map['contactPhone'],
-      contactCompany: map['contactCompany'],
-      connectionNote: map['connectionNote'],
-      groupId: map['groupId'],
-      connectionMethod: map['connectionMethod'] ?? '',
-      createdAt: (map['createdAt'] as Timestamp).toDate(),
+      id: asString(map['id']),
+      userId: asString(map['userId']),
+      contactUserId: asString(
+        map['contactUserId'] ?? map['contactUid'] ?? map['contact_id'] ?? map['contact'],
+      ),
+      contactName: asString(
+        map['contactName'] ?? map['name'] ?? map['fullName'] ?? map['displayName'],
+      ),
+      contactEmail: asString(
+        map['contactEmail'] ?? map['email'] ?? map['mail'],
+      ),
+      contactPhone: (map['contactPhone'] ?? map['phoneNumber'] ?? map['phone'] ?? map['mobile']) as String?,
+      contactCompany: (map['contactCompany'] ?? map['company'] ?? map['organization'] ?? map['org']) as String?,
+      connectionNote: map['connectionNote'] as String?,
+      groupId: asString(map['groupId'] ?? map['groupID']),
+      connectionMethod: asString(map['connectionMethod'] ?? map['method']),
+      createdAt: safeCreatedAt,
       isNewConnection: map['isNewConnection'] ?? true,
     );
   }

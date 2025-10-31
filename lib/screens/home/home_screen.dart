@@ -136,7 +136,7 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
       vsync: this,
     );
     _slideAnimationController = AnimationController(
-      duration: const Duration(milliseconds: 250),
+      duration: const Duration(milliseconds: 320),
       vsync: this,
     );
     
@@ -182,12 +182,6 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
             onPressed: () {
               final authService = Provider.of<AuthService>(context, listen: false);
               authService.refreshUserData();
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('User data refreshed'),
-                  duration: Duration(seconds: 2),
-                ),
-              );
             },
             tooltip: 'Refresh User Data',
           ),
@@ -198,6 +192,12 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
           children: [
             // Content area that slides horizontally - takes full screen
             GestureDetector(
+                onHorizontalDragStart: (_) {
+                  // Stop ongoing animation so user-driven drag feels responsive
+                  if (_slideAnimationController.isAnimating) {
+                    _slideAnimationController.stop();
+                  }
+                },
                 onHorizontalDragUpdate: (details) {
                   // Only handle horizontal drag if not actively scrolling vertically
                   if (_scrollController.hasClients && _scrollController.offset > 10) {
@@ -215,22 +215,29 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
                     return;
                   }
                   final velocity = details.primaryVelocity ?? 0;
-                  final threshold = 0.5;
-                  
+                  // Asymmetric commit thresholds for a more natural feel
+                  const double toDigitalThreshold = 0.35; // commit to Digital Card
+                  const double toFeedsThresholdFromDigital = 0.90; // commit back to Feeds
+
                   int targetTab;
                   double targetOffset;
-                  
-                  if (velocity < -500 || _pageOffset > threshold) {
-                    // Swipe left or past threshold -> Digital Card
+
+                  // Strong velocity wins
+                  if (velocity < -300) {
                     targetTab = 1;
                     targetOffset = 1.0;
-                  } else if (velocity > 500 || _pageOffset < (1 - threshold)) {
-                    // Swipe right or past threshold -> Feeds
+                  } else if (velocity > 300) {
                     targetTab = 0;
                     targetOffset = 0.0;
                   } else {
-                    // Snap to nearest
-                    targetTab = _pageOffset >= threshold ? 1 : 0;
+                    // Decide by position with asymmetric thresholds based on current tab
+                    if (_selectedTab == 1) {
+                      // Currently on Digital Card: require only a tiny drag right to return
+                      targetTab = _pageOffset < toFeedsThresholdFromDigital ? 0 : 1;
+                    } else {
+                      // Currently on Feeds: require more intent to go to Digital Card
+                      targetTab = _pageOffset > toDigitalThreshold ? 1 : 0;
+                    }
                     targetOffset = targetTab.toDouble();
                   }
                   
@@ -242,7 +249,10 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
                   final startOffset = _pageOffset;
                   _slideAnimationController.reset();
                   final animation = Tween<double>(begin: startOffset, end: targetOffset).animate(
-                    CurvedAnimation(parent: _slideAnimationController, curve: Curves.easeOutCubic),
+                    CurvedAnimation(
+                      parent: _slideAnimationController,
+                      curve: Curves.fastOutSlowIn,
+                    ),
                   );
                   animation.addListener(() {
                     setState(() {
@@ -559,7 +569,10 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
     final startOffset = _pageOffset;
     _slideAnimationController.reset();
     final animation = Tween<double>(begin: startOffset, end: targetOffset).animate(
-      CurvedAnimation(parent: _slideAnimationController, curve: Curves.easeOutCubic),
+      CurvedAnimation(
+        parent: _slideAnimationController,
+        curve: Curves.fastOutSlowIn,
+      ),
     );
     animation.addListener(() {
       setState(() {

@@ -370,6 +370,20 @@ class ConnectionRequestService {
     }
   }
 
+  // Remove a specific connection document by its id (one-way, exact doc)
+  Future<void> removeConnectionById(String connectionId) async {
+    try {
+      final docRef = _firestore.collection('connections').doc(connectionId);
+      final snap = await docRef.get();
+      if (!snap.exists) {
+        return; // already gone
+      }
+      await docRef.delete();
+    } catch (e) {
+      throw Exception('Failed to remove connection by id: ${e.toString()}');
+    }
+  }
+
   // Create notification for connection request
   Future<void> _createConnectionRequestNotification({
     required String receiverId,
