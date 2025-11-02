@@ -94,9 +94,9 @@ class LinklyApp extends StatelessWidget {
           return MaterialApp.router(
             title: 'Linkly',
             debugShowCheckedModeBanner: false,
-            theme: AppTheme.lightTheme,
+            theme: AppTheme.darkTheme, // Always use dark theme for consistency
             darkTheme: AppTheme.darkTheme,
-            themeMode: ThemeMode.system,
+            themeMode: ThemeMode.dark, // Force dark mode to prevent system theme interference
             routerConfig: _createRouter(authService),
           );
         },

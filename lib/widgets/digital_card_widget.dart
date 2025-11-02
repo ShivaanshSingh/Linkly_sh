@@ -84,6 +84,35 @@ class _DigitalCardWidgetState extends State<DigitalCardWidget>
     );
   }
 
+  String _extractLinkedInUsername(String linkedInUrl) {
+    // Extract username from various LinkedIn URL formats
+    // Examples: 
+    // - https://www.linkedin.com/in/username
+    // - www.linkedin.com/in/username
+    // - linkedin.com/in/username
+    // - /in/username
+    // - just username
+    
+    if (linkedInUrl.isEmpty) return '';
+    
+    // Remove trailing slash
+    linkedInUrl = linkedInUrl.trim().replaceAll(RegExp(r'/$'), '');
+    
+    // Check if it's just a username (no URL structure)
+    if (!linkedInUrl.contains('/') && !linkedInUrl.contains('linkedin')) {
+      return linkedInUrl;
+    }
+    
+    // Extract username from /in/username pattern
+    final match = RegExp(r'/in/([^/?]+)').firstMatch(linkedInUrl);
+    if (match != null && match.groupCount >= 1) {
+      return match.group(1) ?? linkedInUrl;
+    }
+    
+    // If no match, return the original (might already be a username)
+    return linkedInUrl;
+  }
+
   Widget _buildFrontCard(String userName) {
     return Center(
       child: Container(
@@ -102,11 +131,21 @@ class _DigitalCardWidgetState extends State<DigitalCardWidget>
           ],
         ),
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: const Color(0xFF6B8FAE).withOpacity(0.6), // Dark blue with silverish/metallic tint
+          width: 1.5,
+        ),
         boxShadow: [
           BoxShadow(
             color: AppColors.primaryLight.withOpacity(0.3),
             blurRadius: 20,
             offset: const Offset(0, 8),
+          ),
+          BoxShadow(
+            color: const Color(0xFF6B8FAE).withOpacity(0.2),
+            blurRadius: 15,
+            offset: const Offset(0, 4),
+            spreadRadius: 1,
           ),
         ],
       ),
@@ -134,7 +173,32 @@ class _DigitalCardWidgetState extends State<DigitalCardWidget>
                     textAlign: TextAlign.center,
                   ),
                   
-                  const SizedBox(height: 8),
+                  // Job Title (Position)
+                  Consumer<AuthService>(
+                    builder: (context, authService, child) {
+                      final position = authService.userModel?.position;
+                      
+                      if (position != null && position.isNotEmpty) {
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 6),
+                          child: Text(
+                            position,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: AppColors.textSecondary,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            textAlign: TextAlign.center,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        );
+                      }
+                      return const SizedBox(height: 6);
+                    },
+                  ),
+                  
+                  const SizedBox(height: 10),
                   
                   // Email
                   Consumer<AuthService>(
@@ -155,7 +219,60 @@ class _DigitalCardWidgetState extends State<DigitalCardWidget>
                     },
                   ),
                   
-                  const SizedBox(height: 16),
+                  // LinkedIn Account
+                  Consumer<AuthService>(
+                    builder: (context, authService, child) {
+                      final linkedIn = authService.userModel?.socialLinks['linkedin'];
+                      
+                      if (linkedIn != null && linkedIn.isNotEmpty) {
+                        final linkedInUsername = _extractLinkedInUsername(linkedIn);
+                        
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              // LinkedIn logo (using badge icon as LinkedIn representation)
+                              Container(
+                                padding: const EdgeInsets.all(2),
+                                decoration: BoxDecoration(
+                                  color: AppColors.textSecondary.withOpacity(0.2),
+                                  borderRadius: BorderRadius.circular(3),
+                                ),
+                                child: const Text(
+                                  'in',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: AppColors.textSecondary,
+                                    fontWeight: FontWeight.bold,
+                                    fontFamily: 'Roboto',
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Flexible(
+                                child: Text(
+                                  linkedInUsername,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: AppColors.textSecondary,
+                                    fontWeight: FontWeight.w400,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }
+                      return const SizedBox.shrink();
+                    },
+                  ),
+                  
+                  const SizedBox(height: 14),
                   
                   // Tap instruction
                   Text(
@@ -241,11 +358,21 @@ class _DigitalCardWidgetState extends State<DigitalCardWidget>
           ],
         ),
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: const Color(0xFF6B8FAE).withOpacity(0.6), // Dark blue with silverish/metallic tint
+          width: 1.5,
+        ),
         boxShadow: [
           BoxShadow(
             color: AppColors.primaryLight.withOpacity(0.3),
             blurRadius: 20,
             offset: const Offset(0, 8),
+          ),
+          BoxShadow(
+            color: const Color(0xFF6B8FAE).withOpacity(0.2),
+            blurRadius: 15,
+            offset: const Offset(0, 4),
+            spreadRadius: 1,
           ),
         ],
       ),

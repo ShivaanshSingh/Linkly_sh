@@ -175,17 +175,6 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
             fontSize: 24,
           ),
         ),
-        actions: [
-          // Debug button to refresh user data
-          IconButton(
-            icon: const Icon(Icons.refresh, color: AppColors.textPrimary), // Bright White Icon
-            onPressed: () {
-              final authService = Provider.of<AuthService>(context, listen: false);
-              authService.refreshUserData();
-            },
-            tooltip: 'Refresh User Data',
-          ),
-        ],
       ),
       body: SafeArea(
         child: Stack(
@@ -616,27 +605,33 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
           );
         }
         
-        return ListView(
-          controller: _scrollController,
-          padding: EdgeInsets.zero,
-          physics: const ClampingScrollPhysics(),
-          children: [
-            // Spacer for header height - allows posts to scroll to top
-            SizedBox(
-              height: 280, // Header + status + tabs height with extra clearance
-            ),
-            // Posts section or empty state
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: postService.posts.isEmpty
-                  ? _buildEmptyPostsState()
-                  : Column(
-                      children: postService.posts
-                          .map((post) => _buildFeedPost(post, postService.posts.indexOf(post)))
-                          .toList(),
-                    ),
-            ),
-          ],
+        return RefreshIndicator(
+          onRefresh: () async {
+            final authService = Provider.of<AuthService>(context, listen: false);
+            await postService.getPosts(currentUserId: authService.user?.uid);
+          },
+          child: ListView(
+            controller: _scrollController,
+            padding: EdgeInsets.zero,
+            physics: const ClampingScrollPhysics(),
+            children: [
+              // Spacer for header height - allows posts to scroll to top
+              SizedBox(
+                height: 280, // Header + status + tabs height with extra clearance
+              ),
+              // Posts section or empty state
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: postService.posts.isEmpty
+                    ? _buildEmptyPostsState()
+                    : Column(
+                        children: postService.posts
+                            .map((post) => _buildFeedPost(post, postService.posts.indexOf(post)))
+                            .toList(),
+                      ),
+              ),
+            ],
+          ),
         );
       },
     );
@@ -722,15 +717,33 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
     final isLiked = currentUserId != null ? post.isLikedBy(currentUserId) : false;
     
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
+      margin: const EdgeInsets.only(bottom: 20),
       decoration: BoxDecoration(
-        color: AppColors.grey50,
-        borderRadius: BorderRadius.circular(12),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            AppColors.grey50,
+            AppColors.surfaceDark,
+            AppColors.grey700,
+          ],
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: AppColors.primary.withOpacity(0.3),
+          width: 1.5,
+        ),
         boxShadow: [
           BoxShadow(
-            color: AppColors.primaryLight.withOpacity(0.2),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
+            color: AppColors.primary.withOpacity(0.25),
+            blurRadius: 25,
+            offset: const Offset(0, 8),
+            spreadRadius: 2,
+          ),
+          BoxShadow(
+            color: Colors.black.withOpacity(0.4),
+            blurRadius: 15,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
@@ -739,46 +752,82 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
         children: [
           // Post header
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(20),
             child: Row(
               children: [
-                CircleAvatar(
-                  radius: 20,
-                  backgroundColor: AppColors.primary,
-                  child: Text(
-                    post.userAvatar.isNotEmpty ? post.userAvatar[0].toUpperCase() : 'U',
-                    style: TextStyle(
-                      color: AppColors.white,
-                      fontWeight: FontWeight.bold,
+                Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: AppColors.oceanGradient,
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.primary.withOpacity(0.4),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: CircleAvatar(
+                    radius: 24,
+                    backgroundColor: Colors.transparent,
+                    child: Text(
+                      post.userAvatar.isNotEmpty ? post.userAvatar[0].toUpperCase() : 'U',
+                      style: const TextStyle(
+                        color: AppColors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                      ),
                     ),
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 16),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         post.userName,
-                        style: TextStyle(
-                          fontSize: 16,
+                        style: const TextStyle(
+                          fontSize: 17,
                           fontWeight: FontWeight.bold,
-                          color: AppColors.textPrimary, // Bright White Text
+                          color: AppColors.textPrimary,
+                          letterSpacing: 0.3,
                         ),
                       ),
-                      Text(
-                        post.timeAgo,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: AppColors.grey400,
-                        ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.access_time,
+                            size: 14,
+                            color: AppColors.grey400,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            post.timeAgo,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: AppColors.grey400,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
                 ),
-                IconButton(
-                  icon: Icon(Icons.more_vert, color: AppColors.grey600),
-                  onPressed: () {},
+                Container(
+                  decoration: BoxDecoration(
+                    color: AppColors.grey800.withOpacity(0.6),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: AppColors.grey400.withOpacity(0.2),
+                    ),
+                  ),
+                  child: IconButton(
+                    icon: const Icon(Icons.more_vert, color: AppColors.grey300, size: 20),
+                    onPressed: () {},
+                  ),
                 ),
               ],
             ),
@@ -786,150 +835,212 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
           
           // Post content
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child:               Text(
-                post.content,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: AppColors.grey600,
-                  height: 1.4,
-                ),
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Text(
+              post.content,
+              style: const TextStyle(
+                fontSize: 15,
+                color: AppColors.textPrimary,
+                height: 1.6,
+                letterSpacing: 0.2,
               ),
+            ),
           ),
           
           // Post image (if available)
           if (post.imageUrl != null && post.imageUrl!.isNotEmpty)
             Container(
-              margin: const EdgeInsets.all(16),
-              height: 200,
+              margin: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+              height: 220,
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.primary.withOpacity(0.2),
+                    blurRadius: 15,
+                    offset: const Offset(0, 5),
+                  ),
+                ],
               ),
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: Image.network(
-                  post.imageUrl!,
-                  width: double.infinity,
-                  height: 200,
-                  fit: BoxFit.cover,
-                  loadingBuilder: (context, child, loadingProgress) {
-                    if (loadingProgress == null) return child;
-                    return Container(
-                      height: 200,
-                      color: AppColors.grey100,
-                      child: Center(
-                        child: CircularProgressIndicator(
-                          value: loadingProgress.expectedTotalBytes != null
-                              ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
-                              : null,
-                          color: AppColors.primary,
-                        ),
-                      ),
-                    );
-                  },
-                  errorBuilder: (context, error, stackTrace) {
-                    return Container(
-                      height: 200,
-                      color: AppColors.grey100,
-                      child: Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.broken_image,
-                              size: 50,
-                              color: AppColors.grey400,
+                borderRadius: BorderRadius.circular(16),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Image.network(
+                      post.imageUrl!,
+                      width: double.infinity,
+                      height: 220,
+                      fit: BoxFit.cover,
+                      loadingBuilder: (context, child, loadingProgress) {
+                        if (loadingProgress == null) return child;
+                        return Container(
+                          height: 220,
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                AppColors.grey700.withOpacity(0.6),
+                                AppColors.grey50.withOpacity(0.4),
+                              ],
                             ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Failed to load image',
-                              style: TextStyle(
-                                color: AppColors.grey600,
-                                fontSize: 12,
-                              ),
+                          ),
+                          child: Center(
+                            child: CircularProgressIndicator(
+                              value: loadingProgress.expectedTotalBytes != null
+                                  ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                                  : null,
+                              color: AppColors.primary,
+                              strokeWidth: 3,
                             ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
+                          ),
+                        );
+                      },
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(
+                          height: 220,
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                AppColors.grey700.withOpacity(0.6),
+                                AppColors.grey50.withOpacity(0.4),
+                              ],
+                            ),
+                          ),
+                          child: Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.broken_image_outlined,
+                                  size: 60,
+                                  color: AppColors.grey400,
+                                ),
+                                const SizedBox(height: 12),
+                                Text(
+                                  'Failed to load image',
+                                  style: TextStyle(
+                                    color: AppColors.grey500,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
                 ),
               ),
             ),
           
           // Engagement metrics
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              children: [
-                GestureDetector(
-                  onTap: () => _toggleLike(index),
-                  child: Row(
-                    children: [
-                      AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 200),
-                        child: Icon(
-                          isLiked ? Icons.favorite : Icons.favorite_border,
-                          color: isLiked ? AppColors.error : AppColors.grey400,
-                          size: 16,
-                          key: ValueKey(isLiked),
-                        ),
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+            child: Container(
+              decoration: BoxDecoration(
+                color: AppColors.grey800.withOpacity(0.4),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: AppColors.grey400.withOpacity(0.1),
+                ),
+              ),
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  GestureDetector(
+                    onTap: () => _toggleLike(index),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: isLiked ? AppColors.error.withOpacity(0.15) : Colors.transparent,
+                        borderRadius: BorderRadius.circular(12),
+                        border: isLiked ? Border.all(color: AppColors.error.withOpacity(0.3)) : null,
                       ),
-                      const SizedBox(width: 4),
-                      AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 200),
-                        child: Text(
-                          '${post.likes.length}',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: isLiked ? AppColors.error : AppColors.grey400,
-                            fontWeight: isLiked ? FontWeight.bold : FontWeight.normal,
+                      child: Row(
+                        children: [
+                          AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 200),
+                            child: Icon(
+                              isLiked ? Icons.favorite : Icons.favorite_border,
+                              color: isLiked ? AppColors.error : AppColors.grey400,
+                              size: 20,
+                              key: ValueKey(isLiked),
+                            ),
                           ),
-                          key: ValueKey('${post.likes.length}_$isLiked'),
-                        ),
+                          const SizedBox(width: 6),
+                          AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 200),
+                            child: Text(
+                              '${post.likes.length}',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: isLiked ? AppColors.error : AppColors.grey300,
+                                fontWeight: isLiked ? FontWeight.bold : FontWeight.w600,
+                              ),
+                              key: ValueKey('${post.likes.length}_$isLiked'),
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
-                ),
-                const SizedBox(width: 16),
-                GestureDetector(
-                  onTap: () => _showCommentsModal(post),
-                  child: Row(
-                    children: [
-                      Icon(Icons.comment_outlined, color: AppColors.grey400, size: 16),
-                      const SizedBox(width: 4),
-                      Text(
-                        '${post.commentsCount}',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: AppColors.grey400,
-                        ),
+                  GestureDetector(
+                    onTap: () => _showCommentsModal(post),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 16),
-                GestureDetector(
-                  onTap: () => _sharePost(post),
-                  child: Row(
-                    children: [
-                      Icon(Icons.share_outlined, color: AppColors.grey400, size: 16),
-                      const SizedBox(width: 4),
-                      Text(
-                        '${post.shares.length}',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: AppColors.grey400,
-                        ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.comment_outlined, color: AppColors.grey300, size: 20),
+                          const SizedBox(width: 6),
+                          Text(
+                            '${post.commentsCount}',
+                            style: const TextStyle(
+                              fontSize: 14,
+                              color: AppColors.grey300,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
-                ),
-              ],
+                  GestureDetector(
+                    onTap: () => _sharePost(post),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.share_outlined, color: AppColors.grey300, size: 20),
+                          const SizedBox(width: 6),
+                          Text(
+                            '${post.shares.length}',
+                            style: const TextStyle(
+                              fontSize: 14,
+                              color: AppColors.grey300,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
-          
-          const SizedBox(height: 16),
         ],
       ),
     );
@@ -1192,7 +1303,7 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
   }
 
   // Like functionality
-  void _toggleLike(int index) {
+  void _toggleLike(int index) async {
     final postService = Provider.of<PostService>(context, listen: false);
     final authService = Provider.of<AuthService>(context, listen: false);
     final currentUserId = authService.user?.uid;
@@ -1205,20 +1316,35 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
     }
     
     final post = postService.posts[index];
-    postService.toggleLike(post.id, currentUserId);
+    final isLikedBefore = post.isLikedBy(currentUserId);
     
-    // Show feedback
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          post.isLikedBy(currentUserId) 
-            ? 'Unliked ${post.userName}\'s post' 
-            : 'Liked ${post.userName}\'s post'
+    final success = await postService.toggleLike(post.id, currentUserId);
+    
+    if (!mounted) return;
+    
+    if (success) {
+      // Show success feedback
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            isLikedBefore 
+              ? 'Unliked ${post.userName}\'s post' 
+              : 'Liked ${post.userName}\'s post'
+          ),
+          duration: const Duration(milliseconds: 1000),
+          behavior: SnackBarBehavior.floating,
         ),
-        duration: const Duration(milliseconds: 1000),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+      );
+    } else {
+      // Show error feedback
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Unable to like post. Please check your connection.'),
+          duration: Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   // Comment functionality

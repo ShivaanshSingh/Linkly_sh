@@ -1,7 +1,7 @@
-# 🔥 FIREBASE CONSOLE RULES UPDATE
+R# 🔥 FIREBASE CONSOLE RULES UPDATE
 
 ## 🚨 **URGENT: Update Firestore Rules in Firebase Console**
-
+r
 ### **Step 1: Go to Firebase Console**
 1. Open [Firebase Console](https://console.firebase.google.com/)
 2. Select project: `linklly-9525b`

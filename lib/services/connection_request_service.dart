@@ -122,9 +122,13 @@ class ConnectionRequestService {
       final senderEmail = senderUser.exists ? senderUser.data()!['email'] ?? '' : '';
       final receiverEmail = receiverUser.exists ? receiverUser.data()!['email'] ?? '' : '';
 
+      // Create deterministic connection IDs (consistent with QR scanner)
+      final connection1Id = '${request.senderId}_${request.receiverId}';
+      final connection2Id = '${request.receiverId}_${request.senderId}';
+
       // Create connection for both users
       final connection1 = ConnectionModel(
-        id: _firestore.collection('connections').doc().id,
+        id: connection1Id,
         userId: request.senderId,
         contactUserId: request.receiverId,
         contactName: request.receiverName,
@@ -138,7 +142,7 @@ class ConnectionRequestService {
       );
 
       final connection2 = ConnectionModel(
-        id: _firestore.collection('connections').doc().id,
+        id: connection2Id,
         userId: request.receiverId,
         contactUserId: request.senderId,
         contactName: request.senderName,

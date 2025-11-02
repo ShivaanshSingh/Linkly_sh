@@ -310,7 +310,7 @@ class PostService extends ChangeNotifier {
   }
 
   // Like/Unlike a post
-  Future<void> toggleLike(String postId, String userId) async {
+  Future<bool> toggleLike(String postId, String userId) async {
     if (!_isFirebaseAvailable) {
       // Mock like toggle
       final postIndex = _posts.indexWhere((post) => post.id == postId);
@@ -331,7 +331,7 @@ class PostService extends ChangeNotifier {
         notifyListeners();
         debugPrint('PostService: Mock like toggled for post: $postId');
       }
-      return;
+      return true;
     }
     
     try {
@@ -363,10 +363,12 @@ class PostService extends ChangeNotifier {
       
       debugPrint('PostService: Like toggled successfully');
       notifyListeners();
+      return true;
     } catch (e) {
       _error = e.toString();
       debugPrint('PostService: Error toggling like: $e');
       notifyListeners();
+      return false;
     }
   }
 

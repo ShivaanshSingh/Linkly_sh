@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
@@ -6,7 +7,6 @@ import '../../constants/app_colors.dart';
 import '../../services/connection_request_service.dart';
 import '../../services/auth_service.dart';
 import '../../services/group_service.dart';
-import '../../models/group_model.dart';
 import '../chat/group_chat_screen.dart';
 import 'search_users_screen.dart';
 
@@ -41,7 +41,14 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
       String? scannedUserId;
       if (qrData.startsWith('linkly://user/')) {
         scannedUserId = qrData.split('/').last;
-        user = {'id': scannedUserId};
+        // Fetch user details from Firestore
+        final userDoc = await FirebaseFirestore.instance.collection('users').doc(scannedUserId).get();
+        if (userDoc.exists) {
+          user = userDoc.data();
+          user?['id'] = scannedUserId;
+        } else {
+          user = {'id': scannedUserId};
+        }
       } else {
         final connectionRequestService = ConnectionRequestService();
         user = await connectionRequestService.getUserByQRCode(qrData);
@@ -60,9 +67,17 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
       // Create mutual connections for both users without pre-check queries
       await _connectInstant(scannedUserId, displayNameHint: user?['fullName'] ?? user?['username']);
 
-      // Show hovering options to add to group, create group, or add later
+      // Close the scanner screen once connection is made
       if (mounted) {
-        _showScannedUserActions({'id': scannedUserId, ...?user});
+        // Get root navigator context before popping to show dialog after closing scanner
+        final rootNavigator = Navigator.of(context, rootNavigator: true);
+        Navigator.of(context).pop();
+        // Show hovering options to add to group, create group, or add later in the previous screen context
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (rootNavigator.context.mounted) {
+            _showScannedUserActions({'id': scannedUserId, ...?user}, rootNavigator.context);
+          }
+        });
       }
       
     } catch (e) {
@@ -74,102 +89,226 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
     }
   }
 
-  void _showScannedUserActions(Map<String, dynamic> user) {
+  void _showScannedUserActions(Map<String, dynamic> user, BuildContext dialogContext) {
     final String displayName = (user['fullName'] ?? user['username'] ?? 'User');
     showDialog(
-      context: context,
+      context: dialogContext,
       builder: (context) {
-        return AlertDialog(
-          backgroundColor: AppColors.grey800,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          title: Text(
-            'Connect with $displayName',
-            style: const TextStyle(color: AppColors.textPrimary),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              ElevatedButton.icon(
-                onPressed: () async {
-                  Navigator.pop(context);
-                  await _selectGroupAndAdd(user);
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('You have successfully connected with $displayName')),
-                    );
-                  }
-                },
-                icon: const Icon(Icons.group_add),
-                label: const Text('Add to Group'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: AppColors.white,
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  AppColors.grey800,
+                  AppColors.grey900,
+                ],
+              ),
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.primary.withOpacity(0.3),
+                  blurRadius: 30,
+                  offset: const Offset(0, 10),
                 ),
-              ),
-              const SizedBox(height: 12),
-              OutlinedButton.icon(
-                onPressed: () async {
-                  Navigator.pop(context);
-                  await _createGroupAndAdd(user);
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('You have successfully connected with $displayName')),
-                    );
-                  }
-                },
-                icon: const Icon(Icons.add_circle_outline, color: AppColors.textPrimary),
-                label: const Text('Create Group', style: TextStyle(color: AppColors.textPrimary)),
-                style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: AppColors.textPrimary, width: 1),
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.5),
+                  blurRadius: 20,
+                  offset: const Offset(0, 5),
                 ),
+              ],
+              border: Border.all(
+                color: AppColors.primary.withOpacity(0.2),
+                width: 1,
               ),
-              const SizedBox(height: 12),
-              OutlinedButton.icon(
-                onPressed: () async {
-                  Navigator.pop(context);
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Added $displayName to your connections')),
-                    );
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('You have successfully connected with $displayName')),
-                    );
-                  }
-                },
-                icon: const Icon(Icons.person_add_alt_1, color: AppColors.textPrimary),
-                label: const Text('Add to Connections', style: TextStyle(color: AppColors.textPrimary)),
-                style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: AppColors.textPrimary, width: 1),
-                ),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(28),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Header with icon and title
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: AppColors.primary.withOpacity(0.3),
+                        width: 2,
+                      ),
+                    ),
+                    child: const Icon(
+                      Icons.qr_code_scanner,
+                      size: 40,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    'Connect with',
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    displayName,
+                    style: const TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.5,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 32),
+                  
+                  // Action buttons
+                  _buildActionButton(
+                    onPressed: () async {
+                      Navigator.pop(context);
+                      await _selectGroupAndAdd(user, dialogContext);
+                      if (dialogContext.mounted) {
+                        ScaffoldMessenger.of(dialogContext).showSnackBar(
+                          SnackBar(content: Text('You have successfully connected with $displayName')),
+                        );
+                      }
+                    },
+                    icon: Icons.group_add,
+                    label: 'Add to Group',
+                    isPrimary: true,
+                  ),
+                  const SizedBox(height: 16),
+                  _buildActionButton(
+                    onPressed: () async {
+                      Navigator.pop(context);
+                      await _createGroupAndAdd(user, dialogContext);
+                      if (dialogContext.mounted) {
+                        ScaffoldMessenger.of(dialogContext).showSnackBar(
+                          SnackBar(content: Text('You have successfully connected with $displayName')),
+                        );
+                      }
+                    },
+                    icon: Icons.add_circle_outline,
+                    label: 'Create Group',
+                    isPrimary: false,
+                  ),
+                  const SizedBox(height: 16),
+                  _buildActionButton(
+                    onPressed: () async {
+                      Navigator.pop(context);
+                      if (dialogContext.mounted) {
+                        ScaffoldMessenger.of(dialogContext).showSnackBar(
+                          SnackBar(content: Text('Added $displayName to your connections')),
+                        );
+                        ScaffoldMessenger.of(dialogContext).showSnackBar(
+                          SnackBar(content: Text('You have successfully connected with $displayName')),
+                        );
+                      }
+                    },
+                    icon: Icons.person_add_alt_1,
+                    label: 'Add to Connections',
+                    isPrimary: false,
+                  ),
+                  const SizedBox(height: 24),
+                  
+                  // Info text
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Text(
+                      'Tip: You can add them to groups later from Connections',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: AppColors.textSecondary.withOpacity(0.8),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w400,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 12),
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('You can add $displayName to a group later')),
-                    );
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('You have successfully connected with $displayName')),
-                    );
-                  }
-                },
-                child: const Text('Add Later', style: TextStyle(color: AppColors.textSecondary)),
-              ),
-            ],
+            ),
           ),
         );
       },
     );
   }
 
-  Future<void> _selectGroupAndAdd(Map<String, dynamic> user) async {
+  Widget _buildActionButton({
+    required VoidCallback onPressed,
+    required IconData icon,
+    required String label,
+    required bool isPrimary,
+  }) {
+    return Container(
+      height: 56,
+      decoration: BoxDecoration(
+        gradient: isPrimary
+            ? LinearGradient(
+                colors: [
+                  AppColors.primary,
+                  AppColors.primary.withOpacity(0.8),
+                ],
+              )
+            : null,
+        color: isPrimary ? null : Colors.transparent,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isPrimary
+              ? AppColors.primary.withOpacity(0.5)
+              : AppColors.textPrimary.withOpacity(0.3),
+          width: 1.5,
+        ),
+        boxShadow: isPrimary
+            ? [
+                BoxShadow(
+                  color: AppColors.primary.withOpacity(0.4),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ]
+            : null,
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(16),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                color: isPrimary ? AppColors.white : AppColors.textPrimary,
+                size: 24,
+              ),
+              const SizedBox(width: 12),
+              Text(
+                label,
+                style: TextStyle(
+                  color: isPrimary ? AppColors.white : AppColors.textPrimary,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _selectGroupAndAdd(Map<String, dynamic> user, BuildContext context) async {
     final auth = Provider.of<AuthService>(context, listen: false);
     if (auth.user == null) return;
-    // Ensure default groups exist for quick selection
-    await GroupService.ensureDefaultGroups(auth.user!.uid);
     final groups = await GroupService.getUserGroups(auth.user!.uid).first;
 
     String? selectedGroupId = groups.isNotEmpty ? groups.first.id : null;
@@ -236,7 +375,7 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
     );
   }
 
-  Future<void> _createGroupAndAdd(Map<String, dynamic> user) async {
+  Future<void> _createGroupAndAdd(Map<String, dynamic> user, BuildContext context) async {
     final auth = Provider.of<AuthService>(context, listen: false);
     if (auth.user == null) return;
 
@@ -381,21 +520,31 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
         'isNewConnection': true,
       };
 
-      // Use create so we skip any reads; if already exists, we'll ignore
-      try { batch.set(myRef, myData, SetOptions(merge: false)); } catch (_) {}
-      try { batch.set(theirRef, theirData, SetOptions(merge: false)); } catch (_) {}
+      // Set both connections
+      batch.set(myRef, myData, SetOptions(merge: true));
+      batch.set(theirRef, theirData, SetOptions(merge: true));
+      
+      debugPrint('🔄 Committing bidirectional connections...');
+      debugPrint('   - myDocId: $myDocId (userId: ${me.uid} -> contactUserId: $otherUserId)');
+      debugPrint('   - theirDocId: $theirDocId (userId: $otherUserId -> contactUserId: ${me.uid})');
+      debugPrint('   - myData: ${myData}');
+      debugPrint('   - theirData: ${theirData}');
+      
       await batch.commit();
+      
+      debugPrint('✅ Successfully created bidirectional connections!');
 
       // Fire-and-forget notification for the other user
       try {
+        final senderName = authService.userModel?.fullName ?? me.displayName ?? 'Someone';
         await firestore.collection('notifications').add({
           'receiverId': otherUserId,
           'title': 'New Connection',
-          'body': '${authService.userModel?.fullName ?? 'Someone'} added you as a connection',
+          'body': '$senderName added you using your digital card',
           'data': {
             'type': 'connection_added',
             'senderId': me.uid,
-            'senderName': authService.userModel?.fullName ?? '',
+            'senderName': senderName,
           },
           'timestamp': FieldValue.serverTimestamp(),
           'isRead': false,
@@ -409,7 +558,9 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
           SnackBar(content: Text('Added $name to your connections')),
         );
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      debugPrint('❌ Error in _connectInstant: $e');
+      debugPrint('Stack trace: $stackTrace');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error adding connection: $e')),
@@ -434,124 +585,16 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
         return;
       }
 
-      // Show group info dialog
+      // Close the scanner screen once group is found
       if (mounted) {
-        showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-            backgroundColor: const Color(0xFF2D2D2D),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
-            ),
-            title: const Text(
-              'Join Group',
-              style: TextStyle(color: Colors.white),
-            ),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                CircleAvatar(
-                  radius: 30,
-                  backgroundColor: Color(int.parse(group.color.replaceFirst('#', '0xFF'))),
-                  child: const Icon(
-                    Icons.group,
-                    color: Colors.white,
-                    size: 30,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  group.name,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  group.description,
-                  style: const TextStyle(
-                    color: Color(0xFF9CA3AF),
-                    fontSize: 14,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  '${group.members.length} members',
-                  style: const TextStyle(
-                    color: Color(0xFF9CA3AF),
-                    fontSize: 12,
-                  ),
-                ),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text(
-                  'Cancel',
-                  style: TextStyle(color: Color(0xFF9CA3AF)),
-                ),
-              ),
-              Container(
-                decoration: BoxDecoration(
-                  color: AppColors.primary,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: TextButton(
-                  onPressed: () async {
-                    Navigator.pop(context);
-                    try {
-                      await GroupService.joinGroupByInviteCode(
-                        inviteCode: inviteCode,
-                        userId: authService.user!.uid,
-                        userName: authService.user!.displayName ?? 'User',
-                      );
-                      
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Successfully joined ${group.name}'),
-                            backgroundColor: AppColors.primary,
-                          ),
-                        );
-                        
-                        // Navigate to group chat
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => GroupChatScreen(
-                              group: group,
-                              currentUser: authService.userModel!,
-                            ),
-                          ),
-                        );
-                      }
-                    } catch (e) {
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Failed to join group: $e'),
-                            backgroundColor: Colors.red,
-                          ),
-                        );
-                      }
-                    }
-                  },
-                  child: const Text(
-                    'Join',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
+        final rootNavigator = Navigator.of(context, rootNavigator: true);
+        Navigator.of(context).pop();
+        // Show group info dialog in the previous screen context
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (rootNavigator.context.mounted) {
+            _showGroupJoinDialog(inviteCode, group, rootNavigator.context);
+          }
+        });
       }
     } catch (e) {
       if (mounted) {
@@ -563,6 +606,128 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
         );
       }
     }
+  }
+
+  void _showGroupJoinDialog(String inviteCode, dynamic group, BuildContext dialogContext) {
+    final authService = Provider.of<AuthService>(dialogContext, listen: false);
+    if (authService.user == null) return;
+
+    showDialog(
+      context: dialogContext,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF2D2D2D),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        title: const Text(
+          'Join Group',
+          style: TextStyle(color: Colors.white),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircleAvatar(
+              radius: 30,
+              backgroundColor: Color(int.parse(group.color.replaceFirst('#', '0xFF'))),
+              child: const Icon(
+                Icons.group,
+                color: Colors.white,
+                size: 30,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              group.name,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              group.description,
+              style: const TextStyle(
+                color: Color(0xFF9CA3AF),
+                fontSize: 14,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '${group.members.length} members',
+              style: const TextStyle(
+                color: Color(0xFF9CA3AF),
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: Color(0xFF9CA3AF)),
+            ),
+          ),
+          Container(
+            decoration: BoxDecoration(
+              color: AppColors.primary,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: TextButton(
+              onPressed: () async {
+                Navigator.pop(context);
+                try {
+                  await GroupService.joinGroupByInviteCode(
+                    inviteCode: inviteCode,
+                    userId: authService.user!.uid,
+                    userName: authService.user!.displayName ?? 'User',
+                  );
+                  
+                  if (dialogContext.mounted) {
+                    ScaffoldMessenger.of(dialogContext).showSnackBar(
+                      SnackBar(
+                        content: Text('Successfully joined ${group.name}'),
+                        backgroundColor: AppColors.primary,
+                      ),
+                    );
+                    
+                    // Navigate to group chat
+                    Navigator.push(
+                      dialogContext,
+                      MaterialPageRoute(
+                        builder: (context) => GroupChatScreen(
+                          group: group,
+                          currentUser: authService.userModel!,
+                        ),
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  if (dialogContext.mounted) {
+                    ScaffoldMessenger.of(dialogContext).showSnackBar(
+                      SnackBar(
+                        content: Text('Failed to join group: $e'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                }
+              },
+              child: const Text(
+                'Join',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _sendConnectionRequest(Map<String, dynamic> user) async {
@@ -645,6 +810,8 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
                 if (_isScanning && capture.barcodes.isNotEmpty) {
                   final String? code = capture.barcodes.first.rawValue;
                   if (code != null) {
+                    // Vibrate when QR code is detected
+                    HapticFeedback.heavyImpact();
                     setState(() {
                       _isScanning = false;
                     });

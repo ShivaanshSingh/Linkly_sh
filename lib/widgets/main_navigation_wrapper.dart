@@ -57,41 +57,76 @@ class _MainNavigationWrapperState extends State<MainNavigationWrapper> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: widget.child,
-      bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
-        currentIndex: _selectedIndex,
-        onTap: _onTabTapped,
-        selectedItemColor: AppColors.primary,
-        unselectedItemColor: AppColors.grey500,
-        backgroundColor: AppColors.white,
-        elevation: 8,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home_outlined),
-            activeIcon: Icon(Icons.home),
-            label: 'Home',
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              AppColors.primaryDark,
+              AppColors.primary.withOpacity(0.7),
+              AppColors.grey800,
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            stops: const [0.0, 0.5, 1.0],
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.people_outlined),
-            activeIcon: Icon(Icons.people),
-            label: 'Connections',
+          border: Border(
+            top: BorderSide(
+              color: AppColors.primary.withOpacity(0.4),
+              width: 1.5,
+            ),
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.group_work_outlined),
-            activeIcon: Icon(Icons.group_work),
-            label: 'Groups',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person_outlined),
-            activeIcon: Icon(Icons.person),
-            label: 'Profile',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.settings_outlined),
-            activeIcon: Icon(Icons.settings),
-            label: 'Settings',
-          ),
-        ],
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.primaryDark.withOpacity(0.5),
+              blurRadius: 25,
+              offset: const Offset(0, -8),
+              spreadRadius: 2,
+            ),
+            BoxShadow(
+              color: AppColors.black.withOpacity(0.3),
+              blurRadius: 15,
+              offset: const Offset(0, -3),
+            ),
+          ],
+        ),
+        child: BottomNavigationBar(
+          type: BottomNavigationBarType.fixed,
+          currentIndex: _selectedIndex,
+          onTap: _onTabTapped,
+          selectedItemColor: AppColors.primaryLight,
+          unselectedItemColor: AppColors.grey400,
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          selectedLabelStyle: const TextStyle(color: AppColors.primaryLight, fontWeight: FontWeight.w600),
+          unselectedLabelStyle: const TextStyle(color: AppColors.grey400, fontWeight: FontWeight.w400),
+          items: const [
+            BottomNavigationBarItem(
+              icon: Icon(Icons.home_outlined),
+              activeIcon: Icon(Icons.home),
+              label: 'Home',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.people_outlined),
+              activeIcon: Icon(Icons.people),
+              label: 'Connections',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.group_work_outlined),
+              activeIcon: Icon(Icons.group_work),
+              label: 'Groups',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.person_outlined),
+              activeIcon: Icon(Icons.person),
+              label: 'Profile',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.settings_outlined),
+              activeIcon: Icon(Icons.settings),
+              label: 'Settings',
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -10,31 +10,10 @@ class GroupService {
   static const String _connectionsCollection = 'connections';
   static const String _groupMessagesCollection = 'group_messages';
 
-  // Ensure three default groups exist for a user
+  // Default groups functionality removed - method kept for API compatibility
   static Future<void> ensureDefaultGroups(String userId) async {
-    try {
-      final defaults = <String>['Friends', 'Family', 'Work'];
-      final existingSnap = await _firestore
-          .collection(_groupsCollection)
-          .where('createdBy', isEqualTo: userId)
-          .get();
-
-      final existingNames = existingSnap.docs
-          .map((d) => (d.data()['name'] as String?)?.trim() ?? '')
-          .toSet();
-
-      for (final name in defaults) {
-        if (!existingNames.contains(name)) {
-          await createGroup(
-            name: name,
-            description: '',
-            createdBy: userId,
-          );
-        }
-      }
-    } catch (e) {
-      // Non-fatal
-    }
+    // Default groups are no longer created automatically
+    return;
   }
 
   // Create a new group
