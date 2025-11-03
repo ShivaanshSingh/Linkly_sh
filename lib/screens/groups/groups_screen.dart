@@ -1,10 +1,13 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:go_router/go_router.dart';
 import '../../constants/app_colors.dart';
 import '../../models/group_model.dart';
 import '../../models/user_model.dart';
 import '../../services/auth_service.dart';
 import '../../services/group_service.dart';
+import '../connections/connections_screen.dart';
 
 class GroupsScreen extends StatefulWidget {
   const GroupsScreen({super.key});
@@ -366,73 +369,110 @@ class _GroupsScreenState extends State<GroupsScreen> {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            const Color(0xFF1F295B).withOpacity(0.85),
+            const Color(0xFF283B89).withOpacity(0.8),
+          ],
+        ),
+        border: Border.all(
+          color: const Color(0xFF6B8FAE).withOpacity(0.4),
+          width: 1.5,
+        ),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.grey200),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withOpacity(0.2),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
         ],
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            // Group avatar
-            CircleAvatar(
-              radius: 24,
-              backgroundColor: Color(int.parse(group.color.replaceFirst('#', '0xFF'))),
-              child: const Icon(
-                Icons.group,
-                color: Colors.white,
-                size: 24,
-              ),
-            ),
-            const SizedBox(width: 16),
-            
-            // Group info
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    group.name,
-                    style: const TextStyle(
-                      color: AppColors.grey900,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                // Tappable area (avatar + group info)
+                Expanded(
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: () {
+                        // Navigate to connections screen filtered by this group
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => ConnectionsScreen(groupName: group.name),
+                          ),
+                        );
+                      },
+                      borderRadius: BorderRadius.circular(16),
+                      splashColor: Colors.white.withOpacity(0.1),
+                      highlightColor: Colors.white.withOpacity(0.05),
+                      child: Row(
+                        children: [
+                          // Group avatar
+                          CircleAvatar(
+                            radius: 24,
+                            backgroundColor: Color(int.parse(group.color.replaceFirst('#', '0xFF'))),
+                            child: const Icon(
+                              Icons.group,
+                              color: Colors.white,
+                              size: 24,
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          
+                          // Group info
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  group.name,
+                                  style: const TextStyle(
+                                    color: AppColors.textPrimary,
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  group.description,
+                                  style: TextStyle(
+                                    color: AppColors.textSecondary,
+                                    fontSize: 14,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  '${group.members.length} members',
+                                  style: TextStyle(
+                                    color: AppColors.textSecondary,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    group.description,
-                    style: const TextStyle(
-                      color: AppColors.grey600,
-                      fontSize: 14,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                ),
+                // Three dots menu
+                PopupMenuButton<String>(
+                  icon: Icon(
+                    Icons.more_vert,
+                    color: Colors.white.withOpacity(0.7),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '${group.members.length} members',
-                    style: const TextStyle(
-                      color: AppColors.grey500,
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            // Three dots menu
-            PopupMenuButton<String>(
-              icon: const Icon(
-                Icons.more_vert,
-                color: AppColors.grey500,
-              ),
               onSelected: (value) {
                 if (value == 'delete') {
                   _deleteGroup(group);
@@ -443,33 +483,33 @@ class _GroupsScreenState extends State<GroupsScreen> {
                 }
               },
               itemBuilder: (context) => [
-                const PopupMenuItem(
+                PopupMenuItem(
                   value: 'recolor',
                   child: Row(
                     children: [
-                      Icon(Icons.color_lens, color: AppColors.grey700, size: 20),
+                      Icon(Icons.color_lens, color: AppColors.textPrimary, size: 20),
                       SizedBox(width: 12),
-                      Text('Recolor', style: TextStyle(color: AppColors.grey700)),
+                      Text('Recolor', style: TextStyle(color: AppColors.textPrimary)),
                     ],
                   ),
                 ),
-                const PopupMenuItem(
+                PopupMenuItem(
                   value: 'rename',
                   child: Row(
                     children: [
-                      Icon(Icons.edit, color: AppColors.grey700, size: 20),
+                      Icon(Icons.edit, color: AppColors.textPrimary, size: 20),
                       SizedBox(width: 12),
-                      Text('Rename', style: TextStyle(color: AppColors.grey700)),
+                      Text('Rename', style: TextStyle(color: AppColors.textPrimary)),
                     ],
                   ),
                 ),
-                const PopupMenuItem(
+                PopupMenuItem(
                   value: 'delete',
                   child: Row(
                     children: [
-                      Icon(Icons.delete, color: Colors.red, size: 20),
+                      Icon(Icons.delete, color: Colors.red.shade400, size: 20),
                       SizedBox(width: 12),
-                      Text('Delete', style: TextStyle(color: Colors.red)),
+                      Text('Delete', style: TextStyle(color: Colors.red.shade400)),
                     ],
                   ),
                 ),
@@ -477,6 +517,8 @@ class _GroupsScreenState extends State<GroupsScreen> {
             ),
           ],
         ),
+      ),
+      ),
       ),
     );
   }

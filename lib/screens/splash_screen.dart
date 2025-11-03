@@ -12,18 +12,23 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen>
-    with TickerProviderStateMixin {
+    with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
-  late Animation<double> _fadeAnimation;
-  late Animation<double> _scaleAnimation;
-  late Animation<double> _rotationAnimation;
-
-  // Background sweep animation
-  late AnimationController _bgController;
-  late Animation<Alignment> _bgAlignment;
-
-  // Subtle glow pulse for the logo tile
-  late Animation<double> _glowPulse;
+  
+  // Icon animations
+  late Animation<double> _iconFadeAnimation;
+  late Animation<double> _iconScaleAnimation;
+  
+  // Title animations
+  late Animation<double> _titleFadeAnimation;
+  late Animation<double> _titleScaleAnimation;
+  
+  // Subtitle animations
+  late Animation<double> _subtitleFadeAnimation;
+  late Animation<double> _subtitleScaleAnimation;
+  
+  // Loading indicator animation
+  late Animation<double> _loadingFadeAnimation;
 
   @override
   void initState() {
@@ -35,58 +40,71 @@ class _SplashScreenState extends State<SplashScreen>
 
   void _setupAnimations() {
     _animationController = AnimationController(
-      duration: const Duration(seconds: 2),
+      duration: const Duration(milliseconds: 1800),
       vsync: this,
     );
 
-    _fadeAnimation = Tween<double>(
+    // Icon: fades and zooms in first (0.0 - 0.4)
+    _iconFadeAnimation = Tween<double>(
       begin: 0.0,
       end: 1.0,
     ).animate(CurvedAnimation(
       parent: _animationController,
-      curve: const Interval(0.0, 0.5, curve: Curves.easeIn),
+      curve: const Interval(0.0, 0.4, curve: Curves.easeOut),
+    ));
+    
+    _iconScaleAnimation = Tween<double>(
+      begin: 0.5,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: const Interval(0.0, 0.4, curve: Curves.easeOutCubic),
     ));
 
-    // Scale animation with overshoot for "pop" effect
-    _scaleAnimation = Tween<double>(
+    // Title: fades and zooms in second (0.3 - 0.7)
+    _titleFadeAnimation = Tween<double>(
       begin: 0.0,
-      end: 1.15,
+      end: 1.0,
     ).animate(CurvedAnimation(
       parent: _animationController,
-      curve: const Interval(0.0, 0.7, curve: Curves.easeOutBack),
+      curve: const Interval(0.3, 0.7, curve: Curves.easeOut),
     ));
-
-    // Rotation animation - spins 360 degrees as it appears
-    _rotationAnimation = Tween<double>(
-      begin: -1.0,
-      end: 0.0,
+    
+    _titleScaleAnimation = Tween<double>(
+      begin: 0.8,
+      end: 1.0,
     ).animate(CurvedAnimation(
       parent: _animationController,
-      curve: const Interval(0.0, 0.8, curve: Curves.easeOutCubic),
+      curve: const Interval(0.3, 0.7, curve: Curves.easeOutCubic),
     ));
 
-    _glowPulse = CurvedAnimation(
+    // Subtitle: fades and zooms in third (0.5 - 0.9)
+    _subtitleFadeAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(
       parent: _animationController,
-      curve: const Interval(0.55, 1.0, curve: Curves.easeInOut),
-    );
+      curve: const Interval(0.5, 0.9, curve: Curves.easeOut),
+    ));
+    
+    _subtitleScaleAnimation = Tween<double>(
+      begin: 0.8,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: const Interval(0.5, 0.9, curve: Curves.easeOutCubic),
+    ));
+
+    // Loading indicator: fades in last (0.7 - 1.0)
+    _loadingFadeAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: const Interval(0.7, 1.0, curve: Curves.easeOut),
+    ));
 
     _animationController.forward();
-
-    // Background controller runs independently and loops
-    _bgController = AnimationController(
-      duration: const Duration(seconds: 6),
-      vsync: this,
-    );
-
-    _bgAlignment = AlignmentTween(
-      begin: Alignment.topLeft,
-      end: Alignment.bottomRight,
-    ).animate(CurvedAnimation(
-      parent: _bgController,
-      curve: Curves.easeInOut,
-    ));
-
-    _bgController.repeat(reverse: true);
   }
 
   Future<void> _checkAuthStatus() async {
@@ -119,7 +137,6 @@ class _SplashScreenState extends State<SplashScreen>
 
   @override
   void dispose() {
-    _bgController.dispose();
     _animationController.dispose();
     super.dispose();
   }
@@ -127,80 +144,55 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: AnimatedBuilder(
-        animation: _bgController,
-        builder: (context, child) {
-          final Alignment begin = _bgAlignment.value;
-          final Alignment end = Alignment(-begin.x, -begin.y);
-          return Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: const [Color(0xFF0D47A1), Color(0xFF002171)],
-                begin: begin,
-                end: end,
-              ),
-            ),
-            child: child,
-          );
-        },
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF0D47A1), Color(0xFF002171)],
+          ),
+        ),
         child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              AnimatedBuilder(
-                animation: _animationController,
-                builder: (context, child) {
-                  // Clamp scale to prevent overshooting too much
-                  final double scaleValue = _scaleAnimation.value > 1.0 
-                      ? 1.0 + (_scaleAnimation.value - 1.0) * 0.3 
-                      : _scaleAnimation.value;
-                  
-                  return FadeTransition(
-                    opacity: _fadeAnimation,
+          child: AnimatedBuilder(
+            animation: _animationController,
+            builder: (context, child) {
+              return Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Logo container - animates first
+                  FadeTransition(
+                    opacity: _iconFadeAnimation,
                     child: Transform.scale(
-                      scale: scaleValue,
-                      child: RotationTransition(
-                        turns: AlwaysStoppedAnimation(_rotationAnimation.value),
-                        child: Container(
-                          width: 120,
-                          height: 120,
-                          decoration: BoxDecoration(
-                            color: AppColors.white,
-                            borderRadius: BorderRadius.circular(20),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.12 + 0.12 * _glowPulse.value),
-                                blurRadius: 20 + 10 * _glowPulse.value,
-                                spreadRadius: 1 + 2 * _glowPulse.value,
-                                offset: const Offset(0, 10),
-                              ),
-                            ],
-                          ),
-                          child: const Icon(
-                            Icons.link,
-                            size: 60,
-                            color: AppColors.primary,
-                          ),
+                      scale: _iconScaleAnimation.value,
+                      child: Container(
+                        width: 120,
+                        height: 120,
+                        decoration: BoxDecoration(
+                          color: AppColors.white,
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.2),
+                              blurRadius: 20,
+                              offset: const Offset(0, 10),
+                            ),
+                          ],
+                        ),
+                        child: const Icon(
+                          Icons.link,
+                          size: 60,
+                          color: AppColors.primary,
                         ),
                       ),
                     ),
-                  );
-                },
-              ),
-              const SizedBox(height: 30),
-              AnimatedBuilder(
-                animation: _fadeAnimation,
-                builder: (context, child) {
-                  return FadeTransition(
-                    opacity: _fadeAnimation,
-                    child: SlideTransition(
-                      position: Tween<Offset>(
-                        begin: const Offset(0, 0.12),
-                        end: Offset.zero,
-                      ).animate(CurvedAnimation(
-                        parent: _animationController,
-                        curve: const Interval(0.4, 1.0, curve: Curves.easeOut),
-                      )),
+                  ),
+                  const SizedBox(height: 30),
+                  // App name - animates second
+                  FadeTransition(
+                    opacity: _titleFadeAnimation,
+                    child: Transform.scale(
+                      scale: _titleScaleAnimation.value,
                       child: const Text(
                         'Linkly',
                         style: TextStyle(
@@ -210,23 +202,13 @@ class _SplashScreenState extends State<SplashScreen>
                         ),
                       ),
                     ),
-                  );
-                },
-              ),
-              const SizedBox(height: 10),
-              AnimatedBuilder(
-                animation: _fadeAnimation,
-                builder: (context, child) {
-                  return FadeTransition(
-                    opacity: _fadeAnimation,
-                    child: SlideTransition(
-                      position: Tween<Offset>(
-                        begin: const Offset(0, 0.18),
-                        end: Offset.zero,
-                      ).animate(CurvedAnimation(
-                        parent: _animationController,
-                        curve: const Interval(0.6, 1.0, curve: Curves.easeOut),
-                      )),
+                  ),
+                  const SizedBox(height: 10),
+                  // Subtitle - animates third
+                  FadeTransition(
+                    opacity: _subtitleFadeAnimation,
+                    child: Transform.scale(
+                      scale: _subtitleScaleAnimation.value,
                       child: const Text(
                         'Digital Business Cards',
                         style: TextStyle(
@@ -236,23 +218,19 @@ class _SplashScreenState extends State<SplashScreen>
                         ),
                       ),
                     ),
-                  );
-                },
-              ),
-              const SizedBox(height: 50),
-              AnimatedBuilder(
-                animation: _fadeAnimation,
-                builder: (context, child) {
-                  return FadeTransition(
-                    opacity: _fadeAnimation,
+                  ),
+                  const SizedBox(height: 50),
+                  // Loading indicator - animates last
+                  FadeTransition(
+                    opacity: _loadingFadeAnimation,
                     child: const CircularProgressIndicator(
                       valueColor: AlwaysStoppedAnimation<Color>(AppColors.white),
                       strokeWidth: 2,
                     ),
-                  );
-                },
-              ),
-            ],
+                  ),
+                ],
+              );
+            },
           ),
         ),
       ),

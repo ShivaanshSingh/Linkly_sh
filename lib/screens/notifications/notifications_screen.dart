@@ -46,34 +46,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             }
           },
         ),
-        actions: [
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.filter_list, color: AppColors.grey900),
-            onSelected: (String value) {
-              setState(() {
-                _selectedFilter = value;
-              });
-            },
-            itemBuilder: (BuildContext context) => [
-              const PopupMenuItem<String>(
-                value: 'All',
-                child: Text('All Notifications'),
-              ),
-              const PopupMenuItem<String>(
-                value: 'Connection Requests',
-                child: Text('Connection Requests'),
-              ),
-              const PopupMenuItem<String>(
-                value: 'Messages',
-                child: Text('Messages'),
-              ),
-              const PopupMenuItem<String>(
-                value: 'Posts',
-                child: Text('Posts'),
-              ),
-            ],
-          ),
-        ],
       ),
       body: Consumer2<AuthService, NotificationService>(
         builder: (context, authService, notificationService, child) {
@@ -145,18 +117,18 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                         color: AppColors.grey400,
                       ),
                       const SizedBox(height: 16),
-                      Text(
-                        _selectedFilter == 'All' ? 'No new notifications' : 'No $_selectedFilter notifications',
-                        style: const TextStyle(
+                      const Text(
+                        'No new notifications',
+                        style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
                           color: AppColors.grey900,
                         ),
                       ),
                       const SizedBox(height: 8),
-                      Text(
-                        _selectedFilter == 'All' ? 'You\'re all caught up!' : 'Try selecting a different filter',
-                        style: const TextStyle(
+                      const Text(
+                        'You\'re all caught up!',
+                        style: TextStyle(
                           fontSize: 14,
                           color: AppColors.grey600,
                         ),
@@ -166,29 +138,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 );
               }
 
-              return Column(
-                children: [
-                  // Filter chips
-                  Container(
-                    height: 50,
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: ListView(
-                      scrollDirection: Axis.horizontal,
-                      children: [
-                        _buildFilterChip('All'),
-                        _buildFilterChip('Connection Requests'),
-                        _buildFilterChip('Messages'),
-                        _buildFilterChip('Posts'),
-                      ],
-                    ),
-                  ),
-                  const Divider(height: 1),
-                  // Notifications list
-                  Expanded(
-                    child: ListView.builder(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: filteredNotifications.length,
-                      itemBuilder: (context, index) {
+              return ListView.builder(
+                padding: const EdgeInsets.all(16),
+                itemCount: filteredNotifications.length,
+                itemBuilder: (context, index) {
                         final notification = filteredNotifications[index];
                         return Dismissible(
                           key: Key(notification['id'] ?? '$index'),
@@ -211,10 +164,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                           child: _buildNotificationCard(notification, notificationService, context),
                         );
                       },
-                    ),
-                  ),
-                ],
-              );
+                    );
             },
           );
         },
@@ -289,28 +239,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           return true;
       }
     }).toList();
-  }
-
-  Widget _buildFilterChip(String filter) {
-    final isSelected = _selectedFilter == filter;
-    return Padding(
-      padding: const EdgeInsets.only(right: 8),
-      child: FilterChip(
-        label: Text(filter),
-        selected: isSelected,
-        onSelected: (selected) {
-          setState(() {
-            _selectedFilter = filter;
-          });
-        },
-        selectedColor: AppColors.primary.withOpacity(0.2),
-        checkmarkColor: AppColors.primary,
-        labelStyle: TextStyle(
-          color: isSelected ? AppColors.primary : AppColors.grey600,
-          fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-        ),
-      ),
-    );
   }
 
   Widget _buildNotificationCard(Map<String, dynamic> notification, NotificationService notificationService, BuildContext context) {

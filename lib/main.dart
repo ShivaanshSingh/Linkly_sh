@@ -189,7 +189,10 @@ GoRouter _createRouter(AuthService authService) {
     ),
     GoRoute(
       path: '/connections',
-      builder: (context, state) => const ConnectionsScreen(),
+      builder: (context, state) {
+        final groupName = state.uri.queryParameters['group'];
+        return ConnectionsScreen(groupName: groupName);
+      },
     ),
     GoRoute(
       path: '/messages',

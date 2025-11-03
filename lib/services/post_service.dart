@@ -104,31 +104,42 @@ class PostService extends ChangeNotifier {
         }
       }
       
-      // Sort posts by creation date (newest first) on the client side
-      allPosts.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      // Group posts by userId and keep only the latest post from each user
+      Map<String, PostModel> latestPostsByUser = {};
+      for (var post in allPosts) {
+        if (!latestPostsByUser.containsKey(post.userId) || 
+            post.createdAt.isAfter(latestPostsByUser[post.userId]!.createdAt)) {
+          latestPostsByUser[post.userId] = post;
+        }
+      }
       
-      _posts = allPosts;
+      // Convert map to list and sort by creation date (newest first)
+      List<PostModel> filteredPosts = latestPostsByUser.values.toList();
+      filteredPosts.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      
+      _posts = filteredPosts;
 
-      debugPrint('PostService: Loaded ${_posts.length} posts from user and connections');
+      debugPrint('PostService: Loaded ${_posts.length} latest posts (one per user) from user and connections');
       notifyListeners();
     } catch (e) {
       _error = e.toString();
       debugPrint('PostService: Error fetching posts: $e');
       
-      // Fallback: try to get user's own posts only
+      // Fallback: try to get user's own posts only (only latest one)
       if (currentUserId != null) {
         try {
           final userPostsSnapshot = await _firestore!
               .collection(_collection)
               .where('userId', isEqualTo: currentUserId)
               .orderBy('createdAt', descending: true)
+              .limit(1)
               .get();
 
           _posts = userPostsSnapshot.docs
               .map((doc) => PostModel.fromFirestore(doc))
               .toList();
           
-          debugPrint('PostService: Fallback loaded ${_posts.length} user posts');
+          debugPrint('PostService: Fallback loaded ${_posts.length} latest user post');
         } catch (fallbackError) {
           debugPrint('PostService: Fallback also failed: $fallbackError');
           _posts = [];
@@ -144,6 +155,7 @@ class PostService extends ChangeNotifier {
   }
 
   void _loadMockPosts() {
+    // Mock posts - only one post per user (latest post)
     _posts = [
       PostModel(
         id: '1',
@@ -185,8 +197,18 @@ class PostService extends ChangeNotifier {
         updatedAt: DateTime.now().subtract(const Duration(days: 3)),
       ),
     ];
+    // Filter to only latest post per user (for consistency with real implementation)
+    Map<String, PostModel> latestPostsByUser = {};
+    for (var post in _posts) {
+      if (!latestPostsByUser.containsKey(post.userId) || 
+          post.createdAt.isAfter(latestPostsByUser[post.userId]!.createdAt)) {
+        latestPostsByUser[post.userId] = post;
+      }
+    }
+    _posts = latestPostsByUser.values.toList();
+    _posts.sort((a, b) => b.createdAt.compareTo(a.createdAt));
     notifyListeners();
-    debugPrint('PostService: Loaded ${_posts.length} mock posts');
+    debugPrint('PostService: Loaded ${_posts.length} latest mock posts (one per user)');
   }
 
   // Stream posts for real-time updates (user and connections only)
@@ -311,29 +333,38 @@ class PostService extends ChangeNotifier {
 
   // Like/Unlike a post
   Future<bool> toggleLike(String postId, String userId) async {
+    // Find the post index first
+    final postIndex = _posts.indexWhere((post) => post.id == postId);
+    if (postIndex == -1) {
+      debugPrint('PostService: Post not found: $postId');
+      return false;
+    }
+    
+    final post = _posts[postIndex];
+    final isCurrentlyLiked = post.likes.contains(userId);
+    
+    // Optimistic update: Update UI immediately
+    final newLikes = List<String>.from(post.likes);
+    if (isCurrentlyLiked) {
+      newLikes.remove(userId);
+    } else {
+      newLikes.add(userId);
+    }
+    
+    // Update local posts array immediately for instant UI feedback
+    _posts[postIndex] = post.copyWith(
+      likes: newLikes,
+      updatedAt: DateTime.now(),
+    );
+    notifyListeners(); // Immediate UI update
+    
     if (!_isFirebaseAvailable) {
-      // Mock like toggle
-      final postIndex = _posts.indexWhere((post) => post.id == postId);
-      if (postIndex != -1) {
-        final post = _posts[postIndex];
-        final newLikes = List<String>.from(post.likes);
-        
-        if (newLikes.contains(userId)) {
-          newLikes.remove(userId);
-        } else {
-          newLikes.add(userId);
-        }
-        
-        _posts[postIndex] = post.copyWith(
-          likes: newLikes,
-          updatedAt: DateTime.now(),
-        );
-        notifyListeners();
-        debugPrint('PostService: Mock like toggled for post: $postId');
-      }
+      // Mock like toggle - already updated above
+      debugPrint('PostService: Mock like toggled for post: $postId');
       return true;
     }
     
+    // Sync with Firestore in the background
     try {
       debugPrint('PostService: Toggling like for post: $postId, user: $userId');
       
@@ -349,7 +380,7 @@ class PostService extends ChangeNotifier {
         final postData = postDoc.data()!;
         final List<String> likes = List<String>.from(postData['likes'] ?? []);
         
-        if (likes.contains(userId)) {
+        if (isCurrentlyLiked) {
           likes.remove(userId);
         } else {
           likes.add(userId);
@@ -362,12 +393,13 @@ class PostService extends ChangeNotifier {
       });
       
       debugPrint('PostService: Like toggled successfully');
-      notifyListeners();
       return true;
     } catch (e) {
-      _error = e.toString();
-      debugPrint('PostService: Error toggling like: $e');
+      // Revert optimistic update on error
+      debugPrint('PostService: Error toggling like, reverting: $e');
+      _posts[postIndex] = post; // Revert to original state
       notifyListeners();
+      _error = e.toString();
       return false;
     }
   }
@@ -475,6 +507,70 @@ class PostService extends ChangeNotifier {
       _error = e.toString();
       debugPrint('PostService: Error deleting post: $e');
       notifyListeners();
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  // Update post content
+  Future<bool> updatePost(String postId, String newContent, String userId) async {
+    if (!_isFirebaseAvailable) {
+      // Mock update for demonstration
+      final postIndex = _posts.indexWhere((post) => post.id == postId);
+      if (postIndex != -1 && _posts[postIndex].userId == userId) {
+        _posts[postIndex] = _posts[postIndex].copyWith(
+          content: newContent,
+          updatedAt: DateTime.now(),
+        );
+        notifyListeners();
+        debugPrint('PostService: Mock post updated');
+        return true;
+      }
+      return false;
+    }
+    
+    try {
+      _setLoading(true);
+      _error = null;
+      
+      debugPrint('PostService: Updating post: $postId');
+      
+      final postRef = _firestore!.collection(_collection).doc(postId);
+      
+      // Check if user owns the post
+      final postDoc = await postRef.get();
+      if (!postDoc.exists) {
+        throw Exception('Post not found');
+      }
+      
+      final postData = postDoc.data()!;
+      if (postData['userId'] != userId) {
+        throw Exception('You can only edit your own posts');
+      }
+      
+      // Update the post
+      await postRef.update({
+        'content': newContent,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      
+      // Update local posts array
+      final postIndex = _posts.indexWhere((post) => post.id == postId);
+      if (postIndex != -1) {
+        _posts[postIndex] = _posts[postIndex].copyWith(
+          content: newContent,
+          updatedAt: DateTime.now(),
+        );
+      }
+      
+      debugPrint('PostService: Post updated successfully');
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _error = e.toString();
+      debugPrint('PostService: Error updating post: $e');
+      notifyListeners();
+      return false;
     } finally {
       _setLoading(false);
     }
