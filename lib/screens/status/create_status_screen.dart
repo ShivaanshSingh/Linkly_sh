@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'dart:io';
+import 'dart:ui';
 import '../../constants/app_colors.dart';
 import '../../services/auth_service.dart';
 import '../../services/status_service.dart';
@@ -130,18 +131,18 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.white,
+      backgroundColor: AppColors.grey900,
       appBar: AppBar(
-        backgroundColor: AppColors.white,
+        backgroundColor: AppColors.grey900,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.close, color: AppColors.grey900),
+          icon: const Icon(Icons.close, color: AppColors.textPrimary),
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: const Text(
           'Add Status',
           style: TextStyle(
-            color: AppColors.grey900,
+            color: AppColors.textPrimary,
             fontWeight: FontWeight.bold,
           ),
         ),
@@ -165,67 +166,87 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
           : Column(
               children: [
                 // User info section
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
-                    children: [
-                      Consumer<AuthService>(
-                        builder: (context, authService, child) {
-                          final profileImageUrl = authService.userModel?.profileImageUrl ?? 
-                                                 authService.user?.photoURL;
-                          final userName = authService.userModel?.fullName ?? 
-                                         authService.user?.displayName ?? 'User';
-                          
-                          return CircleAvatar(
-                            radius: 20,
-                            backgroundColor: AppColors.primary,
-                            backgroundImage: profileImageUrl != null 
-                                ? NetworkImage(profileImageUrl)
-                                : null,
-                            child: profileImageUrl == null
-                                ? Text(
-                                    userName.isNotEmpty ? userName[0].toUpperCase() : 'U',
-                                    style: const TextStyle(
-                                      color: AppColors.white,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  )
-                                : null,
-                          );
-                        },
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Consumer<AuthService>(
-                              builder: (context, authService, child) {
-                                final userName = authService.userModel?.fullName ?? 
-                                             authService.user?.displayName ?? 'User';
-                                return Text(
-                                  userName,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: AppColors.grey900,
-                                  ),
-                                );
-                              },
-                            ),
-                            const Text(
-                              'Status expires in 24 hours',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: AppColors.grey600,
-                              ),
-                            ),
+                ClipRRect(
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            const Color(0xFF1F295B).withOpacity(0.6),
+                            const Color(0xFF283B89).withOpacity(0.5),
                           ],
                         ),
+                        border: Border(
+                          bottom: BorderSide(
+                            color: AppColors.primary.withOpacity(0.2),
+                            width: 1,
+                          ),
+                        ),
                       ),
-                    ],
+                      child: Row(
+                        children: [
+                          Consumer<AuthService>(
+                            builder: (context, authService, child) {
+                              final profileImageUrl = authService.userModel?.profileImageUrl ?? 
+                                                     authService.user?.photoURL;
+                              final userName = authService.userModel?.fullName ?? 
+                                             authService.user?.displayName ?? 'User';
+                              
+                              return CircleAvatar(
+                                radius: 20,
+                                backgroundColor: AppColors.primary,
+                                backgroundImage: profileImageUrl != null 
+                                    ? NetworkImage(profileImageUrl)
+                                    : null,
+                                child: profileImageUrl == null
+                                    ? Text(
+                                        userName.isNotEmpty ? userName[0].toUpperCase() : 'U',
+                                        style: const TextStyle(
+                                          color: AppColors.white,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      )
+                                    : null,
+                              );
+                            },
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Consumer<AuthService>(
+                                  builder: (context, authService, child) {
+                                    final userName = authService.userModel?.fullName ?? 
+                                                 authService.user?.displayName ?? 'User';
+                                    return Text(
+                                      userName,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: AppColors.textPrimary,
+                                      ),
+                                    );
+                                  },
+                                ),
+                                const Text(
+                                  'Status expires in 24 hours',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: AppColors.textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
-                const Divider(height: 1),
                 
                 // Content section
                 Expanded(
@@ -235,20 +256,44 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         // Text input
-                        TextField(
-                          controller: _textController,
-                          decoration: const InputDecoration(
-                            hintText: 'What\'s on your mind?',
-                            border: InputBorder.none,
-                            hintStyle: TextStyle(
-                              color: AppColors.grey500,
-                              fontSize: 16,
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: BackdropFilter(
+                            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                            child: Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    const Color(0xFF1F295B).withOpacity(0.6),
+                                    const Color(0xFF283B89).withOpacity(0.5),
+                                  ],
+                                ),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: AppColors.primary.withOpacity(0.3),
+                                  width: 1,
+                                ),
+                              ),
+                              child: TextField(
+                                controller: _textController,
+                                decoration: const InputDecoration(
+                                  hintText: 'What\'s on your mind?',
+                                  border: InputBorder.none,
+                                  hintStyle: TextStyle(
+                                    color: AppColors.textSecondary,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                                maxLines: null,
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  color: AppColors.textPrimary,
+                                ),
+                              ),
                             ),
-                          ),
-                          maxLines: null,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            color: AppColors.grey900,
                           ),
                         ),
                         
@@ -277,39 +322,75 @@ class _CreateStatusScreenState extends State<CreateStatusScreen> {
                 ),
                 
                 // Bottom action bar
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: const BoxDecoration(
-                    border: Border(
-                      top: BorderSide(color: AppColors.grey200),
+                ClipRRect(
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            const Color(0xFF1F295B).withOpacity(0.6),
+                            const Color(0xFF283B89).withOpacity(0.5),
+                          ],
+                        ),
+                        border: Border(
+                          top: BorderSide(
+                            color: AppColors.primary.withOpacity(0.2),
+                            width: 1,
+                          ),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: BackdropFilter(
+                                filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+                                child: OutlinedButton.icon(
+                                  onPressed: _pickImage,
+                                  icon: const Icon(Icons.photo_library, size: 20, color: AppColors.primary),
+                                  label: const Text('Gallery', style: TextStyle(color: AppColors.primary)),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: AppColors.primary,
+                                    side: BorderSide(
+                                      color: AppColors.primary.withOpacity(0.5),
+                                      width: 1.5,
+                                    ),
+                                    backgroundColor: Colors.transparent,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: BackdropFilter(
+                                filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+                                child: OutlinedButton.icon(
+                                  onPressed: _takePhoto,
+                                  icon: const Icon(Icons.camera_alt, size: 20, color: AppColors.primary),
+                                  label: const Text('Camera', style: TextStyle(color: AppColors.primary)),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: AppColors.primary,
+                                    side: BorderSide(
+                                      color: AppColors.primary.withOpacity(0.5),
+                                      width: 1.5,
+                                    ),
+                                    backgroundColor: Colors.transparent,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: _pickImage,
-                          icon: const Icon(Icons.photo_library, size: 20),
-                          label: const Text('Gallery'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: AppColors.primary,
-                            side: const BorderSide(color: AppColors.primary),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: _takePhoto,
-                          icon: const Icon(Icons.camera_alt, size: 20),
-                          label: const Text('Camera'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: AppColors.primary,
-                            side: const BorderSide(color: AppColors.primary),
-                          ),
-                        ),
-                      ),
-                    ],
                   ),
                 ),
               ],

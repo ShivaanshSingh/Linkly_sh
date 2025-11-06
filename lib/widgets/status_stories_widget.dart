@@ -85,19 +85,22 @@ class _StatusStoriesWidgetState extends State<StatusStoriesWidget> {
 
   Widget _buildAddStatusStory() {
     final authService = Provider.of<AuthService>(context, listen: false);
-    final String displayName = authService.userModel?.fullName ?? 'User';
-    final String? photoUrl = authService.userModel?.profileImageUrl;
+    final String displayName = authService.userModel?.fullName ?? 
+                               authService.user?.displayName ?? 
+                               'User';
+    final String? photoUrl = authService.userModel?.profileImageUrl ?? 
+                            authService.user?.photoURL;
 
     return Container(
-      width: 80,
+      width: 90,
       margin: const EdgeInsets.only(right: 12),
       child: Column(
         children: [
           GestureDetector(
             onTap: () => context.go('/status'),
             child: Container(
-              width: 60,
-              height: 60,
+              width: 70,
+              height: 70,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(
@@ -113,14 +116,16 @@ class _StatusStoriesWidgetState extends State<StatusStoriesWidget> {
                         ? CachedNetworkImage(
                             imageUrl: photoUrl,
                             fit: BoxFit.cover,
-                            memCacheWidth: 100,
-                            memCacheHeight: 100,
+                            memCacheWidth: 140,
+                            memCacheHeight: 140,
                             placeholder: (context, url) => _buildDefaultAvatar(displayName),
                             errorWidget: (context, url, error) => _buildDefaultAvatar(displayName),
                           )
                         : _buildDefaultAvatar(displayName),
                   ),
-                  Center(
+                  Positioned(
+                    right: 0,
+                    bottom: 0,
                     child: Container(
                       width: 22,
                       height: 22,
@@ -211,8 +216,8 @@ class _StatusStoriesWidgetState extends State<StatusStoriesWidget> {
 
   Widget _buildDefaultAvatar(String userName) {
     return Container(
-      width: 60,
-      height: 60,
+      width: 70,
+      height: 70,
       decoration: BoxDecoration(
         color: AppColors.primary,
         shape: BoxShape.circle,
@@ -223,7 +228,7 @@ class _StatusStoriesWidgetState extends State<StatusStoriesWidget> {
           style: const TextStyle(
             color: AppColors.white,
             fontWeight: FontWeight.bold,
-            fontSize: 20,
+            fontSize: 24,
           ),
         ),
       ),

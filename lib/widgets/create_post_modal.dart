@@ -234,10 +234,7 @@ class _CreatePostModalState extends State<CreatePostModal> {
 
       if (mounted) {
         if (postId != null) {
-          // Refresh posts list
-          final authService = Provider.of<AuthService>(context, listen: false);
-          await postService.getPosts(currentUserId: authService.user?.uid);
-          
+          // Post is already added optimistically, no need to refresh
           Navigator.of(context).pop();
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(

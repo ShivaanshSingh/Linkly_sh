@@ -87,11 +87,14 @@ class PostService extends ChangeNotifier {
 
     while (retryCount < maxRetries && !success) {
       try {
-        // Get user's connections
+        // Get user's connections with timeout
         final connectionsSnapshot = await _firestore!
             .collection('connections')
             .where('userId', isEqualTo: currentUserId)
-            .get();
+            .get()
+            .timeout(const Duration(seconds: 5), onTimeout: () {
+          throw TimeoutException('Connections query timed out');
+        });
 
         List<String> connectionUserIds = connectionsSnapshot.docs
             .map((doc) {
@@ -107,63 +110,135 @@ class PostService extends ChangeNotifier {
 
         debugPrint('PostService: Found ${connectionUserIds.length} users to fetch posts from');
 
-        // Optimized: Fetch latest post for each user in parallel
-        // Use individual queries with limit(1) to minimize data transfer and ensure we only get the latest post
-        List<Future<PostModel?>> postFutures = connectionUserIds.map((userId) async {
+        // SUPERCHARGED: Batch fetch using whereIn (chunks of 10) to reduce N+1 queries
+        final List<PostModel> fetchedPosts = [];
+
+        // Helper to chunk a list
+        List<List<String>> _chunk(List<String> list, int size) {
+          final List<List<String>> chunks = [];
+          for (int i = 0; i < list.length; i += size) {
+            chunks.add(list.sublist(i, i + size > list.length ? list.length : i + size));
+          }
+          return chunks;
+        }
+
+        final chunks = _chunk(connectionUserIds, 10);
+
+        // Run chunk queries in parallel with a generous limit, then distill to latest per user
+        final chunkFutures = chunks.map((ids) async {
           try {
-            // Fetch only the latest post for this user
-            final userPostsSnapshot = await _firestore!
+            final snap = await _firestore!
                 .collection(_collection)
-                .where('userId', isEqualTo: userId)
+                .where('userId', whereIn: ids)
                 .orderBy('createdAt', descending: true)
-                .limit(1)
-                .get();
-            
-            if (userPostsSnapshot.docs.isNotEmpty) {
-              return PostModel.fromFirestore(userPostsSnapshot.docs.first);
-            }
-            return null;
+                .limit(100)
+                .get()
+                .timeout(const Duration(seconds: 8));
+            return snap.docs.map((d) => PostModel.fromFirestore(d)).toList();
           } catch (e) {
-            // If orderBy fails (e.g., missing index), try without orderBy and get all posts, then filter
-            try {
-              debugPrint('PostService: orderBy failed for user $userId, trying without orderBy: $e');
-              final userPostsSnapshot = await _firestore!
-                  .collection(_collection)
-                  .where('userId', isEqualTo: userId)
-                  .get();
-              
-              if (userPostsSnapshot.docs.isNotEmpty) {
-                // Find the latest post manually
-                PostModel? latestPost;
-                for (var doc in userPostsSnapshot.docs) {
-                  final post = PostModel.fromFirestore(doc);
-                  if (latestPost == null || post.createdAt.isAfter(latestPost.createdAt)) {
-                    latestPost = post;
-                  }
-                }
-                return latestPost;
-              }
-            } catch (fallbackError) {
-              debugPrint('PostService: Error fetching posts for user $userId: $fallbackError');
-            }
-            return null;
+            debugPrint('PostService: Batch whereIn failed for chunk (${ids.length}) -> $e');
+            return <PostModel>[]; // continue; fallback handled later
           }
         }).toList();
-        
-        // Wait for all queries to complete in parallel
-        final postResults = await Future.wait(postFutures);
-        
-        // Filter out nulls and sort by creation date (newest first)
-        _posts = postResults
-            .whereType<PostModel>()
-            .toList()
+
+        final chunkResults = await Future.wait(chunkFutures);
+        for (final list in chunkResults) {
+          fetchedPosts.addAll(list);
+        }
+
+        // Distill to latest post per user
+        final Map<String, PostModel> latestByUser = {};
+        for (final post in fetchedPosts) {
+          final existing = latestByUser[post.userId];
+          if (existing == null || post.createdAt.isAfter(existing.createdAt)) {
+            latestByUser[post.userId] = post;
+          }
+        }
+
+        // If some users are missing (e.g., no recent posts returned due to limit), fallback fetch per missing user (limit 1)
+        final missingUserIds = connectionUserIds.where((id) => !latestByUser.containsKey(id)).toList();
+        if (missingUserIds.isNotEmpty) {
+          debugPrint('PostService: Missing latest for ${missingUserIds.length} users, fetching individually (limit 1)');
+          final perUserFutures = missingUserIds.map((userId) async {
+            try {
+              final snap = await _firestore!
+                  .collection(_collection)
+                  .where('userId', isEqualTo: userId)
+                  .orderBy('createdAt', descending: true)
+                  .limit(1)
+                  .get()
+                  .timeout(const Duration(seconds: 5));
+              if (snap.docs.isNotEmpty) {
+                return PostModel.fromFirestore(snap.docs.first);
+              }
+            } catch (e) {
+              // As a last resort, try without orderBy
+              try {
+                final snap = await _firestore!
+                    .collection(_collection)
+                    .where('userId', isEqualTo: userId)
+                    .get()
+                    .timeout(const Duration(seconds: 5));
+                if (snap.docs.isNotEmpty) {
+                  PostModel? latest;
+                  for (final doc in snap.docs) {
+                    final p = PostModel.fromFirestore(doc);
+                    if (latest == null || p.createdAt.isAfter(latest.createdAt)) {
+                      latest = p;
+                    }
+                  }
+                  if (latest != null) return latest;
+                }
+              } catch (e2) {
+                debugPrint('PostService: Per-user fallback failed for $userId: $e2');
+              }
+            }
+            return null;
+          }).toList();
+
+          final perUserResults = await Future.wait(perUserFutures);
+          for (final p in perUserResults.whereType<PostModel>()) {
+            final existing = latestByUser[p.userId];
+            if (existing == null || p.createdAt.isAfter(existing.createdAt)) {
+              latestByUser[p.userId] = p;
+            }
+          }
+        }
+
+        _posts = latestByUser.values.toList()
           ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
         debugPrint('PostService: Loaded ${_posts.length} latest posts (one per user) from user and connections');
         _lastPostsLoad = DateTime.now();
         _lastUserId = currentUserId;
         success = true;
+        _error = null; // Clear any previous errors
         // Don't notify here - we'll notify at the end after setting loading to false
+      } on TimeoutException {
+        debugPrint('PostService: Timeout loading posts');
+        _error = 'Request timed out. Please check your connection.';
+        // Fallback: try to get user's own posts only
+        try {
+          final userPostsSnapshot = await _firestore!
+              .collection(_collection)
+              .where('userId', isEqualTo: currentUserId)
+              .orderBy('createdAt', descending: true)
+              .limit(10)
+              .get()
+              .timeout(const Duration(seconds: 5));
+          _posts = userPostsSnapshot.docs
+              .map((doc) => PostModel.fromFirestore(doc))
+              .toList();
+          if (_posts.isNotEmpty) {
+            _error = null; // Clear error if fallback succeeds
+            debugPrint('PostService: Fallback loaded ${_posts.length} user posts');
+          }
+        } catch (fallbackError) {
+          debugPrint('PostService: Fallback also failed: $fallbackError');
+          _posts = [];
+        }
+        // Don't retry on timeout - exit loop
+        break;
       } catch (e) {
         retryCount++;
         final isTransient = _isTransientError(e);
@@ -185,8 +260,9 @@ class PostService extends ChangeNotifier {
                 .collection(_collection)
                 .where('userId', isEqualTo: currentUserId)
                 .orderBy('createdAt', descending: true)
-                .limit(1)
-                .get();
+                .limit(10)
+                .get()
+                .timeout(const Duration(seconds: 5));
 
             _posts = userPostsSnapshot.docs
                 .map((doc) => PostModel.fromFirestore(doc))
@@ -205,6 +281,7 @@ class PostService extends ChangeNotifier {
       }
     }
     
+    // Always clear loading state and notify, even on error
     _setLoading(false);
     _isLoadingPosts = false;
     notifyListeners(); // Notify once at the end with final state
@@ -377,6 +454,27 @@ class PostService extends ChangeNotifier {
       final docRef = await _firestore!.collection(_collection).add(postData);
       
       debugPrint('PostService: Post created with ID: ${docRef.id}');
+      // Optimistic UI: insert locally so it appears immediately
+      try {
+        final now = DateTime.now();
+        final localPost = PostModel(
+          id: docRef.id,
+          userId: userId,
+          userName: userName,
+          userAvatar: userAvatar,
+          content: content,
+          imageUrl: imageUrl,
+          likes: const <String>[],
+          shares: const <String>[],
+          commentsCount: 0,
+          createdAt: now,
+          updatedAt: now,
+        );
+        _posts.insert(0, localPost);
+        notifyListeners();
+      } catch (e) {
+        debugPrint('PostService: Failed to insert local post: $e');
+      }
       return docRef.id;
     } catch (e) {
       _error = e.toString();
@@ -830,6 +928,11 @@ class PostService extends ChangeNotifier {
           if (!success) {
             throw Exception('Failed to save post after $maxRetries attempts');
           }
+          
+          // Optimistic UI: Add to local list immediately so it appears right away
+          debugPrint('PostService: Adding post to local list for immediate display...');
+          _posts.insert(0, post);
+          debugPrint('PostService: Post added to local list successfully');
         } else {
           // Add to mock posts
           debugPrint('PostService: Adding to mock posts...');

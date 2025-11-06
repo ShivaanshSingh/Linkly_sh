@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -9,6 +10,7 @@ import '../../services/auth_service.dart';
 import '../../services/post_service.dart';
 import '../../services/notification_service.dart';
 import '../../models/post_model.dart';
+import '../../utils/responsive_utils.dart';
 import '../connections/connections_screen.dart';
 import '../groups/groups_screen.dart';
 import '../profile/profile_edit_screen.dart';
@@ -442,7 +444,7 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
                   children: [
                     _buildHeader(),
                     const StatusStoriesWidget(),
-                    const SizedBox(height: 6),
+                    SizedBox(height: ResponsiveUtils.getSpacing(context, small: 2)),
                     _buildTabBar(),
                   ],
                 ),
@@ -485,7 +487,12 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
         }
         
         return Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+          padding: EdgeInsets.fromLTRB(
+            ResponsiveUtils.getHorizontalPadding(context),
+            ResponsiveUtils.getSpacing(context, small: 8),
+            ResponsiveUtils.getHorizontalPadding(context),
+            ResponsiveUtils.getSpacing(context, small: 8),
+          ),
           child: Row(
             children: [
               Expanded(
@@ -494,18 +501,18 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
                   children: [
                     Text(
                       'Hello, $firstName!',
-                      style: const TextStyle(
-                        fontSize: 28,
+                      style: TextStyle(
+                        fontSize: ResponsiveUtils.getFontSize(context, baseSize: 28),
                         fontWeight: FontWeight.w600,
                         color: AppColors.textPrimary, // Bright White Text
                         letterSpacing: -0.5,
                       ),
                     ),
-                    const SizedBox(height: 6),
-                    const Text(
+                    SizedBox(height: ResponsiveUtils.getSpacing(context, small: 4)),
+                    Text(
                       'Ready to connect today?',
                       style: TextStyle(
-                        fontSize: 15,
+                        fontSize: ResponsiveUtils.getFontSize(context, baseSize: 15),
                         color: AppColors.textSecondary, // Muted Gray for Secondary Text
                         fontWeight: FontWeight.w400,
                         letterSpacing: -0.2,
@@ -524,18 +531,15 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
 
   Widget _buildTabBar() {
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      margin: EdgeInsets.fromLTRB(
+        ResponsiveUtils.getHorizontalPadding(context),
+        0,
+        ResponsiveUtils.getHorizontalPadding(context),
+        ResponsiveUtils.getSpacing(context, small: 8),
+      ),
       decoration: BoxDecoration(
-        color: AppColors.grey700, // Lighter matte panel for contrast
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.primary.withOpacity(0.35), width: 1), // Subtle blue border
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.primaryLight.withOpacity(0.2),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        color: AppColors.grey900, // Match background color
+        borderRadius: BorderRadius.circular(ResponsiveUtils.getBorderRadius(context)),
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
@@ -544,16 +548,19 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
           
           return Stack(
             children: [
-              // Sliding indicator background that follows swipe
+              // Sliding yellow line indicator that follows swipe
               Positioned(
                 left: indicatorPosition,
-                top: 4,
-                bottom: 4,
+                bottom: 0,
                 child: Container(
                   width: tabWidth,
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(0.6), // Muted blue
-                    borderRadius: BorderRadius.circular(10),
+                  height: 3,
+                  decoration: const BoxDecoration(
+                    color: Colors.yellow,
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(2),
+                      topRight: Radius.circular(2),
+                    ),
                   ),
                 ),
               ),
@@ -564,13 +571,13 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
                     child: GestureDetector(
                       onTap: () => _switchToTab(0),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        padding: EdgeInsets.symmetric(vertical: ResponsiveUtils.getSpacing(context, small: 8)),
                         child: AnimatedDefaultTextStyle(
                           duration: const Duration(milliseconds: 100),
                           style: TextStyle(
                             color: _pageOffset < 0.5 ? AppColors.white : AppColors.textMuted,
                             fontWeight: FontWeight.w600,
-                            fontSize: 15,
+                            fontSize: ResponsiveUtils.getFontSize(context, baseSize: 15),
                             letterSpacing: -0.2,
                           ),
                           child: const Text(
@@ -585,13 +592,13 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
                     child: GestureDetector(
                       onTap: () => _switchToTab(1),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        padding: EdgeInsets.symmetric(vertical: ResponsiveUtils.getSpacing(context, small: 8)),
                         child: AnimatedDefaultTextStyle(
                           duration: const Duration(milliseconds: 100),
                           style: TextStyle(
                             color: _pageOffset >= 0.5 ? AppColors.white : AppColors.textMuted,
                             fontWeight: FontWeight.w600,
-                            fontSize: 15,
+                            fontSize: ResponsiveUtils.getFontSize(context, baseSize: 15),
                             letterSpacing: -0.2,
                           ),
                           child: const Text(
@@ -655,7 +662,7 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
                   'Loading posts...',
                   style: TextStyle(
                     color: AppColors.textSecondary,
-                    fontSize: 14,
+                    fontSize: ResponsiveUtils.getFontSize(context, baseSize: 14),
                   ),
                 ),
               ],
@@ -670,10 +677,24 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
               children: [
                 Icon(Icons.error_outline, size: 64, color: AppColors.grey400),
                 const SizedBox(height: 16),
-                Text('Error loading posts', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
-                const SizedBox(height: 8),
-                Text(postService.error!, style: TextStyle(fontSize: 14, color: AppColors.textSecondary), textAlign: TextAlign.center),
-                const SizedBox(height: 16),
+                Text(
+                  'Error loading posts', 
+                  style: TextStyle(
+                    fontSize: ResponsiveUtils.getFontSize(context, baseSize: 18), 
+                    fontWeight: FontWeight.bold, 
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                SizedBox(height: ResponsiveUtils.getSpacing(context, small: 8)),
+                Text(
+                  postService.error!, 
+                  style: TextStyle(
+                    fontSize: ResponsiveUtils.getFontSize(context, baseSize: 14), 
+                    color: AppColors.textSecondary,
+                  ), 
+                  textAlign: TextAlign.center,
+                ),
+                SizedBox(height: ResponsiveUtils.getVerticalPadding(context)),
                 ElevatedButton(
                   onPressed: () {
                     final authService = Provider.of<AuthService>(context, listen: false);
@@ -689,17 +710,18 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
         return RefreshIndicator(
           onRefresh: () async {
             final authService = Provider.of<AuthService>(context, listen: false);
-            await postService.getPosts(currentUserId: authService.user?.uid);
+            // Force refresh to bypass cache
+            await postService.getPosts(currentUserId: authService.user?.uid, forceRefresh: true);
           },
           child: postService.posts.isEmpty
               ? ListView(
                   controller: _scrollController,
                   padding: EdgeInsets.zero,
-                  physics: const ClampingScrollPhysics(),
+                  physics: const AlwaysScrollableScrollPhysics(),
                   children: [
-                    SizedBox(height: 280),
+                    SizedBox(height: ResponsiveUtils.getVerticalPadding(context) * 20),
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      padding: EdgeInsets.symmetric(horizontal: ResponsiveUtils.getHorizontalPadding(context)),
                       child: _buildEmptyPostsState(),
                     ),
                   ],
@@ -707,13 +729,13 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
               : ListView.builder(
                   controller: _scrollController,
                   padding: EdgeInsets.zero,
-                  physics: const ClampingScrollPhysics(),
+                  physics: const AlwaysScrollableScrollPhysics(),
                   itemCount: postService.posts.length + 1, // +1 for spacer
                   itemBuilder: (context, index) {
                     if (index == 0) {
                       // Spacer for header height - allows posts to scroll to top
-                      return const SizedBox(
-                        height: 280, // Header + status + tabs height with extra clearance
+                      return SizedBox(
+                        height: ResponsiveUtils.getVerticalPadding(context) * 20, // Header + status + tabs height with extra clearance
                       );
                     }
                     
@@ -725,9 +747,9 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
                     final post = postService.posts[postIndex];
                     return Padding(
                       padding: EdgeInsets.only(
-                        left: 16,
-                        right: 16,
-                        bottom: postIndex < postService.posts.length - 1 ? 16 : 16,
+                        left: ResponsiveUtils.getHorizontalPadding(context),
+                        right: ResponsiveUtils.getHorizontalPadding(context),
+                        bottom: ResponsiveUtils.getVerticalPadding(context),
                       ),
                       child: _buildFeedPost(post, postIndex),
                     );
@@ -819,7 +841,7 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
     final isOwnPost = currentUserId != null && post.userId == currentUserId;
     
     return Container(
-      margin: const EdgeInsets.only(bottom: 20),
+      margin: EdgeInsets.only(bottom: ResponsiveUtils.getVerticalPadding(context)),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
@@ -830,7 +852,7 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
             const Color(0xFF2A2F50).withOpacity(0.6),
           ],
         ),
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(ResponsiveUtils.getBorderRadius(context, base: 24)),
         border: Border.all(
           color: AppColors.primary.withOpacity(0.15),
           width: 1,
@@ -854,7 +876,7 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
         children: [
           // Post header
           Padding(
-            padding: const EdgeInsets.all(20),
+            padding: ResponsiveUtils.getPadding(context),
             child: Row(
               children: [
                 Container(
@@ -870,45 +892,45 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
                     ],
                   ),
                   child: CircleAvatar(
-                    radius: 24,
+                    radius: ResponsiveUtils.getAvatarSize(context, small: 20, medium: 22, large: 24),
                     backgroundColor: Colors.transparent,
                     child: Text(
                       post.userAvatar.isNotEmpty ? post.userAvatar[0].toUpperCase() : 'U',
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: AppColors.white,
                         fontWeight: FontWeight.bold,
-                        fontSize: 18,
+                        fontSize: ResponsiveUtils.getFontSize(context, baseSize: 18),
                       ),
                     ),
                   ),
                 ),
-                const SizedBox(width: 16),
+                SizedBox(width: ResponsiveUtils.getHorizontalPadding(context)),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         post.userName,
-                        style: const TextStyle(
-                          fontSize: 17,
+                        style: TextStyle(
+                          fontSize: ResponsiveUtils.getFontSize(context, baseSize: 17),
                           fontWeight: FontWeight.bold,
                           color: AppColors.textPrimary,
                           letterSpacing: 0.3,
                         ),
                       ),
-                      const SizedBox(height: 4),
+                      SizedBox(height: ResponsiveUtils.getSpacing(context, small: 4)),
                       Row(
                         children: [
                           Icon(
                             Icons.access_time,
-                            size: 14,
+                            size: ResponsiveUtils.getIconSize(context, baseSize: 14),
                             color: AppColors.grey400,
                           ),
-                          const SizedBox(width: 4),
+                          SizedBox(width: ResponsiveUtils.getSpacing(context, small: 4)),
                           Text(
                             post.timeAgo,
-                            style: const TextStyle(
-                              fontSize: 13,
+                            style: TextStyle(
+                              fontSize: ResponsiveUtils.getFontSize(context, baseSize: 13),
                               color: AppColors.grey400,
                               fontWeight: FontWeight.w500,
                             ),
@@ -923,13 +945,17 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
                   Container(
                     decoration: BoxDecoration(
                       color: AppColors.grey800.withOpacity(0.6),
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(ResponsiveUtils.getBorderRadius(context, base: 12)),
                       border: Border.all(
                         color: AppColors.grey400.withOpacity(0.2),
                       ),
                     ),
                     child: PopupMenuButton<String>(
-                      icon: const Icon(Icons.more_vert, color: AppColors.grey300, size: 20),
+                      icon: Icon(
+                        Icons.more_vert, 
+                        color: AppColors.grey300, 
+                        size: ResponsiveUtils.getIconSize(context, baseSize: 20),
+                      ),
                       color: AppColors.surfaceDark,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -978,11 +1004,11 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
           // Post content (only show if content is not empty)
           if (post.content.isNotEmpty)
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
+              padding: EdgeInsets.symmetric(horizontal: ResponsiveUtils.getHorizontalPadding(context)),
               child: Text(
                 post.content,
-                style: const TextStyle(
-                  fontSize: 15,
+                style: TextStyle(
+                  fontSize: ResponsiveUtils.getFontSize(context, baseSize: 15),
                   color: AppColors.textPrimary,
                   height: 1.6,
                   letterSpacing: 0.2,
@@ -993,8 +1019,13 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
           // Post image (if available)
           if (post.imageUrl != null && post.imageUrl!.isNotEmpty)
             Container(
-              margin: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-              height: 220,
+              margin: EdgeInsets.fromLTRB(
+                ResponsiveUtils.getHorizontalPadding(context),
+                ResponsiveUtils.getVerticalPadding(context),
+                ResponsiveUtils.getHorizontalPadding(context),
+                0,
+              ),
+              height: MediaQuery.of(context).size.width * 0.6, // Responsive height based on screen width
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(20),
                 boxShadow: [
@@ -1006,10 +1037,10 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
                 ],
               ),
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(ResponsiveUtils.getBorderRadius(context, base: 20)),
                 child: _RetryableNetworkImage(
                   imageUrl: post.imageUrl!,
-                  height: 220,
+                  height: MediaQuery.of(context).size.width * 0.6,
                   width: double.infinity,
                 ),
               ),
@@ -1017,16 +1048,24 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
           
           // Engagement metrics
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+            padding: EdgeInsets.fromLTRB(
+              ResponsiveUtils.getHorizontalPadding(context),
+              ResponsiveUtils.getVerticalPadding(context),
+              ResponsiveUtils.getHorizontalPadding(context),
+              ResponsiveUtils.getSpacing(context, small: 8),
+            ),
             child: Container(
               decoration: BoxDecoration(
                 color: AppColors.grey800.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(ResponsiveUtils.getBorderRadius(context, base: 20)),
                 border: Border.all(
                   color: AppColors.grey400.withOpacity(0.05),
                 ),
               ),
-              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+              padding: EdgeInsets.symmetric(
+                vertical: ResponsiveUtils.getVerticalPadding(context) * 0.75,
+                horizontal: ResponsiveUtils.getHorizontalPadding(context),
+              ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
@@ -1067,17 +1106,17 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
                                 child: Icon(
                                   isLiked ? Icons.favorite : Icons.favorite_border,
                                   color: isLiked ? AppColors.error : AppColors.textPrimary,
-                                  size: 20,
+                                  size: ResponsiveUtils.getIconSize(context, baseSize: 20),
                                   key: ValueKey(isLiked),
                                 ),
                               ),
-                              const SizedBox(width: 6),
+                              SizedBox(width: ResponsiveUtils.getSpacing(context, small: 6)),
                               AnimatedSwitcher(
                                 duration: const Duration(milliseconds: 200),
                                 child: Text(
                                   '${post.likes.length}',
                                   style: TextStyle(
-                                    fontSize: 14,
+                                    fontSize: ResponsiveUtils.getFontSize(context, baseSize: 14),
                                     color: isLiked ? AppColors.error : AppColors.textPrimary,
                                     fontWeight: isLiked ? FontWeight.bold : FontWeight.w600,
                                   ),
@@ -1122,12 +1161,16 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
                           ),
                           child: Row(
                             children: [
-                              Icon(Icons.comment_outlined, color: AppColors.textPrimary, size: 20),
-                              const SizedBox(width: 6),
+                              Icon(
+                                Icons.comment_outlined, 
+                                color: AppColors.textPrimary, 
+                                size: ResponsiveUtils.getIconSize(context, baseSize: 20),
+                              ),
+                              SizedBox(width: ResponsiveUtils.getSpacing(context, small: 6)),
                               Text(
                                 '${post.commentsCount}',
                                 style: TextStyle(
-                                  fontSize: 14,
+                                  fontSize: ResponsiveUtils.getFontSize(context, baseSize: 14),
                                   color: AppColors.textPrimary,
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -1141,11 +1184,14 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
                   GestureDetector(
                     onTap: () => _sharePost(post),
                     child: ClipRRect(
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(ResponsiveUtils.getBorderRadius(context, base: 16)),
                       child: BackdropFilter(
                         filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          padding: EdgeInsets.symmetric(
+                            horizontal: ResponsiveUtils.getHorizontalPadding(context),
+                            vertical: ResponsiveUtils.getVerticalPadding(context) * 0.5,
+                          ),
                           decoration: BoxDecoration(
                             gradient: LinearGradient(
                               begin: Alignment.topLeft,
@@ -1170,12 +1216,16 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
                           ),
                           child: Row(
                             children: [
-                              Icon(Icons.share_outlined, color: AppColors.textPrimary, size: 20),
-                              const SizedBox(width: 6),
+                              Icon(
+                                Icons.share_outlined, 
+                                color: AppColors.textPrimary, 
+                                size: ResponsiveUtils.getIconSize(context, baseSize: 20),
+                              ),
+                              SizedBox(width: ResponsiveUtils.getSpacing(context, small: 6)),
                               Text(
                                 '${post.shares.length}',
                                 style: TextStyle(
-                                  fontSize: 14,
+                                  fontSize: ResponsiveUtils.getFontSize(context, baseSize: 14),
                                   color: AppColors.textPrimary,
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -2408,7 +2458,7 @@ class _RetryableNetworkImage extends StatefulWidget {
 
 class _RetryableNetworkImageState extends State<_RetryableNetworkImage> {
   int _attemptKey = 0;
-  static const int _maxRetries = 3;
+  static const int _maxRetries = 2; // Reduced from 3 to 2
   bool _hasError = false;
   bool _isRetrying = false;
   bool _hasScheduledRetry = false;
@@ -2416,23 +2466,7 @@ class _RetryableNetworkImageState extends State<_RetryableNetworkImage> {
   @override
   void initState() {
     super.initState();
-    // Pre-cache image after first frame for better performance
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        _precacheImage();
-      }
-    });
-  }
-
-  Future<void> _precacheImage() async {
-    if (!mounted) return;
-    try {
-      final imageProvider = NetworkImage(widget.imageUrl);
-      await precacheImage(imageProvider, context);
-    } catch (e) {
-      // Ignore precache errors, let the image widget handle loading
-      debugPrint('Precache failed for ${widget.imageUrl}: $e');
-    }
+    // Skip precache - let image load directly for faster display
   }
 
   void _retry() {
@@ -2442,7 +2476,6 @@ class _RetryableNetworkImageState extends State<_RetryableNetworkImage> {
       _isRetrying = false;
       _hasScheduledRetry = false;
     });
-    _precacheImage();
   }
 
   void _scheduleRetry() {
@@ -2458,7 +2491,7 @@ class _RetryableNetworkImageState extends State<_RetryableNetworkImage> {
 
     _hasScheduledRetry = true;
     final currentAttempt = _attemptKey + 1;
-    final delaySeconds = currentAttempt;
+    final delaySeconds = 0.5; // Reduced from currentAttempt to 0.5s for faster retry
     
     debugPrint('RetryableNetworkImage: Failed to load ${widget.imageUrl} (attempt $currentAttempt/$_maxRetries), retrying in ${delaySeconds}s...');
     
@@ -2468,7 +2501,7 @@ class _RetryableNetworkImageState extends State<_RetryableNetworkImage> {
       });
     }
     
-    Future.delayed(Duration(seconds: delaySeconds), () {
+    Future.delayed(Duration(milliseconds: (delaySeconds * 1000).toInt()), () {
       if (mounted) {
         setState(() {
           _attemptKey = currentAttempt;
@@ -2577,7 +2610,6 @@ class _RetryableNetworkImageState extends State<_RetryableNetworkImage> {
       return _buildLoadingContainer();
     }
 
-                   // Use optimized NetworkImage with caching and proper configuration
       // Helper function to safely convert to int for caching
       int? _safeToInt(double? value) {
         if (value == null) return null;
@@ -2589,75 +2621,73 @@ class _RetryableNetworkImageState extends State<_RetryableNetworkImage> {
         }
       }
       
+      // Use Image.network directly with timeout - faster than precaching
       return Image.network(
         widget.imageUrl,
-        key: ValueKey('${widget.imageUrl}_$_attemptKey'), // Key changes on retry to force reload
+        key: ValueKey('${widget.imageUrl}_$_attemptKey'),
         width: widget.width,
         height: widget.height,
         fit: widget.fit,
-        // Enable caching for better performance - safely convert to int only if valid
         cacheWidth: _safeToInt(widget.width),
         cacheHeight: _safeToInt(widget.height),
-        // Optimize image loading
         filterQuality: FilterQuality.medium,
-      loadingBuilder: (context, child, loadingProgress) {
-        if (loadingProgress == null) {
-          // Image loaded successfully
-          if (_attemptKey > 0) {
-            // Reset retry state on successful load
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) {
+            // Image loaded successfully
+            if (_attemptKey > 0 && mounted) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) {
+                  setState(() {
+                    _attemptKey = 0;
+                    _hasError = false;
+                    _isRetrying = false;
+                    _hasScheduledRetry = false;
+                  });
+                }
+              });
+            }
+            return child;
+          }
+          // Show loading indicator
+          return _buildLoadingContainer();
+        },
+        errorBuilder: (context, error, stackTrace) {
+          debugPrint('Image load error for ${widget.imageUrl}: $error');
+          
+          // Schedule retry if we haven't exceeded max retries
+          if (!_hasScheduledRetry && _attemptKey < _maxRetries) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (mounted) {
-                setState(() {
-                  _attemptKey = 0;
-                  _hasError = false;
-                  _isRetrying = false;
-                  _hasScheduledRetry = false;
-                });
+                _scheduleRetry();
               }
             });
-          }
-          return child;
-        }
-        return _buildLoadingContainer();
-      },
-      errorBuilder: (context, error, stackTrace) {
-        debugPrint('Image load error for ${widget.imageUrl}: $error');
-        
-        // Schedule retry if we haven't exceeded max retries and not already retrying
-        if (!_hasScheduledRetry && _attemptKey < _maxRetries) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
+          } else if (_attemptKey >= _maxRetries) {
+            // All retries exhausted
             if (mounted) {
-              _scheduleRetry();
+              setState(() {
+                _hasError = true;
+                _isRetrying = false;
+              });
             }
-          });
-        } else if (_attemptKey >= _maxRetries) {
-          // All retries exhausted
-          if (mounted) {
-            setState(() {
-              _hasError = true;
-              _isRetrying = false;
-            });
+            return _buildErrorContainer();
           }
-        }
-        
-        // Show loading indicator while retrying
-        if (_isRetrying || (_attemptKey > 0 && _attemptKey < _maxRetries)) {
-          return _buildLoadingContainer();
-        }
-        
-        // Show error state
-        return _buildErrorContainer();
-      },
-      // Add frame builder for smoother transitions
-      frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
-        if (wasSynchronouslyLoaded) return child;
-        return AnimatedOpacity(
-          opacity: frame == null ? 0 : 1,
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeOut,
-          child: child,
-        );
-      },
-    );
-  }
+          
+          // Show loading indicator while retrying
+          if (_isRetrying || (_attemptKey > 0 && _attemptKey < _maxRetries)) {
+            return _buildLoadingContainer();
+          }
+          
+          return _buildErrorContainer();
+        },
+        frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+          if (wasSynchronouslyLoaded) return child;
+          return AnimatedOpacity(
+            opacity: frame == null ? 0 : 1,
+            duration: const Duration(milliseconds: 150),
+            curve: Curves.easeOut,
+            child: child,
+          );
+        },
+      );
+    }
 }

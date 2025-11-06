@@ -15,6 +15,7 @@ class _SplashScreenState extends State<SplashScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
   bool _animationCompleted = false;
+  bool _hasNavigated = false;
   
   // Icon animations
   late Animation<double> _iconFadeAnimation;
@@ -118,30 +119,49 @@ class _SplashScreenState extends State<SplashScreen>
 
   Future<void> _checkAuthStatus() async {
     debugPrint('SplashScreen: Starting auth check');
-    await Future.delayed(const Duration(seconds: 2));
     
-    if (mounted) {
-      try {
-        debugPrint('SplashScreen: Checking auth service');
-        final authService = Provider.of<AuthService>(context, listen: false);
-        
-        if (authService.isAuthenticated) {
-          debugPrint('SplashScreen: User is authenticated, going to home');
+    // Check auth immediately
+    try {
+      if (!mounted || _hasNavigated) return;
+      debugPrint('SplashScreen: Checking auth service');
+      final authService = Provider.of<AuthService>(context, listen: false);
+      
+      if (authService.isAuthenticated) {
+        debugPrint('SplashScreen: User is authenticated, going to home');
+        if (mounted && !_hasNavigated) {
+          _hasNavigated = true;
           context.go('/home');
-        } else {
-          debugPrint('SplashScreen: User not authenticated, going to onboarding');
-          // Always go to onboarding first, then user can choose login/register
+        }
+      } else {
+        debugPrint('SplashScreen: User not authenticated, going to onboarding');
+        if (mounted && !_hasNavigated) {
+          _hasNavigated = true;
           context.go('/onboarding');
         }
-      } catch (e) {
-        debugPrint('Auth check error: $e');
-        // If there's an error, go to onboarding anyway
+      }
+    } catch (e) {
+      debugPrint('Auth check error: $e');
+      // If there's an error, go to onboarding anyway
+      if (mounted && !_hasNavigated) {
         debugPrint('SplashScreen: Error occurred, going to onboarding');
+        _hasNavigated = true;
         context.go('/onboarding');
       }
-    } else {
-      debugPrint('SplashScreen: Widget not mounted, skipping navigation');
     }
+    
+    // Fallback timeout - navigate after max 3 seconds if still on splash
+    Future.delayed(const Duration(seconds: 3)).then((_) {
+      if (mounted && !_hasNavigated) {
+        debugPrint('SplashScreen: Timeout fallback - navigating...');
+        final authService = Provider.of<AuthService>(context, listen: false);
+        _hasNavigated = true;
+        if (authService.isAuthenticated) {
+          context.go('/home');
+        } else {
+          context.go('/onboarding');
+        }
+      }
+    });
   }
 
   @override

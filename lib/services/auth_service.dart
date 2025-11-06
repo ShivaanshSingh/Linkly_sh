@@ -19,6 +19,13 @@ class AuthService extends ChangeNotifier {
   Timer? _debounceTimer;
   DateTime? _lastUserModelLoad;
   static const _userModelCacheDuration = Duration(minutes: 5);
+  
+  // Check if username setup is needed
+  bool get needsUsernameSetup {
+    if (_userModel == null || _user == null) return false;
+    final username = _userModel!.username;
+    return username == null || username.isEmpty;
+  }
 
   // Getters
   User? get user => _user;
@@ -62,26 +69,24 @@ class AuthService extends ChangeNotifier {
   void _onAuthStateChanged(User? user) {
     _user = user;
     if (user != null) {
+      // Load user model asynchronously without blocking
       _loadUserModelDebounced();
     } else {
       _userModel = null;
       _lastUserModelLoad = null;
     }
-    // Debounce notifyListeners to reduce rebuilds
-    _debounceTimer?.cancel();
-    _debounceTimer = Timer(const Duration(milliseconds: 100), () {
-      notifyListeners();
-    });
+    // Notify immediately so navigation can proceed
+    // User model will load in background
+    notifyListeners();
   }
 
   void _loadUserModelDebounced() {
     // Cancel any pending load
     _debounceTimer?.cancel();
     
-    // Debounce the load to avoid multiple rapid calls
-    _debounceTimer = Timer(const Duration(milliseconds: 300), () {
-      _loadUserModel();
-    });
+    // Load immediately without debounce to avoid blocking navigation
+    // Use unawaited to make it non-blocking
+    _loadUserModel();
   }
 
   Future<void> _loadUserModel() async {
@@ -95,15 +100,26 @@ class AuthService extends ChangeNotifier {
     }
     
     try {
-      final doc = await _firestore!.collection('users').doc(_user!.uid).get();
+      // Add timeout to prevent hanging on network issues
+      final doc = await _firestore!.collection('users').doc(_user!.uid)
+          .get()
+          .timeout(const Duration(seconds: 5), onTimeout: () {
+        debugPrint('AuthService: User model load timed out');
+        throw TimeoutException('User model load timed out');
+      });
+      
       if (doc.exists) {
         final data = doc.data()!;
         _userModel = UserModel.fromMap(data);
         _lastUserModelLoad = DateTime.now();
         notifyListeners();
       }
+    } on TimeoutException {
+      debugPrint('AuthService: User model load timed out, continuing without it');
+      // Don't throw - allow app to continue without user model
     } catch (e) {
       debugPrint('Error loading user model: $e');
+      // Don't throw - allow app to continue without user model
     }
   }
 
@@ -442,18 +458,36 @@ class AuthService extends ChangeNotifier {
       
       // Create or update user document in Firestore
       if (userCredential.user != null) {
-        await _firestore!.collection('users').doc(userCredential.user!.uid).set({
-          'uid': userCredential.user!.uid,
-          'email': userCredential.user!.email ?? '',
-          'fullName': userCredential.user!.displayName ?? 'Google User',
-          'profileImageUrl': userCredential.user!.photoURL,
-          'phoneNumberPrivacy': 'connections_only', // Default privacy setting
-          'allowedPhoneViewers': [], // Empty list by default
-          'socialLinks': {},
-          'createdAt': FieldValue.serverTimestamp(),
-          'lastSeen': FieldValue.serverTimestamp(),
-          'isOnline': true,
-        }, SetOptions(merge: true));
+        final userDocRef = _firestore!.collection('users').doc(userCredential.user!.uid);
+        final userDoc = await userDocRef.get();
+        
+        // Only update if document doesn't exist or doesn't have username
+        if (!userDoc.exists || userDoc.data()?['username'] == null || (userDoc.data()?['username'] as String).isEmpty) {
+          await userDocRef.set({
+            'uid': userCredential.user!.uid,
+            'email': userCredential.user!.email ?? '',
+            'fullName': userCredential.user!.displayName ?? 'Google User',
+            'profileImageUrl': userCredential.user!.photoURL,
+            'phoneNumberPrivacy': 'connections_only', // Default privacy setting
+            'allowedPhoneViewers': [], // Empty list by default
+            'socialLinks': {},
+            'createdAt': FieldValue.serverTimestamp(),
+            'lastSeen': FieldValue.serverTimestamp(),
+            'isOnline': true,
+          }, SetOptions(merge: true));
+        } else {
+          // Update only non-username fields if username already exists
+          await userDocRef.update({
+            'email': userCredential.user!.email ?? '',
+            'fullName': userCredential.user!.displayName ?? 'Google User',
+            'profileImageUrl': userCredential.user!.photoURL,
+            'lastSeen': FieldValue.serverTimestamp(),
+            'isOnline': true,
+          });
+        }
+        
+        // Reload user model to check username status
+        await _loadUserModel();
       }
       
       debugPrint('Google sign in successful for: ${userCredential.user?.email}');

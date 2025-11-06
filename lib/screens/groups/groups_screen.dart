@@ -68,109 +68,158 @@ class _GroupsScreenState extends State<GroupsScreen> {
                 child: Column(
                   children: [
                     // Search Bar
-                    Container(
-                      decoration: BoxDecoration(
-                        color: AppColors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: AppColors.grey100, width: 1),
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppColors.grey100.withOpacity(0.5),
-                            blurRadius: 4,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: TextField(
-                        controller: _searchController,
-                        onChanged: (value) {
-                          setState(() {
-                            _searchQuery = value;
-                          });
-                        },
-                        style: const TextStyle(
-                          color: AppColors.grey900, // Dark text for white background
-                          fontSize: 15,
-                          fontWeight: FontWeight.w400,
-                          letterSpacing: -0.2,
-                        ),
-                        decoration: InputDecoration(
-                          hintText: 'Search groups by name or description...',
-                          hintStyle: const TextStyle(
-                            color: AppColors.grey400,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w400,
-                            letterSpacing: -0.2,
-                          ),
-                          filled: true,
-                          fillColor: AppColors.white, // Ensure white background
-                          prefixIcon: const Icon(
-                            Icons.search,
-                            color: AppColors.grey400,
-                            size: 20,
-                          ),
-                          border: OutlineInputBorder(
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                const Color(0xFF1E3A8A).withOpacity(0.3), // Deep blue
+                                const Color(0xFF3B82F6).withOpacity(0.2), // Lighter blue
+                              ],
+                            ),
                             borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide.none,
+                            border: Border.all(
+                              color: Colors.white.withOpacity(0.2),
+                              width: 1.5,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.blue.withOpacity(0.1),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
                           ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide.none,
+                          child: TextField(
+                            controller: _searchController,
+                            onChanged: (value) {
+                              setState(() {
+                                _searchQuery = value;
+                              });
+                            },
+                            style: const TextStyle(
+                              color: AppColors.textPrimary, // White text for glass background
+                              fontSize: 15,
+                              fontWeight: FontWeight.w400,
+                              letterSpacing: -0.2,
+                            ),
+                            decoration: InputDecoration(
+                              hintText: 'Search groups by name or description...',
+                              hintStyle: TextStyle(
+                                color: AppColors.textSecondary.withOpacity(0.7),
+                                fontSize: 15,
+                                fontWeight: FontWeight.w400,
+                                letterSpacing: -0.2,
+                              ),
+                              filled: true,
+                              fillColor: Colors.transparent,
+                              prefixIcon: Icon(
+                                Icons.search,
+                                color: AppColors.textSecondary.withOpacity(0.8),
+                                size: 20,
+                              ),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide.none,
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide.none,
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(
+                                  color: Colors.white.withOpacity(0.4),
+                                  width: 2,
+                                ),
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                            ),
                           ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(color: AppColors.primary, width: 2),
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                         ),
                       ),
                     ),
                     const SizedBox(height: 12),
                     // Filter Dropdown
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                      decoration: BoxDecoration(
-                        color: AppColors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: AppColors.grey100, width: 1),
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppColors.grey100.withOpacity(0.5),
-                            blurRadius: 4,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<String>(
-                          value: 'Create New Group',
-                          isExpanded: true,
-                          items: ['Create New Group']
-                              .map((String value) {
-                            return DropdownMenuItem<String>(
-                              value: value,
-                              child: Row(
-                                children: [
-                                  const Icon(Icons.add, color: AppColors.primary),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    value,
-                                    style: const TextStyle(
-                                      color: AppColors.grey700,
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w500,
-                                      letterSpacing: -0.2,
-                                    ),
-                                  ),
-                                ],
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                const Color(0xFF1E40AF).withOpacity(0.4), // Deeper blue
+                                const Color(0xFF2563EB).withOpacity(0.3), // Medium blue
+                              ],
+                            ),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: Colors.white.withOpacity(0.2),
+                              width: 1.5,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.blue.withOpacity(0.15),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
                               ),
-                            );
-                          }).toList(),
-                          onChanged: (String? newValue) {
-                            if (newValue == 'Create New Group') {
-                              _showCreateGroupDialog();
-                            }
-                          },
+                            ],
+                          ),
+                          child: DropdownButtonHideUnderline(
+                            child: DropdownButton<String>(
+                              value: 'Create New Group',
+                              isExpanded: true,
+                              dropdownColor: const Color(0xFF1E3A8A).withOpacity(0.95),
+                              items: ['Create New Group']
+                                  .map((String value) {
+                                return DropdownMenuItem<String>(
+                                  value: value,
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        Icons.add,
+                                        color: Colors.white.withOpacity(0.9),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        value,
+                                        style: TextStyle(
+                                          color: AppColors.textPrimary.withOpacity(0.9),
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w500,
+                                          letterSpacing: -0.2,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }).toList(),
+                              onChanged: (String? newValue) {
+                                if (newValue == 'Create New Group') {
+                                  _showCreateGroupDialog();
+                                }
+                              },
+                              icon: Icon(
+                                Icons.arrow_drop_down,
+                                color: Colors.white.withOpacity(0.7),
+                              ),
+                              style: TextStyle(
+                                color: AppColors.textPrimary.withOpacity(0.9),
+                                fontSize: 15,
+                                fontWeight: FontWeight.w500,
+                                letterSpacing: -0.2,
+                              ),
+                            ),
+                          ),
                         ),
                       ),
                     ),
@@ -237,6 +286,15 @@ class _GroupsScreenState extends State<GroupsScreen> {
                         ),
                       ),
                     ],
+                  ),
+                );
+              }
+
+              // Check if userModel is available
+              if (authService.userModel == null) {
+                return const Center(
+                  child: CircularProgressIndicator(
+                    valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
                   ),
                 );
               }
@@ -347,7 +405,11 @@ class _GroupsScreenState extends State<GroupsScreen> {
                       itemCount: filteredGroups.length,
                       itemBuilder: (context, index) {
                         final group = filteredGroups[index];
-                        return _buildGroupCard(group, authService.userModel!);
+                        final userModel = authService.userModel;
+                        if (userModel == null) {
+                          return const SizedBox.shrink();
+                        }
+                        return _buildGroupCard(group, userModel);
                       },
                     );
                   },
@@ -831,126 +893,292 @@ class _GroupsScreenState extends State<GroupsScreen> {
     
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: Colors.white,
+      barrierColor: Colors.black.withOpacity(0.5),
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
         ),
-        title: const Text(
-          'Create New Group',
-          style: TextStyle(
-            color: AppColors.grey900,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: nameController,
-              style: const TextStyle(color: AppColors.grey900),
-              decoration: const InputDecoration(
-                labelText: 'Group Name',
-                labelStyle: TextStyle(color: AppColors.grey600),
-                border: OutlineInputBorder(),
-                enabledBorder: OutlineInputBorder(
-                  borderSide: BorderSide(color: AppColors.grey300),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(20),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    const Color(0xFF1E3A8A).withOpacity(0.4), // Deep blue
+                    const Color(0xFF3B82F6).withOpacity(0.3), // Lighter blue
+                    const Color(0xFF2563EB).withOpacity(0.35), // Medium blue
+                  ],
                 ),
-                focusedBorder: OutlineInputBorder(
-                  borderSide: BorderSide(color: AppColors.primary),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.3),
+                  width: 1.5,
                 ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.blue.withOpacity(0.2),
+                    blurRadius: 20,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
               ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: descriptionController,
-              style: const TextStyle(color: AppColors.grey900),
-              decoration: const InputDecoration(
-                labelText: 'Description (Optional)',
-                labelStyle: TextStyle(color: AppColors.grey600),
-                border: OutlineInputBorder(),
-                enabledBorder: OutlineInputBorder(
-                  borderSide: BorderSide(color: AppColors.grey300),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderSide: BorderSide(color: AppColors.primary),
-                ),
-              ),
-              maxLines: 3,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text(
-              'Cancel',
-              style: TextStyle(color: AppColors.grey600),
-            ),
-          ),
-          Container(
-            decoration: BoxDecoration(
-              color: AppColors.primary,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: TextButton(
-              onPressed: () async {
-                if (nameController.text.trim().isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Please enter a group name'),
-                      backgroundColor: Colors.red,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Title
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+                    child: Text(
+                      'Create New Group',
+                      style: TextStyle(
+                        color: AppColors.textPrimary,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 20,
+                        letterSpacing: -0.3,
+                      ),
                     ),
-                  );
-                  return;
-                }
-
-                try {
-                  final authService = Provider.of<AuthService>(context, listen: false);
-                  await GroupService.createGroup(
-                    name: nameController.text.trim(),
-                    description: descriptionController.text.trim(),
-                    createdBy: authService.user!.uid,
-                  );
-
-                  if (context.mounted) {
-                    Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Group "${nameController.text.trim()}" created successfully'),
-                        backgroundColor: AppColors.primary,
-                        behavior: SnackBarBehavior.floating,
-                        shape: RoundedRectangleBorder(
+                  ),
+                  // Content
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Group Name Field
+                        ClipRRect(
                           borderRadius: BorderRadius.circular(12),
+                          child: BackdropFilter(
+                            filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: Colors.white.withOpacity(0.2),
+                                  width: 1,
+                                ),
+                              ),
+                              child: TextField(
+                                controller: nameController,
+                                style: const TextStyle(
+                                  color: AppColors.textPrimary,
+                                  fontSize: 15,
+                                ),
+                                decoration: InputDecoration(
+                                  labelText: 'Group Name',
+                                  labelStyle: TextStyle(
+                                    color: AppColors.textSecondary.withOpacity(0.8),
+                                    fontSize: 14,
+                                  ),
+                                  filled: true,
+                                  fillColor: Colors.transparent,
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: BorderSide.none,
+                                  ),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: BorderSide.none,
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: BorderSide(
+                                      color: Colors.white.withOpacity(0.4),
+                                      width: 2,
+                                    ),
+                                  ),
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 16,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
                         ),
-                      ),
-                    );
-                  }
-                } catch (e) {
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Failed to create group: $e'),
-                        backgroundColor: Colors.red,
-                        behavior: SnackBarBehavior.floating,
-                        shape: RoundedRectangleBorder(
+                        const SizedBox(height: 16),
+                        // Description Field
+                        ClipRRect(
                           borderRadius: BorderRadius.circular(12),
+                          child: BackdropFilter(
+                            filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: Colors.white.withOpacity(0.2),
+                                  width: 1,
+                                ),
+                              ),
+                              child: TextField(
+                                controller: descriptionController,
+                                style: const TextStyle(
+                                  color: AppColors.textPrimary,
+                                  fontSize: 15,
+                                ),
+                                decoration: InputDecoration(
+                                  labelText: 'Description (Optional)',
+                                  labelStyle: TextStyle(
+                                    color: AppColors.textSecondary.withOpacity(0.8),
+                                    fontSize: 14,
+                                  ),
+                                  filled: true,
+                                  fillColor: Colors.transparent,
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: BorderSide.none,
+                                  ),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: BorderSide.none,
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: BorderSide(
+                                      color: Colors.white.withOpacity(0.4),
+                                      width: 2,
+                                    ),
+                                  ),
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 16,
+                                  ),
+                                ),
+                                maxLines: 3,
+                              ),
+                            ),
+                          ),
                         ),
-                      ),
-                    );
-                  }
-                }
-              },
-              child: const Text(
-                'Create',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  // Actions
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: Text(
+                            'Cancel',
+                            style: TextStyle(
+                              color: AppColors.textSecondary.withOpacity(0.9),
+                              fontSize: 15,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  const Color(0xFF3B82F6).withOpacity(0.8),
+                                  const Color(0xFF2563EB).withOpacity(0.9),
+                                ],
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.blue.withOpacity(0.3),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: TextButton(
+                              onPressed: () async {
+                                if (nameController.text.trim().isEmpty) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Please enter a group name'),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                  return;
+                                }
+
+                                try {
+                                  final authService = Provider.of<AuthService>(context, listen: false);
+                                  final userId = authService.user?.uid;
+                                  if (userId == null) {
+                                    if (context.mounted) {
+                                      Navigator.pop(context);
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(
+                                          content: Text('Please log in to create a group'),
+                                          backgroundColor: Colors.red,
+                                        ),
+                                      );
+                                    }
+                                    return;
+                                  }
+                                  await GroupService.createGroup(
+                                    name: nameController.text.trim(),
+                                    description: descriptionController.text.trim(),
+                                    createdBy: userId,
+                                  );
+
+                                  if (context.mounted) {
+                                    Navigator.pop(context);
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text('Group "${nameController.text.trim()}" created successfully'),
+                                        backgroundColor: AppColors.primary,
+                                        behavior: SnackBarBehavior.floating,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                } catch (e) {
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text('Failed to create group: $e'),
+                                        backgroundColor: Colors.red,
+                                        behavior: SnackBarBehavior.floating,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                }
+                              },
+                              child: const Padding(
+                                padding: EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                                child: Text(
+                                  'Create',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 15,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
-        ],
+        ),
       ),
     );
   }

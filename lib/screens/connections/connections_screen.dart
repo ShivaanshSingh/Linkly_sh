@@ -13,6 +13,7 @@ import '../../services/auth_service.dart';
 import '../../services/connection_request_service.dart';
 import '../../services/group_service.dart';
 import '../../utils/privacy_utils.dart';
+import '../../utils/responsive_utils.dart';
 import '../chat/chat_screen.dart';
 import 'search_users_screen.dart';
 import 'qr_scanner_screen.dart';
@@ -875,40 +876,44 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
     return Scaffold(
       backgroundColor: AppColors.grey900, // Overall Background - matching homepage
       appBar: AppBar(
-        backgroundColor: AppColors.grey800, // Sidebar/AppBar Background - matching homepage
+        backgroundColor: AppColors.grey900,
         elevation: 0,
-        surfaceTintColor: AppColors.grey800,
-        title: Row(
-          children: [
-            const Text(
-              'My Connections',
-              style: TextStyle(
-                color: AppColors.textPrimary, // Bright White Text - matching homepage
-                fontWeight: FontWeight.w600,
-                fontSize: 20,
-                letterSpacing: -0.3,
-              ),
-            ),
-            if (_pendingRequests.isNotEmpty) ...[
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: AppColors.primary,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  '${_pendingRequests.length}',
-                  style: const TextStyle(
-                    color: AppColors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
+        surfaceTintColor: Colors.transparent,
+        toolbarHeight: 100,
+        title: Padding(
+          padding: EdgeInsets.only(
+            top: ResponsiveUtils.getSpacing(context, small: 8),
+            left: ResponsiveUtils.getHorizontalPadding(context),
+          ),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'My Connections',
+                  style: TextStyle(
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.w700,
+                    fontSize: ResponsiveUtils.getFontSize(context, baseSize: 24),
+                    letterSpacing: -0.5,
                   ),
                 ),
-              ),
-            ],
-          ],
+                SizedBox(height: ResponsiveUtils.getSpacing(context, small: 4)),
+                Text(
+                  '${_filteredConnections.length} connections found',
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: ResponsiveUtils.getFontSize(context, baseSize: 14),
+                    fontWeight: FontWeight.w400,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
+        titleSpacing: 0,
         actions: [
           ...(_selectionMode
               ? [
@@ -933,129 +938,118 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
                   ),
                 ]
               : [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: AppColors.grey700, // Dark Violet for Secondary Buttons
-              shape: BoxShape.circle,
-            ),
-            child: IconButton(
-              icon: const Icon(Icons.person_add, color: AppColors.textPrimary, size: 20),
-              onPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) => const SearchUsersScreen(),
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: AppColors.grey700,
+                      shape: BoxShape.circle,
+                    ),
+                    child: IconButton(
+                      icon: const Icon(Icons.person_add, color: AppColors.textPrimary, size: 18),
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => const SearchUsersScreen(),
+                          ),
+                        );
+                      },
+                      tooltip: 'Search People',
+                      padding: EdgeInsets.zero,
+                    ),
                   ),
-                );
-              },
-              tooltip: 'Search People',
-            ),
-          ),
-          const SizedBox(width: 8),
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: _pendingRequests.isNotEmpty ? AppColors.primary : AppColors.grey700, // Dark Violet for Secondary Buttons
-              shape: BoxShape.circle,
-              boxShadow: _pendingRequests.isNotEmpty ? [
-                BoxShadow(
-                  color: AppColors.primary.withOpacity(0.3),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ] : null,
-            ),
-            child: IconButton(
-              icon: Icon(
-                Icons.person_add_alt_1, 
-                color: _pendingRequests.isNotEmpty ? Colors.white : AppColors.textPrimary, // White for visibility 
-                size: 20
-              ),
-              onPressed: () {
-                _showConnectionRequestsDialog();
-              },
-              tooltip: 'Connection Requests',
-            ),
-          ),
-          const SizedBox(width: 8),
-          Container(
-            width: 40,
-            height: 40,
-            decoration: const BoxDecoration(
-              color: AppColors.grey700,
-              shape: BoxShape.circle,
-            ),
-            child: IconButton(
-              tooltip: 'Select multiple',
-              icon: const Icon(Icons.checklist, color: AppColors.textPrimary, size: 20),
-              onPressed: _toggleSelectionMode,
-            ),
-          ),
-          const SizedBox(width: 8),
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: AppColors.primary,
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.primary.withOpacity(0.3),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: IconButton(
-              icon: const Icon(Icons.refresh, color: Colors.white, size: 20),
-              onPressed: _refreshData,
-              tooltip: 'Refresh',
-            ),
-          ),
-          ]),
+                  const SizedBox(width: 6),
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: _pendingRequests.isNotEmpty ? AppColors.primary : AppColors.grey700,
+                      shape: BoxShape.circle,
+                      boxShadow: _pendingRequests.isNotEmpty ? [
+                        BoxShadow(
+                          color: AppColors.primary.withOpacity(0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ] : null,
+                    ),
+                    child: IconButton(
+                      icon: Icon(
+                        Icons.person_add_alt_1, 
+                        color: _pendingRequests.isNotEmpty ? Colors.white : AppColors.textPrimary,
+                        size: 18
+                      ),
+                      onPressed: () {
+                        _showConnectionRequestsDialog();
+                      },
+                      tooltip: 'Connection Requests',
+                      padding: EdgeInsets.zero,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: const BoxDecoration(
+                      color: AppColors.grey700,
+                      shape: BoxShape.circle,
+                    ),
+                    child: IconButton(
+                      tooltip: 'Select multiple',
+                      icon: const Icon(Icons.checklist, color: AppColors.textPrimary, size: 18),
+                      onPressed: _toggleSelectionMode,
+                      padding: EdgeInsets.zero,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          Color(0xFF4A90E2), // Medium blue
+                          Color(0xFF9B59B6), // Medium purple
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(10),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.2),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: IconButton(
+                      icon: const Icon(Icons.refresh, color: Colors.white, size: 18),
+                      onPressed: _refreshData,
+                      tooltip: 'Refresh',
+                      padding: EdgeInsets.zero,
+                    ),
+                  ),
+                ]),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.only(bottom: 20),
-        child: Column(
-          children: [
-          // Connection count
-          Container(
-            margin: const EdgeInsets.fromLTRB(24, 16, 24, 8),
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-            decoration: BoxDecoration(
-              color: AppColors.grey50,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.grey100, width: 1),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.people,
-                  color: AppColors.textPrimary, // White icon for visibility on dark background
-                  size: 20,
-                ),
-                const SizedBox(width: 12),
-                Text(
-                  '${_filteredConnections.length} connections found',
-                  style: const TextStyle(
-                    color: AppColors.textPrimary, // White text for visibility on dark background
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: -0.2,
-                  ),
-                ),
-              ],
-            ),
-          ),
+      body: LayoutBuilder(
+        builder: (context, constraints) {
           
-          // Connection Requests Section
+          return SingleChildScrollView(
+            padding: EdgeInsets.only(bottom: ResponsiveUtils.getVerticalPadding(context)),
+            child: Column(
+              children: [
+              // Connection Requests Section
           if (_pendingRequests.isNotEmpty) ...[
             Container(
-              margin: const EdgeInsets.fromLTRB(24, 8, 24, 8),
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              margin: EdgeInsets.fromLTRB(
+                ResponsiveUtils.getHorizontalPadding(context),
+                ResponsiveUtils.getSpacing(context, small: 8),
+                ResponsiveUtils.getHorizontalPadding(context),
+                ResponsiveUtils.getSpacing(context, small: 8),
+              ),
+              padding: ResponsiveUtils.getPadding(context),
               decoration: BoxDecoration(
                 color: AppColors.primary.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(12),
@@ -1066,14 +1060,14 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
                   Icon(
                     Icons.person_add,
                     color: AppColors.primary,
-                    size: 20,
+                    size: ResponsiveUtils.getIconSize(context, baseSize: 20),
                   ),
-                  const SizedBox(width: 12),
+                  SizedBox(width: ResponsiveUtils.getSpacing(context, small: 8, medium: 12)),
                   Text(
                     '${_pendingRequests.length} connection request${_pendingRequests.length == 1 ? '' : 's'} pending',
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: AppColors.primary,
-                      fontSize: 15,
+                      fontSize: ResponsiveUtils.getFontSize(context, baseSize: 15),
                       fontWeight: FontWeight.w600,
                       letterSpacing: -0.2,
                     ),
@@ -1083,7 +1077,12 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
             ),
             // Connection Requests List
             Container(
-              margin: const EdgeInsets.fromLTRB(24, 0, 24, 16),
+              margin: EdgeInsets.fromLTRB(
+                ResponsiveUtils.getHorizontalPadding(context),
+                0,
+                ResponsiveUtils.getHorizontalPadding(context),
+                ResponsiveUtils.getVerticalPadding(context),
+              ),
               child: Column(
                 children: _pendingRequests.map((request) => _buildConnectionRequestCard(request)).toList(),
               ),
@@ -1092,74 +1091,60 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
           
           // Search bar
           Padding(
-            padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-                child: Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        const Color(0xFF1F295B).withOpacity(0.85),
-                        const Color(0xFF283B89).withOpacity(0.8),
-                      ],
-                    ),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: const Color(0xFF6B8FAE).withOpacity(0.4),
-                      width: 1.5,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.2),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
+            padding: EdgeInsets.fromLTRB(
+              ResponsiveUtils.getHorizontalPadding(context),
+              ResponsiveUtils.getVerticalPadding(context) + ResponsiveUtils.getSpacing(context, small: 8),
+              ResponsiveUtils.getHorizontalPadding(context),
+              ResponsiveUtils.getSpacing(context, small: 16),
+            ),
+            child: Container(
+              decoration: BoxDecoration(
+                color: const Color(0xFF2A2F50),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.15),
+                  width: 1,
+                ),
+              ),
+              child: TextField(
+                controller: _searchController,
+                onChanged: (value) => _filterConnections(),
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: ResponsiveUtils.getFontSize(context, baseSize: 15),
+                  fontWeight: FontWeight.w400,
+                ),
+                decoration: InputDecoration(
+                  hintText: 'Search by name, email, or company...',
+                  hintStyle: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: ResponsiveUtils.getFontSize(context, baseSize: 15),
+                    fontWeight: FontWeight.w400,
                   ),
-                  child: TextField(
-                    controller: _searchController,
-                    onChanged: (value) => _filterConnections(),
-                    style: const TextStyle(
-                      color: AppColors.textPrimary, // White text for glass background
-                      fontSize: 15,
-                      fontWeight: FontWeight.w400,
-                      letterSpacing: -0.2,
+                  filled: false,
+                  prefixIcon: Icon(
+                    Icons.search,
+                    color: AppColors.textSecondary,
+                    size: ResponsiveUtils.getIconSize(context, baseSize: 20),
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: Colors.white.withOpacity(0.2),
+                      width: 1,
                     ),
-                    decoration: InputDecoration(
-                      hintText: 'Search by name, email, or company...',
-                      hintStyle: TextStyle(
-                        color: AppColors.textPrimary.withOpacity(0.6),
-                        fontSize: 15,
-                        fontWeight: FontWeight.w400,
-                        letterSpacing: -0.2,
-                      ),
-                      filled: false,
-                      prefixIcon: const Icon(
-                        Icons.search,
-                        color: AppColors.textPrimary,
-                        size: 20,
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none,
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none,
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(
-                          color: AppColors.primaryLight.withOpacity(0.6),
-                          width: 2,
-                        ),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                    ),
+                  ),
+                  contentPadding: EdgeInsets.symmetric(
+                    horizontal: ResponsiveUtils.getHorizontalPadding(context),
+                    vertical: ResponsiveUtils.getVerticalPadding(context),
                   ),
                 ),
               ),
@@ -1168,81 +1153,71 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
           
           // Filter dropdowns
           Padding(
-            padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
+            padding: EdgeInsets.fromLTRB(
+              ResponsiveUtils.getHorizontalPadding(context),
+              0,
+              ResponsiveUtils.getHorizontalPadding(context),
+              ResponsiveUtils.getSpacing(context, small: 20),
+            ),
             child: Row(
               children: [
                 Expanded(
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              const Color(0xFF1F295B).withOpacity(0.85),
-                              const Color(0xFF283B89).withOpacity(0.8),
-                            ],
-                          ),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: const Color(0xFF6B8FAE).withOpacity(0.4),
-                            width: 1.5,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.2),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF2A2F50),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: Colors.white.withOpacity(0.15),
+                        width: 1,
+                      ),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        value: _selectedGroup,
+                        isExpanded: true,
+                        onChanged: (String? newValue) {
+                          if (newValue != null) {
+                            if (newValue == 'CREATE_GROUP') {
+                              // Show create group dialog without requiring a specific connection
+                              _showCreateGroupDialogGeneric();
+                            } else {
+                              setState(() {
+                                _selectedGroup = newValue;
+                              });
+                              _filterConnections();
+                            }
+                          }
+                        },
+                        style: TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: ResponsiveUtils.getFontSize(context, baseSize: 15),
+                          fontWeight: FontWeight.w400,
                         ),
-                        child: DropdownButtonHideUnderline(
-                          child: DropdownButton<String>(
-                            value: _selectedGroup,
-                            isExpanded: true,
-                            onChanged: (String? newValue) {
-                              if (newValue != null) {
-                                if (newValue == 'CREATE_GROUP') {
-                                  // Show create group dialog without requiring a specific connection
-                                  _showCreateGroupDialogGeneric();
-                                } else {
-                                  setState(() {
-                                    _selectedGroup = newValue;
-                                  });
-                                  _filterConnections();
-                                }
-                              }
-                            },
-                            style: const TextStyle(
-                              color: AppColors.textPrimary,
-                              fontSize: 15,
-                              fontWeight: FontWeight.w500,
-                              letterSpacing: -0.2,
-                            ),
-                            dropdownColor: AppColors.surfaceDark,
-                            icon: const Icon(
-                              Icons.arrow_drop_down,
-                              color: AppColors.textPrimary,
-                            ),
+                        dropdownColor: const Color(0xFF2A2F50),
+                        icon: Icon(
+                          Icons.keyboard_arrow_down,
+                          color: AppColors.textSecondary,
+                          size: ResponsiveUtils.getIconSize(context, baseSize: 24),
+                        ),
                         items: [
                           DropdownMenuItem<String>(
                             value: 'All Groups',
                             child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 20),
+                              padding: EdgeInsets.symmetric(horizontal: ResponsiveUtils.getHorizontalPadding(context)),
                               child: Row(
                                 children: [
-                                  const Icon(Icons.group, color: AppColors.textPrimary, size: 18),
-                                  const SizedBox(width: 12),
-                                  const Text(
+                                  Icon(
+                                    Icons.group, 
+                                    color: AppColors.textPrimary, 
+                                    size: ResponsiveUtils.getIconSize(context, baseSize: 18),
+                                  ),
+                                  SizedBox(width: ResponsiveUtils.getSpacing(context, small: 8, medium: 12)),
+                                  Text(
                                     'All Groups',
                                     style: TextStyle(
                                       color: AppColors.textPrimary,
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w500,
-                                      letterSpacing: -0.2,
+                                      fontSize: ResponsiveUtils.getFontSize(context, baseSize: 15),
+                                      fontWeight: FontWeight.w400,
                                     ),
                                   ),
                                 ],
@@ -1252,7 +1227,7 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
                           ..._groups.map((group) => DropdownMenuItem<String>(
                             value: group.name,
                             child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 20),
+                              padding: EdgeInsets.symmetric(horizontal: ResponsiveUtils.getHorizontalPadding(context)),
                               child: Row(
                                 children: [
                                   Container(
@@ -1296,66 +1271,45 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
                         ],
                       ),
                     ),
-                      ),
-                    ),
                   ),
                 ),
-                const SizedBox(width: 12),
+                SizedBox(width: ResponsiveUtils.getSpacing(context, small: 12)),
                 Expanded(
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              const Color(0xFF1F295B).withOpacity(0.85),
-                              const Color(0xFF283B89).withOpacity(0.8),
-                            ],
-                          ),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: const Color(0xFF6B8FAE).withOpacity(0.4),
-                            width: 1.5,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.2),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF2A2F50),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: Colors.white.withOpacity(0.15),
+                        width: 1,
+                      ),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        value: _sortBy,
+                        isExpanded: true,
+                        style: TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: ResponsiveUtils.getFontSize(context, baseSize: 15),
+                          fontWeight: FontWeight.w400,
                         ),
-                        child: DropdownButtonHideUnderline(
-                          child: DropdownButton<String>(
-                            value: _sortBy,
-                            isExpanded: true,
-                            style: const TextStyle(
-                              color: AppColors.textPrimary,
-                              fontSize: 15,
-                              fontWeight: FontWeight.w500,
-                              letterSpacing: -0.2,
-                            ),
-                            dropdownColor: AppColors.surfaceDark,
-                            icon: const Icon(
-                              Icons.arrow_drop_down,
-                              color: AppColors.textPrimary,
-                            ),
+                        dropdownColor: const Color(0xFF2A2F50),
+                        icon: Icon(
+                          Icons.keyboard_arrow_down,
+                          color: AppColors.textSecondary,
+                          size: ResponsiveUtils.getIconSize(context, baseSize: 24),
+                        ),
                         items: ['Sort by Name', 'Sort by Date', 'Sort by Company'].map((String value) {
                           return DropdownMenuItem<String>(
                             value: value,
                             child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 20),
+                              padding: EdgeInsets.symmetric(horizontal: ResponsiveUtils.getHorizontalPadding(context)),
                               child: Text(
                                 value,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   color: AppColors.textPrimary,
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w500,
-                                  letterSpacing: -0.2,
+                                  fontSize: ResponsiveUtils.getFontSize(context, baseSize: 15),
+                                  fontWeight: FontWeight.w400,
                                 ),
                               ),
                             ),
@@ -1366,8 +1320,6 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
                             _sortBy = newValue!;
                           });
                         },
-                      ),
-                    ),
                       ),
                     ),
                   ),
@@ -1382,7 +1334,10 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
               : Column(
                   children: _filteredConnections.map((connection) => 
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: ResponsiveUtils.getHorizontalPadding(context),
+                        vertical: ResponsiveUtils.getSpacing(context, small: 4),
+                      ),
                       child: GestureDetector(
                         onLongPress: () {
                           if (!_selectionMode) {
@@ -1442,9 +1397,11 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
                     ),
                   ).toList(),
                 ),
-        ],
-        ),
-      ),
+            ],
+          ),
+        );
+      },
+    ),
     );
   }
 
@@ -1688,41 +1645,49 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
   }
 
   Widget _buildConnectionCard(ConnectionModel connection) {
-    return Center(
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 20),
-        constraints: const BoxConstraints(
-          maxWidth: 420,
-        ),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Color(0xFF1F295B), // Dark navy/indigo (#1F295B) - corners and edges
-              Color(0xFF283B89), // Medium-dark blue/royal blue (#283B89) - center
-            ],
-          ),
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.15),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        
+        final cardMaxWidth = ResponsiveUtils.getCardMaxWidth(context);
+        final cardPadding = ResponsiveUtils.getPadding(context);
+        final avatarSize = ResponsiveUtils.getAvatarSize(context);
+        final borderRadius = ResponsiveUtils.getBorderRadius(context);
+        
+        return Center(
+          child: Container(
+            margin: EdgeInsets.only(bottom: ResponsiveUtils.getSpacing(context, small: 8)),
+            constraints: BoxConstraints(
+              maxWidth: cardMaxWidth,
             ),
-          ],
-        ),
-        child: AspectRatio(
-          aspectRatio: 3.5 / 2.5,
-          child: Padding(
-            padding: const EdgeInsets.all(20), // Increased padding for reference design
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Header section with avatar and name
-                Row(
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color(0xFF1F295B), // Dark navy/indigo (#1F295B) - corners and edges
+                  Color(0xFF283B89), // Medium-dark blue/royal blue (#283B89) - center
+                ],
+              ),
+              borderRadius: BorderRadius.circular(borderRadius),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.15),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: AspectRatio(
+              aspectRatio: 3.5 / 2.5,
+              child: Padding(
+                padding: cardPadding,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
+                    // Header section with avatar and name
+                    Row(
+                      children: [
                     // Profile image with circular design like reference
                     FutureBuilder<List<String?>>(
                       future: Future.wait([
@@ -1734,12 +1699,15 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
                         final userName = snapshot.data?[1] ?? connection.contactName;
                         final displayName = userName.isNotEmpty ? userName : 'Contact';
                         return Container(
-                          width: 60,
-                          height: 60,
+                          width: avatarSize,
+                          height: avatarSize,
                           decoration: BoxDecoration(
                             color: Colors.white,
                             shape: BoxShape.circle,
-                            border: Border.all(color: Colors.purple, width: 3), // Purple border like reference
+                            border: Border.all(
+                              color: Colors.purple, 
+                              width: ResponsiveUtils.isMobile(context) ? 2.5 : 3,
+                            ),
                             boxShadow: [
                               BoxShadow(
                                 color: Colors.black.withOpacity(0.2),
@@ -1762,7 +1730,7 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
                         );
                       },
                     ),
-                    const SizedBox(width: 16),
+                    SizedBox(width: ResponsiveUtils.getHorizontalPadding(context) * 0.75),
                     
                     // Name and title section
                     Expanded(
@@ -1773,10 +1741,10 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
                           if (connection.contactName.trim().isNotEmpty)
                             Text(
                               connection.contactName,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 color: Colors.white,
                                 fontWeight: FontWeight.bold,
-                                fontSize: 20,
+                                fontSize: ResponsiveUtils.getFontSize(context, baseSize: 20),
                                 letterSpacing: 0.5,
                               ),
                             )
@@ -1787,10 +1755,10 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
                                 final name = (snapshot.data ?? '').trim();
                                 return Text(
                                   name.isNotEmpty ? name : 'Contact',
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     color: Colors.white,
                                     fontWeight: FontWeight.bold,
-                                    fontSize: 20,
+                                    fontSize: ResponsiveUtils.getFontSize(context, baseSize: 20),
                                     letterSpacing: 0.5,
                                   ),
                                 );
@@ -1803,12 +1771,12 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
                               final position = (snapshot.data ?? '').trim();
                               if (position.isNotEmpty) {
                                 return Padding(
-                                  padding: const EdgeInsets.only(top: 2),
+                                  padding: EdgeInsets.only(top: ResponsiveUtils.getSpacing(context, small: 2)),
                                   child: Text(
                                     position,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       color: Colors.white,
-                                      fontSize: 14,
+                                      fontSize: ResponsiveUtils.getFontSize(context, baseSize: 14),
                                       fontWeight: FontWeight.bold,
                                       letterSpacing: 0.3,
                                     ),
@@ -1819,7 +1787,7 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
                             },
                           ),
                           Padding(
-                            padding: const EdgeInsets.only(top: 2),
+                            padding: EdgeInsets.only(top: ResponsiveUtils.getSpacing(context, small: 2)),
                             child: FutureBuilder<String?>(
                               future: connection.contactCompany != null && connection.contactCompany!.trim().isNotEmpty
                                   ? Future.value(connection.contactCompany)
@@ -1828,9 +1796,9 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
                                 final company = (snapshot.data ?? '').trim();
                                 return Text(
                                   company.isNotEmpty ? company : 'Professional',
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     color: Colors.white,
-                                    fontSize: 15,
+                                    fontSize: ResponsiveUtils.getFontSize(context, baseSize: 15),
                                     fontWeight: FontWeight.w400,
                                     letterSpacing: 0.3,
                                   ),
@@ -1844,10 +1812,10 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
                     
                     // 3-dot menu like reference
                     PopupMenuButton<String>(
-                      icon: const Icon(
+                      icon: Icon(
                         Icons.more_vert,
                         color: Colors.white,
-                        size: 20,
+                        size: ResponsiveUtils.getIconSize(context, baseSize: 20),
                       ),
                       onSelected: (String value) {
                         if (value == 'delete') {
@@ -1882,7 +1850,7 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
                   ],
                 ),
                 
-                const SizedBox(height: 12),
+                SizedBox(height: ResponsiveUtils.getSpacing(context, small: 8, medium: 12)),
                 
                 // Contact information section
                 Column(
@@ -1901,14 +1869,18 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
                             borderRadius: BorderRadius.circular(4),
                             child: Row(
                               children: [
-                                Icon(Icons.email_outlined, color: Colors.white, size: 16),
-                                const SizedBox(width: 8),
+                                Icon(
+                                  Icons.email_outlined, 
+                                  color: Colors.white, 
+                                  size: ResponsiveUtils.getIconSize(context, baseSize: 16),
+                                ),
+                                SizedBox(width: ResponsiveUtils.getSpacing(context, small: 6, medium: 8)),
                                 Expanded(
                                   child: Text(
                                     email.isNotEmpty ? email : 'Email',
                                     style: TextStyle(
                                       color: Colors.white.withOpacity(email.isNotEmpty ? 1 : 0.7),
-                                      fontSize: 14,
+                                      fontSize: ResponsiveUtils.getFontSize(context, baseSize: 14),
                                       fontWeight: FontWeight.w400,
                                       letterSpacing: 0.2,
                                       decoration: email.isNotEmpty ? TextDecoration.underline : TextDecoration.none,
@@ -1923,7 +1895,7 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
                         },
                       ),
                       
-                      const SizedBox(height: 2),
+                      SizedBox(height: ResponsiveUtils.getSpacing(context, small: 2)),
                       
                       // LinkedIn (clickable) - shows username with LinkedIn logo
                       FutureBuilder<String?>(
@@ -2063,14 +2035,18 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
 
                             return Row(
                               children: [
-                                const Icon(Icons.phone_outlined, color: Colors.white, size: 16),
-                                const SizedBox(width: 8),
+                                Icon(
+                                  Icons.phone_outlined, 
+                                  color: Colors.white, 
+                                  size: ResponsiveUtils.getIconSize(context, baseSize: 16),
+                                ),
+                                SizedBox(width: ResponsiveUtils.getSpacing(context, small: 6, medium: 8)),
                                 Expanded(
                                   child: Text(
                                     displayText,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       color: Colors.white,
-                                      fontSize: 14,
+                                      fontSize: ResponsiveUtils.getFontSize(context, baseSize: 14),
                                       fontWeight: FontWeight.w400,
                                       letterSpacing: 0.2,
                                     ),
@@ -2084,18 +2060,18 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
                         },
                       ),
                       
-                      const SizedBox(height: 4),
+                      SizedBox(height: ResponsiveUtils.getSpacing(context, small: 4)),
                       
                       // Message button
                       GestureDetector(
                         onTap: () {
                           _openChat(connection);
                         },
-                        child: const Text(
+                        child: Text(
                           'Message',
                           style: TextStyle(
-                            color: Color(0xFFFFA500), // Vibrant orange/yellow like reference
-                            fontSize: 16,
+                            color: const Color(0xFFFFA500), // Vibrant orange/yellow like reference
+                            fontSize: ResponsiveUtils.getFontSize(context, baseSize: 16),
                             fontWeight: FontWeight.w600,
                             letterSpacing: 0.3,
                           ),
@@ -2106,7 +2082,10 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
                       Container(
                         height: 1,
                         color: Colors.white.withOpacity(0.2),
-                        margin: const EdgeInsets.only(top: 4, bottom: 4),
+                        margin: EdgeInsets.only(
+                          top: ResponsiveUtils.getSpacing(context, small: 4),
+                          bottom: ResponsiveUtils.getSpacing(context, small: 4),
+                        ),
                       ),
                       
                       // Date
@@ -2114,9 +2093,9 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
                         alignment: Alignment.centerRight,
                         child: Text(
                           '${DateTime.now().day}/${DateTime.now().month}/${DateTime.now().year}',
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: Colors.white,
-                            fontSize: 12,
+                            fontSize: ResponsiveUtils.getFontSize(context, baseSize: 12),
                             fontWeight: FontWeight.w400,
                           ),
                         ),
@@ -2159,13 +2138,15 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
                             return const SizedBox.shrink();
                           },
                         ),
-                    ],
+                      ],
+                    ),
+                  ],
                 ),
-            ],
+              ),
+            ),
           ),
-        ),
-      ),
-      ),
+        );
+      },
     );
   }
 

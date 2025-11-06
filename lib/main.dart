@@ -168,6 +168,20 @@ GoRouter _createRouter(AuthService authService) {
       }
       // If authenticated
       else {
+        // Check if username setup is needed (for Google sign-in users)
+        final bool needsUsernameSetup = authService.needsUsernameSetup;
+        final bool isProfileSetupRoute = currentPath == '/profile-setup';
+        
+        // If username setup is needed and not on profile setup page, redirect there
+        if (needsUsernameSetup && !isProfileSetupRoute) {
+          return '/profile-setup';
+        }
+        
+        // If username is set up and on profile setup page, redirect to home
+        if (!needsUsernameSetup && isProfileSetupRoute) {
+          return '/home';
+        }
+        
         // If authenticated and on an auth route, redirect to home
         if (isAuthRoute) {
           return '/home';
