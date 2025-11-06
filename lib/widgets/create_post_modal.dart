@@ -234,6 +234,10 @@ class _CreatePostModalState extends State<CreatePostModal> {
 
       if (mounted) {
         if (postId != null) {
+          // Refresh posts list
+          final authService = Provider.of<AuthService>(context, listen: false);
+          await postService.getPosts(currentUserId: authService.user?.uid);
+          
           Navigator.of(context).pop();
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -242,7 +246,9 @@ class _CreatePostModalState extends State<CreatePostModal> {
             ),
           );
         } else {
-          _showErrorSnackBar('Failed to create post');
+          // Show specific error message if available
+          final errorMessage = postService.error ?? 'Failed to create post. Please check your connection and try again.';
+          _showErrorSnackBar(errorMessage);
         }
       }
     } catch (e) {

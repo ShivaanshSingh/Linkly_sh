@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../constants/app_colors.dart';
 import '../models/status_model.dart';
 import '../services/auth_service.dart';
@@ -109,12 +110,13 @@ class _StatusStoriesWidgetState extends State<StatusStoriesWidget> {
                 children: [
                   ClipOval(
                     child: photoUrl != null && photoUrl.isNotEmpty
-                        ? Image.network(
-                            photoUrl,
+                        ? CachedNetworkImage(
+                            imageUrl: photoUrl,
                             fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) {
-                              return _buildDefaultAvatar(displayName);
-                            },
+                            memCacheWidth: 100,
+                            memCacheHeight: 100,
+                            placeholder: (context, url) => _buildDefaultAvatar(displayName),
+                            errorWidget: (context, url, error) => _buildDefaultAvatar(displayName),
                           )
                         : _buildDefaultAvatar(displayName),
                   ),
@@ -179,12 +181,13 @@ class _StatusStoriesWidgetState extends State<StatusStoriesWidget> {
               ),
               child: ClipOval(
                 child: status.userProfileImageUrl != null
-                    ? Image.network(
-                        status.userProfileImageUrl!,
+                    ? CachedNetworkImage(
+                        imageUrl: status.userProfileImageUrl!,
                         fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
-                          return _buildDefaultAvatar(status.userName);
-                        },
+                        memCacheWidth: 100,
+                        memCacheHeight: 100,
+                        placeholder: (context, url) => _buildDefaultAvatar(status.userName),
+                        errorWidget: (context, url, error) => _buildDefaultAvatar(status.userName),
                       )
                     : _buildDefaultAvatar(status.userName),
               ),
@@ -338,19 +341,25 @@ class _StatusStoriesWidgetState extends State<StatusStoriesWidget> {
                           ),
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(12),
-                            child: Image.network(
-                              status.imageUrl!,
+                            child: CachedNetworkImage(
+                              imageUrl: status.imageUrl!,
                               fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) {
-                                return Container(
-                                  color: AppColors.grey100,
-                                  child: const Icon(
-                                    Icons.image,
-                                    color: AppColors.grey400,
-                                    size: 64,
-                                  ),
-                                );
-                              },
+                              memCacheWidth: 600,
+                              memCacheHeight: 600,
+                              placeholder: (context, url) => Container(
+                                color: AppColors.grey100,
+                                child: const Center(
+                                  child: CircularProgressIndicator(),
+                                ),
+                              ),
+                              errorWidget: (context, url, error) => Container(
+                                color: AppColors.grey100,
+                                child: const Icon(
+                                  Icons.image,
+                                  color: AppColors.grey400,
+                                  size: 64,
+                                ),
+                              ),
                             ),
                           ),
                         ),

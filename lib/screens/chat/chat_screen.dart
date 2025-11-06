@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'dart:io';
 import '../../constants/app_colors.dart';
 import '../../models/message_model.dart';
@@ -732,36 +733,29 @@ class _ChatScreenState extends State<ChatScreen> {
                     if (message.imageUrl != null && message.imageUrl!.isNotEmpty) ...[
                       ClipRRect(
                         borderRadius: BorderRadius.circular(12),
-                        child: Image.network(
-                          message.imageUrl!,
+                        child: CachedNetworkImage(
+                          imageUrl: message.imageUrl!,
                           width: 200,
                           height: 200,
                           fit: BoxFit.cover,
-                          loadingBuilder: (context, child, loadingProgress) {
-                            if (loadingProgress == null) return child;
-                            return Container(
-                              width: 200,
-                              height: 200,
-                              color: Colors.grey[800],
-                              child: Center(
-                                child: CircularProgressIndicator(
-                                  value: loadingProgress.expectedTotalBytes != null
-                                      ? loadingProgress.cumulativeBytesLoaded /
-                                          loadingProgress.expectedTotalBytes!
-                                      : null,
-                                  valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
-                                ),
+                          placeholder: (context, url) => Container(
+                            width: 200,
+                            height: 200,
+                            color: Colors.grey[800],
+                            child: const Center(
+                              child: CircularProgressIndicator(
+                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                               ),
-                            );
-                          },
-                          errorBuilder: (context, error, stackTrace) {
-                            return Container(
-                              width: 200,
-                              height: 200,
-                              color: Colors.grey[800],
-                              child: const Icon(Icons.error, color: Colors.red),
-                            );
-                          },
+                            ),
+                          ),
+                          errorWidget: (context, url, error) => Container(
+                            width: 200,
+                            height: 200,
+                            color: Colors.grey[800],
+                            child: const Icon(Icons.error, color: Colors.red),
+                          ),
+                          memCacheWidth: 400,
+                          memCacheHeight: 400,
                         ),
                       ),
                       if (message.text.isNotEmpty && message.text != '📷 Image') ...[

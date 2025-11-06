@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:io';
 import '../../services/auth_service.dart';
 import '../../constants/app_colors.dart';
@@ -33,13 +34,24 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
   bool _hasChangedUsername = false;
   bool _isCheckingUsername = false;
   String? _usernameError;
+  String _phoneNumberPrivacy = 'connections_only'; // 'connections_only', 'private', 'custom'
+  List<String> _allowedPhoneViewers = [];
+  List<Map<String, dynamic>> _connections = [];
+  bool _isLoadingConnections = false;
 
   @override
   void initState() {
     super.initState();
     // Delay loading to ensure AuthService is ready
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadUserData();
+      if (mounted) {
+        try {
+          _loadUserData();
+          _loadPhonePrivacySettings();
+        } catch (e) {
+          debugPrint('Error in initState postFrameCallback: $e');
+        }
+      }
     });
   }
 
@@ -48,17 +60,26 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
     super.didChangeDependencies();
     // Reload user data when dependencies change (e.g., AuthService updates)
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadUserData();
+      if (mounted) {
+        try {
+          _loadUserData();
+        } catch (e) {
+          debugPrint('Error in didChangeDependencies: $e');
+        }
+      }
     });
   }
 
   void _loadUserData() async {
-    final authService = Provider.of<AuthService>(context, listen: false);
-    debugPrint('Loading user data...');
-    debugPrint('AuthService userModel: ${authService.userModel}');
-    debugPrint('AuthService user: ${authService.user}');
+    if (!mounted) return;
     
-    if (authService.userModel != null) {
+    try {
+      final authService = Provider.of<AuthService>(context, listen: false);
+      debugPrint('Loading user data...');
+      debugPrint('AuthService userModel: ${authService.userModel}');
+      debugPrint('AuthService user: ${authService.user}');
+      
+      if (authService.userModel != null) {
       debugPrint('Loading from userModel:');
       debugPrint('Full Name: ${authService.userModel!.fullName}');
       debugPrint('Email: ${authService.userModel!.email}');
@@ -112,7 +133,247 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
     } else {
       debugPrint('No user data available');
     }
+    } catch (e) {
+      debugPrint('Error loading user data: $e');
+      if (mounted) {
+        // Don't show error to user, just log it
+        // The UI will show default/empty values
+      }
+    }
   }
+
+  Future<void> _loadPhonePrivacySettings() async {
+    if (!mounted) return;
+    
+    final authService = Provider.of<AuthService>(context, listen: false);
+    try {
+      if (authService.userModel != null) {
+        final privacy = authService.userModel!.phoneNumberPrivacy ?? 'connections_only';
+        final viewers = authService.userModel!.allowedPhoneViewers;
+        final safeViewers = viewers != null ? List<String>.from(viewers) : <String>[];
+        
+        if (!mounted) return;
+        setState(() {
+          _phoneNumberPrivacy = privacy;
+          _allowedPhoneViewers = safeViewers;
+          // Set loading state if custom and connections need to be loaded
+          if (privacy == 'custom' && _connections.isEmpty) {
+            _isLoadingConnections = true;
+          }
+        });
+        
+        // If privacy is already set to 'custom', load connections
+        if (privacy == 'custom' && _connections.isEmpty) {
+          await _loadConnections();
+        }
+      } else if (authService.user != null) {
+        // Load from Firestore if userModel is not available
+        final userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(authService.user!.uid)
+            .get();
+        
+        if (!mounted) return;
+        
+        if (userDoc.exists) {
+          final data = userDoc.data();
+          if (data != null) {
+            final privacy = data['phoneNumberPrivacy']?.toString() ?? 'connections_only';
+            final viewersData = data['allowedPhoneViewers'];
+            final safeViewers = viewersData != null && viewersData is List
+                ? List<String>.from(viewersData.map((e) => e.toString()))
+                : <String>[];
+            
+            if (!mounted) return;
+            setState(() {
+              _phoneNumberPrivacy = privacy;
+              _allowedPhoneViewers = safeViewers;
+              // Set loading state if custom and connections need to be loaded
+              if (privacy == 'custom' && _connections.isEmpty) {
+                _isLoadingConnections = true;
+              }
+            });
+            
+            // If privacy is already set to 'custom', load connections
+            if (privacy == 'custom' && _connections.isEmpty) {
+              await _loadConnections();
+            }
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error loading phone privacy settings: $e');
+      if (mounted) {
+        setState(() {
+          _isLoadingConnections = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _loadConnections() async {
+    final authService = Provider.of<AuthService>(context, listen: false);
+    if (authService.user == null) {
+      debugPrint('Cannot load connections: user is null');
+      return;
+    }
+
+    if (mounted) {
+      setState(() {
+        _isLoadingConnections = true;
+      });
+    }
+
+    try {
+      debugPrint('Loading connections for user: ${authService.user!.uid}');
+      // Load connections
+      final connectionsSnapshot = await FirebaseFirestore.instance
+          .collection('connections')
+          .where('userId', isEqualTo: authService.user!.uid)
+          .get();
+
+      debugPrint('Found ${connectionsSnapshot.docs.length} connections');
+      
+      // Map connections and deduplicate by contactUserId
+      final connectionsMap = <String, Map<String, dynamic>>{};
+      for (var doc in connectionsSnapshot.docs) {
+        try {
+          final data = doc.data();
+          if (data == null) continue;
+          
+          final contactUserId = data['contactUserId']?.toString() ?? '';
+          final contactName = data['contactName']?.toString() ?? 'Unknown';
+          
+          // Only keep the first occurrence of each contactUserId
+          if (contactUserId.isNotEmpty && !connectionsMap.containsKey(contactUserId)) {
+            debugPrint('  - Connection: $contactName (ID: $contactUserId)');
+            connectionsMap[contactUserId] = {
+              'id': contactUserId,
+              'name': contactName,
+            };
+          }
+        } catch (e) {
+          debugPrint('Error processing connection document: $e');
+          continue;
+        }
+      }
+      
+      final connections = connectionsMap.values.toList();
+      debugPrint('Processed ${connections.length} unique connections (deduplicated from ${connectionsSnapshot.docs.length})');
+      if (mounted) {
+        setState(() {
+          _connections = connections;
+          _isLoadingConnections = false;
+        });
+        debugPrint('✅ Connections state updated: ${_connections.length} connections in state');
+      }
+    } catch (e) {
+      debugPrint('❌ Error loading connections: $e');
+      if (mounted) {
+        setState(() {
+          _isLoadingConnections = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _updatePhonePrivacy(String value) async {
+    if (!mounted) return;
+    
+    setState(() {
+      _phoneNumberPrivacy = value;
+      // Set loading state if custom is selected and connections need to be loaded
+      if (value == 'custom' && _connections.isEmpty) {
+        _isLoadingConnections = true;
+      }
+    });
+
+    // Load connections if custom is selected
+    if (value == 'custom' && _connections.isEmpty) {
+      await _loadConnections();
+    }
+
+    if (!mounted) return;
+
+    final authService = Provider.of<AuthService>(context, listen: false);
+    try {
+      await authService.updatePhonePrivacySettings(
+        phoneNumberPrivacy: value,
+        allowedPhoneViewers: value == 'custom' ? _allowedPhoneViewers : null,
+      );
+      
+      if (!mounted) return;
+      
+      // Reload phone privacy settings from updated userModel to ensure sync
+      await _loadPhonePrivacySettings();
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Phone privacy settings updated'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('Error updating phone privacy: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to update phone privacy: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+        // Revert on error - reload from userModel
+        await _loadPhonePrivacySettings();
+      }
+    }
+  }
+
+  Future<void> _toggleConnectionSelection(String userId) async {
+    if (!mounted) return;
+    
+    // Store previous state for potential revert
+    final previousViewers = List<String>.from(_allowedPhoneViewers);
+    
+    setState(() {
+      if (_allowedPhoneViewers.contains(userId)) {
+        _allowedPhoneViewers.remove(userId);
+      } else {
+        _allowedPhoneViewers.add(userId);
+      }
+    });
+
+    // Save immediately when selection changes
+    final authService = Provider.of<AuthService>(context, listen: false);
+    try {
+      await authService.updatePhonePrivacySettings(
+        phoneNumberPrivacy: 'custom',
+        allowedPhoneViewers: _allowedPhoneViewers,
+      );
+      
+      if (!mounted) return;
+      
+      // Reload phone privacy settings from updated userModel to ensure sync
+      await _loadPhonePrivacySettings();
+    } catch (e) {
+      debugPrint('Error toggling connection selection: $e');
+      // Revert on error
+      if (mounted) {
+        setState(() {
+          _allowedPhoneViewers = previousViewers;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to update user selection: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
+  }
+
+
 
   Future<void> _checkUsernameExists(String username) async {
     if (username.isEmpty || username.length < 3 || !RegExp(r'^[a-zA-Z0-9_]+$').hasMatch(username)) {
@@ -378,6 +639,40 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Safety check for Provider
+    try {
+      Provider.of<AuthService>(context, listen: false);
+    } catch (e) {
+      debugPrint('Error accessing AuthService in build: $e');
+      return Scaffold(
+        backgroundColor: AppColors.grey900,
+        appBar: AppBar(
+          backgroundColor: AppColors.grey800,
+          title: const Text(
+            'Edit Profile',
+            style: TextStyle(color: AppColors.textPrimary),
+          ),
+        ),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.error_outline, size: 48, color: AppColors.error),
+                const SizedBox(height: 16),
+                Text(
+                  'Error loading profile. Please try again.',
+                  style: TextStyle(color: AppColors.textPrimary),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
           backgroundColor: AppColors.grey900, // Overall Background - matching homepage
           appBar: AppBar(
@@ -399,7 +694,10 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
               ),
             ],
           ),
-          body: SingleChildScrollView(
+          body: Builder(
+            builder: (context) {
+              try {
+                return SingleChildScrollView(
             padding: const EdgeInsets.all(16),
             child: Form(
               key: _formKey,
@@ -605,6 +903,45 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                     prefixIcon: Icons.phone,
                   ),
                   
+                  const SizedBox(height: 24),
+                  
+                  // Phone Number Privacy Section
+                  Builder(
+                    builder: (context) {
+                      try {
+                        return _PhonePrivacySection(
+                          phoneNumberPrivacy: _phoneNumberPrivacy,
+                          allowedPhoneViewers: List<String>.from(_allowedPhoneViewers),
+                          connections: List<Map<String, dynamic>>.from(_connections),
+                          isLoadingConnections: _isLoadingConnections,
+                          onPrivacyChanged: (value) {
+                            if (mounted) {
+                              _updatePhonePrivacy(value);
+                            }
+                          },
+                          onToggleConnection: (userId) {
+                            if (mounted) {
+                              _toggleConnectionSelection(userId);
+                            }
+                          },
+                        );
+                      } catch (e) {
+                        debugPrint('Error building phone privacy section: $e');
+                        return Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: AppColors.white,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            'Error loading privacy settings. Please try again.',
+                            style: TextStyle(color: AppColors.error),
+                          ),
+                        );
+                      }
+                    },
+                  ),
+                  
                   const SizedBox(height: 16),
                   
                   CustomTextField(
@@ -636,6 +973,37 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                 ],
               ),
             ),
+          );
+              } catch (e) {
+                debugPrint('Error building profile edit body: $e');
+                return Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.error_outline, size: 48, color: AppColors.error),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Error loading profile form. Please try again.',
+                          style: TextStyle(color: AppColors.textPrimary),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 16),
+                        ElevatedButton(
+                          onPressed: () {
+                            if (mounted) {
+                              setState(() {});
+                            }
+                          },
+                          child: const Text('Retry'),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }
+            },
           ),
         );
   }
@@ -732,3 +1100,218 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
     );
   }
 }
+
+class _PhonePrivacySection extends StatelessWidget {
+  final String phoneNumberPrivacy;
+  final List<String> allowedPhoneViewers;
+  final List<Map<String, dynamic>> connections;
+  final bool isLoadingConnections;
+  final ValueChanged<String> onPrivacyChanged;
+  final ValueChanged<String> onToggleConnection;
+
+  const _PhonePrivacySection({
+    required this.phoneNumberPrivacy,
+    required this.allowedPhoneViewers,
+    required this.connections,
+    required this.isLoadingConnections,
+    required this.onPrivacyChanged,
+    required this.onToggleConnection,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // Debug log to see what the widget receives
+    debugPrint('🔍 _PhonePrivacySection build: privacy=$phoneNumberPrivacy, connections=${connections.length}, isLoading=$isLoadingConnections');
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 16, bottom: 8),
+          child: Text(
+            'Phone Number Privacy',
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: AppColors.grey500,
+            ),
+          ),
+        ),
+        Container(
+          decoration: BoxDecoration(
+            color: AppColors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              _RadioPrivacyTile(
+                icon: Icons.people,
+                title: 'Connections Only',
+                subtitle: 'All people in your connections list can see your phone number',
+                value: 'connections_only',
+                groupValue: phoneNumberPrivacy,
+                onChanged: onPrivacyChanged,
+              ),
+              _RadioPrivacyTile(
+                icon: Icons.lock,
+                title: 'Private',
+                subtitle: 'Number hidden from everyone (only you see it)',
+                value: 'private',
+                groupValue: phoneNumberPrivacy,
+                onChanged: onPrivacyChanged,
+              ),
+              _RadioPrivacyTile(
+                icon: Icons.person,
+                title: 'Custom',
+                subtitle: 'Only selected users can see your contact number',
+                value: 'custom',
+                groupValue: phoneNumberPrivacy,
+                onChanged: onPrivacyChanged,
+              ),
+              if (phoneNumberPrivacy == 'custom') ...[
+                const Divider(height: 1),
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Select Connections',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.grey900,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      if (isLoadingConnections)
+                        const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 16),
+                          child: Center(
+                            child: CircularProgressIndicator(),
+                          ),
+                        )
+                      else if (connections.isEmpty)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          child: Text(
+                            'No connections available',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: AppColors.grey600,
+                            ),
+                          ),
+                        )
+                      else ...[
+                        Text(
+                          '${allowedPhoneViewers.length} of ${connections.length} connection(s) selected',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppColors.grey600,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        ...connections.where((connection) {
+                          // Filter out any connections with null/empty IDs
+                          final userId = connection['id'];
+                          return userId != null && userId is String && userId.isNotEmpty;
+                        }).map((connection) {
+                          final userId = connection['id'] as String;
+                          final userName = connection['name'] as String? ?? 'Unknown';
+                          final isSelected = allowedPhoneViewers.contains(userId);
+
+                          return CheckboxListTile(
+                            dense: true,
+                            contentPadding: EdgeInsets.zero,
+                            title: Text(
+                              userName,
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: AppColors.grey900,
+                              ),
+                            ),
+                            value: isSelected,
+                            onChanged: (value) {
+                              onToggleConnection(userId);
+                            },
+                            controlAffinity: ListTileControlAffinity.leading,
+                          );
+                        }).toList(),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _RadioPrivacyTile extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final String value;
+  final String groupValue;
+  final ValueChanged<String> onChanged;
+
+  const _RadioPrivacyTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.value,
+    required this.groupValue,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isSelected = value == groupValue;
+    return ListTile(
+      leading: Icon(
+        icon,
+        color: isSelected ? AppColors.primary : AppColors.grey600,
+      ),
+      title: Text(
+        title,
+        style: TextStyle(
+          color: isSelected ? AppColors.primary : AppColors.grey900,
+          fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+        ),
+      ),
+      subtitle: Text(
+        subtitle,
+        style: TextStyle(
+          color: AppColors.grey600,
+          fontSize: 12,
+        ),
+      ),
+      trailing: Radio<String>(
+        value: value,
+        groupValue: groupValue,
+        onChanged: (String? newValue) {
+          if (newValue != null && newValue != groupValue) {
+            onChanged(newValue);
+          }
+        },
+        activeColor: AppColors.primary,
+      ),
+      onTap: () {
+        if (value != groupValue) {
+          onChanged(value);
+        }
+      },
+    );
+  }
+}
+

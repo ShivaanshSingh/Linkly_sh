@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -13,6 +14,11 @@ class AuthService extends ChangeNotifier {
   UserModel? _userModel;
   bool _isLoading = false;
   bool _isFirebaseAvailable = false;
+  
+  // Performance optimization: Cache and debounce
+  Timer? _debounceTimer;
+  DateTime? _lastUserModelLoad;
+  static const _userModelCacheDuration = Duration(minutes: 5);
 
   // Getters
   User? get user => _user;
@@ -54,25 +60,64 @@ class AuthService extends ChangeNotifier {
   }
 
   void _onAuthStateChanged(User? user) {
-    debugPrint('🔄 Auth state changed: user=${user?.uid}');
     _user = user;
-    
     if (user != null) {
-      // User is signed in, load their data from Firestore
-      loadUserData();
+      _loadUserModelDebounced();
     } else {
-      // User is signed out, clear user data
       _userModel = null;
+      _lastUserModelLoad = null;
+    }
+    // Debounce notifyListeners to reduce rebuilds
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 100), () {
+      notifyListeners();
+    });
+  }
+
+  void _loadUserModelDebounced() {
+    // Cancel any pending load
+    _debounceTimer?.cancel();
+    
+    // Debounce the load to avoid multiple rapid calls
+    _debounceTimer = Timer(const Duration(milliseconds: 300), () {
+      _loadUserModel();
+    });
+  }
+
+  Future<void> _loadUserModel() async {
+    if (_user == null || _firestore == null) return;
+    
+    // Check cache first
+    if (_lastUserModelLoad != null && 
+        DateTime.now().difference(_lastUserModelLoad!) < _userModelCacheDuration) {
+      debugPrint('AuthService: Using cached user model');
+      return;
     }
     
-    notifyListeners();
+    try {
+      final doc = await _firestore!.collection('users').doc(_user!.uid).get();
+      if (doc.exists) {
+        final data = doc.data()!;
+        _userModel = UserModel.fromMap(data);
+        _lastUserModelLoad = DateTime.now();
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('Error loading user model: $e');
+    }
   }
 
 
   void _setLoading(bool loading) {
-    debugPrint('🔄 AuthService loading state changed: $loading');
+    if (_isLoading == loading) return; // Avoid unnecessary updates
     _isLoading = loading;
     notifyListeners();
+  }
+  
+  @override
+  void dispose() {
+    _debounceTimer?.cancel();
+    super.dispose();
   }
 
   Future<UserCredential?> signInWithEmail(String email, String password) async {
@@ -82,7 +127,6 @@ class AuthService extends ChangeNotifier {
     
     try {
       _setLoading(true);
-      debugPrint('Signing in with email: $email');
       
       if (email.isEmpty || password.isEmpty) {
         throw Exception('Email and password are required');
@@ -92,12 +136,49 @@ class AuthService extends ChangeNotifier {
         throw Exception('Please enter a valid email address');
       }
       
-      final credential = await _auth!.signInWithEmailAndPassword(
-        email: email.trim(),
-        password: password,
-      );
+      // Retry logic for network errors
+      const maxRetries = 3;
+      int retryCount = 0;
+      UserCredential? credential;
       
-      debugPrint('Sign in successful for: $email');
+      while (retryCount < maxRetries) {
+        try {
+          credential = await _auth!.signInWithEmailAndPassword(
+            email: email.trim(),
+            password: password,
+          );
+          break; // Success, exit retry loop
+        } catch (e) {
+          final errorStr = e.toString();
+          final isNetworkError = errorStr.contains('network-request-failed') ||
+                                 errorStr.contains('network-error') ||
+                                 errorStr.contains('Unable to resolve host') ||
+                                 errorStr.contains('timeout') ||
+                                 errorStr.contains('UNAVAILABLE') ||
+                                 (e is FirebaseAuthException && 
+                                  (e.code == 'network-request-failed' || 
+                                   e.code == 'network-error'));
+          
+          if (isNetworkError && retryCount < maxRetries - 1) {
+            retryCount++;
+            debugPrint('Network error detected. Retrying sign in (attempt $retryCount/$maxRetries)...');
+            await Future.delayed(Duration(seconds: retryCount));
+            continue;
+          }
+          rethrow; // Re-throw if not network error or max retries reached
+        }
+      }
+      
+      if (credential == null) {
+        throw Exception('Sign in failed after retries');
+      }
+      
+      // Ensure user is set immediately (auth state listener will also update it)
+      if (credential.user != null) {
+        _user = credential.user;
+        notifyListeners();
+      }
+      
       return credential;
     } catch (e) {
       debugPrint('Sign in error: $e');
@@ -111,6 +192,9 @@ class AuthService extends ChangeNotifier {
         throw Exception('This account has been disabled. Please contact support.');
       } else if (e.toString().contains('too-many-requests')) {
         throw Exception('Too many failed attempts. Please try again later.');
+      } else if (e.toString().contains('network-request-failed') || 
+                 e.toString().contains('Unable to resolve host')) {
+        throw Exception('Network error. Please check your internet connection and DNS settings. If using an emulator, try restarting it or using a physical device.');
       } else {
         rethrow;
       }
@@ -166,7 +250,6 @@ class AuthService extends ChangeNotifier {
     
     try {
       _setLoading(true);
-      debugPrint('Signing up with email: $email, name: $fullName');
       
       if (email.isEmpty || password.isEmpty || fullName.isEmpty || username == null || username.isEmpty) {
         throw Exception('All fields are required');
@@ -192,53 +275,25 @@ class AuthService extends ChangeNotifier {
       if (credential.user != null) {
         await credential.user!.updateDisplayName(fullName.trim());
         
-        debugPrint('Creating user document in Firestore...');
-        
-        // Retry mechanism for Firestore document creation
-        int retryCount = 0;
-        const maxRetries = 3;
-        bool documentCreated = false;
-        
-        while (retryCount < maxRetries && !documentCreated) {
-          try {
-            await _firestore!.collection('users').doc(credential.user!.uid).set({
-              'uid': credential.user!.uid,
-              'email': email.trim(),
-              'fullName': fullName.trim(),
-              'username': username.trim(),
-              'phoneNumber': phoneNumber?.trim() ?? '',
-              'company': company?.trim() ?? '',
-              'position': '', // Add position field
-              'bio': '', // Add bio field
-              'accountType': accountType ?? 'Public',
-              'socialLinks': {},
-              'createdAt': FieldValue.serverTimestamp(),
-              'lastSeen': FieldValue.serverTimestamp(),
-              'isOnline': true,
-            });
-            documentCreated = true;
-            debugPrint('✅ User document created successfully');
-          } catch (e) {
-            retryCount++;
-            debugPrint('❌ Failed to create user document (attempt $retryCount): $e');
-            if (retryCount < maxRetries) {
-              await Future.delayed(Duration(milliseconds: 500 * retryCount));
-            }
-          }
-        }
-        
-        if (!documentCreated) {
-          debugPrint('❌ Failed to create user document after $maxRetries attempts');
-          throw Exception('Failed to create user profile. Please try again.');
-        }
-        
-        // Wait a moment for Firestore to be ready, then load user data
-        debugPrint('Loading user data after signup...');
-        await Future.delayed(const Duration(milliseconds: 1000));
-        await loadUserData();
+        await _firestore!.collection('users').doc(credential.user!.uid).set({
+          'uid': credential.user!.uid,
+          'email': email.trim(),
+          'fullName': fullName.trim(),
+          'username': username.trim(),
+          'phoneNumber': phoneNumber?.trim() ?? '',
+          'company': company?.trim() ?? '',
+          'position': '',
+          'bio': '',
+          'accountType': accountType ?? 'Public',
+          'phoneNumberPrivacy': 'connections_only', // Default privacy setting
+          'allowedPhoneViewers': [], // Empty list by default
+          'socialLinks': {},
+          'createdAt': FieldValue.serverTimestamp(),
+          'lastSeen': FieldValue.serverTimestamp(),
+          'isOnline': true,
+        });
       }
       
-      debugPrint('Sign up successful for: $email');
       return credential;
     } catch (e) {
       debugPrint('Sign up error: $e');
@@ -265,7 +320,6 @@ class AuthService extends ChangeNotifier {
     
     try {
       _setLoading(true);
-      debugPrint('Signing in with username/email: $usernameOrEmail');
       
       if (usernameOrEmail.isEmpty || password.isEmpty) {
         throw Exception('Username/Email and password are required');
@@ -285,16 +339,52 @@ class AuthService extends ChangeNotifier {
           throw Exception('No account found with this username. Please sign up first.');
         }
         
-        email = userQuery.docs.first.data()['email'];
-        debugPrint('Found email for username: $email');
+        email = userQuery.docs.first.data()['email'] as String;
       }
 
-      final credential = await _auth!.signInWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
+      // Retry logic for network errors
+      const maxRetries = 3;
+      int retryCount = 0;
+      UserCredential? credential;
       
-      debugPrint('Sign in successful for: $usernameOrEmail');
+      while (retryCount < maxRetries) {
+        try {
+          credential = await _auth!.signInWithEmailAndPassword(
+            email: email.trim(),
+            password: password,
+          );
+          break; // Success, exit retry loop
+        } catch (e) {
+          final errorStr = e.toString();
+          final isNetworkError = errorStr.contains('network-request-failed') ||
+                                 errorStr.contains('network-error') ||
+                                 errorStr.contains('Unable to resolve host') ||
+                                 errorStr.contains('timeout') ||
+                                 errorStr.contains('UNAVAILABLE') ||
+                                 (e is FirebaseAuthException && 
+                                  (e.code == 'network-request-failed' || 
+                                   e.code == 'network-error'));
+          
+          if (isNetworkError && retryCount < maxRetries - 1) {
+            retryCount++;
+            debugPrint('Network error detected. Retrying sign in (attempt $retryCount/$maxRetries)...');
+            await Future.delayed(Duration(seconds: retryCount));
+            continue;
+          }
+          rethrow; // Re-throw if not network error or max retries reached
+        }
+      }
+      
+      if (credential == null) {
+        throw Exception('Sign in failed after retries');
+      }
+      
+      // Ensure user is set immediately (auth state listener will also update it)
+      if (credential.user != null) {
+        _user = credential.user;
+        notifyListeners();
+      }
+      
       return credential;
     } catch (e) {
       debugPrint('Sign in error: $e');
@@ -306,6 +396,9 @@ class AuthService extends ChangeNotifier {
         throw Exception('Too many failed attempts. Please try again later.');
       } else if (e.toString().contains('user-disabled')) {
         throw Exception('This account has been disabled. Please contact support.');
+      } else if (e.toString().contains('network-request-failed') || 
+                 e.toString().contains('Unable to resolve host')) {
+        throw Exception('Network error. Please check your internet connection and DNS settings. If using an emulator, try restarting it or using a physical device.');
       } else {
         rethrow;
       }
@@ -354,23 +447,20 @@ class AuthService extends ChangeNotifier {
           'email': userCredential.user!.email ?? '',
           'fullName': userCredential.user!.displayName ?? 'Google User',
           'profileImageUrl': userCredential.user!.photoURL,
+          'phoneNumberPrivacy': 'connections_only', // Default privacy setting
+          'allowedPhoneViewers': [], // Empty list by default
           'socialLinks': {},
           'createdAt': FieldValue.serverTimestamp(),
           'lastSeen': FieldValue.serverTimestamp(),
           'isOnline': true,
         }, SetOptions(merge: true));
-        
-        // Immediately load user data after Google sign-in
-        await loadUserData();
       }
       
       debugPrint('Google sign in successful for: ${userCredential.user?.email}');
       return userCredential;
     } catch (e) {
       debugPrint('Google sign in error: $e');
-      if (e.toString().contains('network_error')) {
-        throw Exception('Network error. Please check your internet connection');
-      } else if (e.toString().contains('sign_in_failed')) {
+      if (e.toString().contains('sign_in_failed')) {
         throw Exception('Google sign-in failed. Please try again');
       } else if (e.toString().contains('PigeonUserDetails')) {
         throw Exception('Authentication service error. Please try again');
@@ -448,36 +538,10 @@ class AuthService extends ChangeNotifier {
   }
 
   Future<void> loadUserData() async {
-    if (!_isFirebaseAvailable || _user == null) {
-      debugPrint('Firebase not available or no user, cannot load user data');
-      return;
-    }
-    
-    try {
-      debugPrint('Loading user data from Firestore for: ${_user!.uid}');
-      
-      final userDoc = await _firestore!.collection('users').doc(_user!.uid).get();
-      
-      if (userDoc.exists) {
-        debugPrint('✅ User document found in Firestore');
-        debugPrint('Document data: ${userDoc.data()}');
-        _userModel = UserModel.fromFirestore(userDoc);
-        debugPrint('✅ User data loaded successfully: ${_userModel!.fullName}');
-        debugPrint('✅ User email: ${_userModel!.email}');
-        debugPrint('✅ User username: ${_userModel!.username}');
-        debugPrint('✅ User company: ${_userModel!.company}');
-        debugPrint('✅ User phone: ${_userModel!.phoneNumber}');
-        notifyListeners();
-        
-        // Initialize notifications for the user
-        await _initializeNotifications();
-      } else {
-        debugPrint('❌ User document not found in Firestore for UID: ${_user!.uid}');
-        debugPrint('❌ This might be why the name shows as "User"');
-      }
-    } catch (e) {
-      debugPrint('❌ Error loading user data: $e');
-    }
+    // Force reload by clearing cache
+    _lastUserModelLoad = null;
+    await _loadUserModel();
+    notifyListeners();
   }
 
   Future<void> _initializeNotifications() async {
@@ -517,6 +581,8 @@ class AuthService extends ChangeNotifier {
         'position': '',
         'bio': '',
         'accountType': 'Public',
+        'phoneNumberPrivacy': 'connections_only', // Default privacy setting
+        'allowedPhoneViewers': [], // Empty list by default
         'socialLinks': {},
         'createdAt': FieldValue.serverTimestamp(),
         'lastSeen': FieldValue.serverTimestamp(),
@@ -631,6 +697,61 @@ class AuthService extends ChangeNotifier {
       debugPrint('User profile updated successfully');
     } catch (e) {
       debugPrint('Error updating user profile: $e');
+      rethrow;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  Future<void> updatePhonePrivacySettings({
+    required String phoneNumberPrivacy,
+    List<String>? allowedPhoneViewers,
+  }) async {
+    if (!_isFirebaseAvailable) {
+      debugPrint('Firebase not available, cannot update phone privacy settings');
+      return;
+    }
+    
+    try {
+      _setLoading(true);
+      final userId = _user?.uid ?? _userModel?.uid;
+      
+      if (userId == null) {
+        throw Exception('User not authenticated');
+      }
+      
+      debugPrint('Updating phone privacy settings: $phoneNumberPrivacy');
+      
+             // Update Firestore user document
+       final updateData = <String, dynamic>{
+         'phoneNumberPrivacy': phoneNumberPrivacy,
+         'lastSeen': FieldValue.serverTimestamp(),
+         'updatedAt': FieldValue.serverTimestamp(),
+       };
+       
+       // Clear allowedPhoneViewers if privacy is not 'custom'
+       if (phoneNumberPrivacy != 'custom') {
+         updateData['allowedPhoneViewers'] = [];
+       } else if (allowedPhoneViewers != null) {
+         updateData['allowedPhoneViewers'] = allowedPhoneViewers;
+       }
+       
+       await _firestore!.collection('users').doc(userId).update(updateData);
+       
+       // Update local user model
+       if (_userModel != null) {
+         _userModel = _userModel!.copyWith(
+           phoneNumberPrivacy: phoneNumberPrivacy,
+           allowedPhoneViewers: phoneNumberPrivacy == 'custom' 
+               ? (allowedPhoneViewers ?? _userModel!.allowedPhoneViewers)
+               : [],
+         );
+       }
+      
+      notifyListeners();
+      debugPrint('Phone privacy settings updated successfully');
+    } catch (e) {
+      debugPrint('Error updating phone privacy settings: $e');
       rethrow;
     } finally {
       _setLoading(false);

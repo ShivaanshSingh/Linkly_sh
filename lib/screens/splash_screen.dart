@@ -14,6 +14,7 @@ class SplashScreen extends StatefulWidget {
 class _SplashScreenState extends State<SplashScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
+  bool _animationCompleted = false;
   
   // Icon animations
   late Animation<double> _iconFadeAnimation;
@@ -104,6 +105,14 @@ class _SplashScreenState extends State<SplashScreen>
       curve: const Interval(0.7, 1.0, curve: Curves.easeOut),
     ));
 
+    _animationController.addStatusListener((status) {
+      if (status == AnimationStatus.completed) {
+        setState(() {
+          _animationCompleted = true;
+        });
+      }
+    });
+
     _animationController.forward();
   }
 
@@ -153,85 +162,139 @@ class _SplashScreenState extends State<SplashScreen>
           ),
         ),
         child: Center(
-          child: AnimatedBuilder(
-            animation: _animationController,
-            builder: (context, child) {
-              return Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Logo container - animates first
-                  FadeTransition(
-                    opacity: _iconFadeAnimation,
-                    child: Transform.scale(
-                      scale: _iconScaleAnimation.value,
-                      child: Container(
-                        width: 120,
-                        height: 120,
-                        decoration: BoxDecoration(
-                          color: AppColors.white,
-                          borderRadius: BorderRadius.circular(20),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.2),
-                              blurRadius: 20,
-                              offset: const Offset(0, 10),
-                            ),
-                          ],
-                        ),
-                        child: const Icon(
-                          Icons.link,
-                          size: 60,
-                          color: AppColors.primary,
-                        ),
+          child: _animationCompleted
+              ? Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Logo container - static after animation
+                    Container(
+                      width: 120,
+                      height: 120,
+                      decoration: BoxDecoration(
+                        color: AppColors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.2),
+                            blurRadius: 20,
+                            offset: const Offset(0, 10),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.link,
+                        size: 60,
+                        color: AppColors.primary,
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 30),
-                  // App name - animates second
-                  FadeTransition(
-                    opacity: _titleFadeAnimation,
-                    child: Transform.scale(
-                      scale: _titleScaleAnimation.value,
-                      child: const Text(
-                        'Linkly',
-                        style: TextStyle(
-                          fontSize: 32,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.white,
-                        ),
+                    const SizedBox(height: 30),
+                    // App name - static after animation
+                    const Text(
+                      'Linkly',
+                      style: TextStyle(
+                        fontSize: 32,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.white,
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 10),
-                  // Subtitle - animates third
-                  FadeTransition(
-                    opacity: _subtitleFadeAnimation,
-                    child: Transform.scale(
-                      scale: _subtitleScaleAnimation.value,
-                      child: const Text(
-                        'Digital Business Cards',
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: AppColors.white,
-                          fontWeight: FontWeight.w300,
-                        ),
+                    const SizedBox(height: 10),
+                    // Subtitle - static after animation
+                    const Text(
+                      'Digital Business Cards',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: AppColors.white,
+                        fontWeight: FontWeight.w300,
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 50),
-                  // Loading indicator - animates last
-                  FadeTransition(
-                    opacity: _loadingFadeAnimation,
-                    child: const CircularProgressIndicator(
+                    const SizedBox(height: 50),
+                    // Loading indicator - continuously animated
+                    const CircularProgressIndicator(
                       valueColor: AlwaysStoppedAnimation<Color>(AppColors.white),
                       strokeWidth: 2,
                     ),
-                  ),
-                ],
-              );
-            },
-          ),
+                  ],
+                )
+              : AnimatedBuilder(
+                  animation: _animationController,
+                  builder: (context, child) {
+                    return Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Logo container - animates first
+                        FadeTransition(
+                          opacity: _iconFadeAnimation,
+                          child: Transform.scale(
+                            scale: _iconScaleAnimation.value,
+                            child: Container(
+                              width: 120,
+                              height: 120,
+                              decoration: BoxDecoration(
+                                color: AppColors.white,
+                                borderRadius: BorderRadius.circular(20),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.2),
+                                    blurRadius: 20,
+                                    offset: const Offset(0, 10),
+                                  ),
+                                ],
+                              ),
+                              child: const Icon(
+                                Icons.link,
+                                size: 60,
+                                color: AppColors.primary,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 30),
+                        // App name - animates second
+                        FadeTransition(
+                          opacity: _titleFadeAnimation,
+                          child: Transform.scale(
+                            scale: _titleScaleAnimation.value,
+                            child: const Text(
+                              'Linkly',
+                              style: TextStyle(
+                                fontSize: 32,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.white,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        // Subtitle - animates third
+                        FadeTransition(
+                          opacity: _subtitleFadeAnimation,
+                          child: Transform.scale(
+                            scale: _subtitleScaleAnimation.value,
+                            child: const Text(
+                              'Digital Business Cards',
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: AppColors.white,
+                                fontWeight: FontWeight.w300,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 50),
+                        // Loading indicator - animates last
+                        FadeTransition(
+                          opacity: _loadingFadeAnimation,
+                          child: const CircularProgressIndicator(
+                            valueColor: AlwaysStoppedAnimation<Color>(AppColors.white),
+                            strokeWidth: 2,
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
         ),
       ),
     );

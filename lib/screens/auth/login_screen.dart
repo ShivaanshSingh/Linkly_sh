@@ -29,6 +29,55 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
+  String _getErrorMessage(dynamic error) {
+    String errorStr = error.toString();
+    
+    // Handle network errors
+    if (errorStr.contains('network-request-failed') || 
+        errorStr.contains('network_error') ||
+        errorStr.contains('Unable to resolve host')) {
+      return 'Network error. Please check your internet connection and try again.';
+    }
+    
+    // Handle Firebase auth errors
+    if (errorStr.contains('user-not-found')) {
+      return 'No account found with this email. Please sign up first.';
+    }
+    if (errorStr.contains('wrong-password')) {
+      return 'Incorrect password. Please try again.';
+    }
+    if (errorStr.contains('invalid-email')) {
+      return 'Please enter a valid email address.';
+    }
+    if (errorStr.contains('too-many-requests')) {
+      return 'Too many failed attempts. Please try again later.';
+    }
+    if (errorStr.contains('user-disabled')) {
+      return 'This account has been disabled. Please contact support.';
+    }
+    
+    // Clean up generic exception formatting
+    if (errorStr.contains('Exception: ')) {
+      errorStr = errorStr.replaceFirst('Exception: ', '');
+    }
+    if (errorStr.contains('Exception')) {
+      errorStr = errorStr.replaceFirst('Exception', '').trim();
+      if (errorStr.startsWith(':')) {
+        errorStr = errorStr.substring(1).trim();
+      }
+    }
+    
+    // Remove Firebase error code prefix if present
+    if (errorStr.contains('[firebase_auth/')) {
+      final match = RegExp(r'\[firebase_auth/[^\]]+\]\s*(.+)').firstMatch(errorStr);
+      if (match != null && match.groupCount >= 1) {
+        errorStr = match.group(1) ?? errorStr;
+      }
+    }
+    
+    return errorStr.isNotEmpty ? errorStr : 'Sign in failed. Please try again.';
+  }
+
   Future<void> _signIn() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -39,15 +88,39 @@ class _LoginScreenState extends State<LoginScreen> {
         _passwordController.text,
       );
       
-      if (mounted) {
+      // Wait for auth state to update (poll up to 3 seconds)
+      int attempts = 0;
+      const maxAttempts = 30; // 30 * 100ms = 3 seconds
+      
+      while (attempts < maxAttempts && mounted) {
+        await Future.delayed(const Duration(milliseconds: 100));
+        if (authService.isAuthenticated) {
+          break;
+        }
+        attempts++;
+      }
+      
+      // Navigate if authenticated
+      if (mounted && authService.isAuthenticated) {
         context.go('/home');
+      } else if (mounted) {
+        // If still not authenticated after waiting, show error
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Sign in completed but authentication failed. Please try again.'),
+            backgroundColor: AppColors.error,
+            duration: Duration(seconds: 4),
+          ),
+        );
       }
     } catch (e) {
       if (mounted) {
+        String errorMessage = _getErrorMessage(e);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Sign in failed: ${e.toString()}'),
+            content: Text(errorMessage),
             backgroundColor: AppColors.error,
+            duration: const Duration(seconds: 4),
           ),
         );
       }

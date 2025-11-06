@@ -12,6 +12,7 @@ import '../../models/message_model.dart';
 import '../../services/auth_service.dart';
 import '../../services/connection_request_service.dart';
 import '../../services/group_service.dart';
+import '../../utils/privacy_utils.dart';
 import '../chat/chat_screen.dart';
 import 'search_users_screen.dart';
 import 'qr_scanner_screen.dart';
@@ -1092,56 +1093,74 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
           // Search bar
           Padding(
             padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
-            child: Container(
-              decoration: BoxDecoration(
-                color: AppColors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.grey100, width: 1),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.grey100.withOpacity(0.5),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: TextField(
-                controller: _searchController,
-                onChanged: (value) => _filterConnections(),
-                style: const TextStyle(
-                  color: AppColors.grey900, // Dark text for white background
-                  fontSize: 15,
-                  fontWeight: FontWeight.w400,
-                  letterSpacing: -0.2,
-                ),
-                decoration: InputDecoration(
-                  hintText: 'Search by name, email, or company...',
-                  hintStyle: const TextStyle(
-                    color: AppColors.grey400,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w400,
-                    letterSpacing: -0.2,
-                  ),
-                  filled: true,
-                  fillColor: AppColors.white, // Ensure white background
-                  prefixIcon: const Icon(
-                    Icons.search,
-                    color: AppColors.grey400,
-                    size: 20,
-                  ),
-                  border: OutlineInputBorder(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        const Color(0xFF1F295B).withOpacity(0.85),
+                        const Color(0xFF283B89).withOpacity(0.8),
+                      ],
+                    ),
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
+                    border: Border.all(
+                      color: const Color(0xFF6B8FAE).withOpacity(0.4),
+                      width: 1.5,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.2),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
                   ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
+                  child: TextField(
+                    controller: _searchController,
+                    onChanged: (value) => _filterConnections(),
+                    style: const TextStyle(
+                      color: AppColors.textPrimary, // White text for glass background
+                      fontSize: 15,
+                      fontWeight: FontWeight.w400,
+                      letterSpacing: -0.2,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: 'Search by name, email, or company...',
+                      hintStyle: TextStyle(
+                        color: AppColors.textPrimary.withOpacity(0.6),
+                        fontSize: 15,
+                        fontWeight: FontWeight.w400,
+                        letterSpacing: -0.2,
+                      ),
+                      filled: false,
+                      prefixIcon: const Icon(
+                        Icons.search,
+                        color: AppColors.textPrimary,
+                        size: 20,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                          color: AppColors.primaryLight.withOpacity(0.6),
+                          width: 2,
+                        ),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                    ),
                   ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: AppColors.primary, width: 2),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                 ),
               ),
             ),
@@ -1153,36 +1172,61 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
             child: Row(
               children: [
                 Expanded(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: AppColors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppColors.grey100, width: 1),
-                    ),
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<String>(
-                        value: _selectedGroup,
-                        isExpanded: true,
-                        onChanged: (String? newValue) {
-                          if (newValue != null) {
-                            if (newValue == 'CREATE_GROUP') {
-                              // Show create group dialog without requiring a specific connection
-                              _showCreateGroupDialogGeneric();
-                            } else {
-                              setState(() {
-                                _selectedGroup = newValue;
-                              });
-                              _filterConnections();
-                            }
-                          }
-                        },
-                        style: const TextStyle(
-                          color: AppColors.grey700,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w500,
-                          letterSpacing: -0.2,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              const Color(0xFF1F295B).withOpacity(0.85),
+                              const Color(0xFF283B89).withOpacity(0.8),
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: const Color(0xFF6B8FAE).withOpacity(0.4),
+                            width: 1.5,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.2),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
                         ),
-                        dropdownColor: AppColors.white,
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            value: _selectedGroup,
+                            isExpanded: true,
+                            onChanged: (String? newValue) {
+                              if (newValue != null) {
+                                if (newValue == 'CREATE_GROUP') {
+                                  // Show create group dialog without requiring a specific connection
+                                  _showCreateGroupDialogGeneric();
+                                } else {
+                                  setState(() {
+                                    _selectedGroup = newValue;
+                                  });
+                                  _filterConnections();
+                                }
+                              }
+                            },
+                            style: const TextStyle(
+                              color: AppColors.textPrimary,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w500,
+                              letterSpacing: -0.2,
+                            ),
+                            dropdownColor: AppColors.surfaceDark,
+                            icon: const Icon(
+                              Icons.arrow_drop_down,
+                              color: AppColors.textPrimary,
+                            ),
                         items: [
                           DropdownMenuItem<String>(
                             value: 'All Groups',
@@ -1190,12 +1234,12 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
                               padding: const EdgeInsets.symmetric(horizontal: 20),
                               child: Row(
                                 children: [
-                                  const Icon(Icons.group, color: AppColors.grey600, size: 18),
+                                  const Icon(Icons.group, color: AppColors.textPrimary, size: 18),
                                   const SizedBox(width: 12),
                                   const Text(
                                     'All Groups',
                                     style: TextStyle(
-                                      color: AppColors.grey700,
+                                      color: AppColors.textPrimary,
                                       fontSize: 15,
                                       fontWeight: FontWeight.w500,
                                       letterSpacing: -0.2,
@@ -1220,7 +1264,15 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
                                     ),
                                   ),
                                   const SizedBox(width: 8),
-                                  Text(group.name),
+                                  Text(
+                                    group.name,
+                                    style: const TextStyle(
+                                      color: AppColors.textPrimary,
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w500,
+                                      letterSpacing: -0.2,
+                                    ),
+                                  ),
                                 ],
                               ),
                             ),
@@ -1233,7 +1285,10 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
                                 children: [
                                   Icon(Icons.add_circle, color: Colors.white, size: 16),
                                   SizedBox(width: 8),
-                                  Text('Create Group'),
+                                  Text(
+                                    'Create Group',
+                                    style: TextStyle(color: Colors.white),
+                                  ),
                                 ],
                               ),
                             ),
@@ -1241,27 +1296,54 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
                         ],
                       ),
                     ),
+                      ),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: AppColors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppColors.grey100, width: 1),
-                    ),
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<String>(
-                        value: _sortBy,
-                        isExpanded: true,
-                        style: const TextStyle(
-                          color: AppColors.grey700,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w500,
-                          letterSpacing: -0.2,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              const Color(0xFF1F295B).withOpacity(0.85),
+                              const Color(0xFF283B89).withOpacity(0.8),
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: const Color(0xFF6B8FAE).withOpacity(0.4),
+                            width: 1.5,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.2),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
                         ),
-                        dropdownColor: AppColors.white,
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            value: _sortBy,
+                            isExpanded: true,
+                            style: const TextStyle(
+                              color: AppColors.textPrimary,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w500,
+                              letterSpacing: -0.2,
+                            ),
+                            dropdownColor: AppColors.surfaceDark,
+                            icon: const Icon(
+                              Icons.arrow_drop_down,
+                              color: AppColors.textPrimary,
+                            ),
                         items: ['Sort by Name', 'Sort by Date', 'Sort by Company'].map((String value) {
                           return DropdownMenuItem<String>(
                             value: value,
@@ -1270,7 +1352,7 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
                               child: Text(
                                 value,
                                 style: const TextStyle(
-                                  color: AppColors.grey700,
+                                  color: AppColors.textPrimary,
                                   fontSize: 15,
                                   fontWeight: FontWeight.w500,
                                   letterSpacing: -0.2,
@@ -1284,6 +1366,8 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
                             _sortBy = newValue!;
                           });
                         },
+                      ),
+                    ),
                       ),
                     ),
                   ),
@@ -1404,6 +1488,42 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
     } catch (e) {
       debugPrint('Error fetching user phone number: $e');
       return null;
+    }
+  }
+
+  Future<Map<String, dynamic>> _getUserPrivacySettings(String userId) async {
+    try {
+      final userDoc = await _firestore.collection('users').doc(userId).get();
+      if (userDoc.exists) {
+        final data = userDoc.data();
+        if (data == null) {
+          return {'phoneNumberPrivacy': 'connections_only', 'allowedPhoneViewers': []};
+        }
+        return {
+          'phoneNumberPrivacy': data['phoneNumberPrivacy'] ?? 'connections_only',
+          'allowedPhoneViewers': List<String>.from(data['allowedPhoneViewers'] ?? []),
+        };
+      }
+      return {'phoneNumberPrivacy': 'connections_only', 'allowedPhoneViewers': []};
+    } catch (e) {
+      debugPrint('Error fetching user privacy settings: $e');
+      return {'phoneNumberPrivacy': 'connections_only', 'allowedPhoneViewers': []};
+    }
+  }
+
+  Future<bool> _isUserInConnections(String ownerUserId, String viewerUserId) async {
+    try {
+      // Check if viewer is in owner's connections list
+      final connectionDoc = await _firestore
+          .collection('connections')
+          .where('userId', isEqualTo: ownerUserId)
+          .where('contactUserId', isEqualTo: viewerUserId)
+          .limit(1)
+          .get();
+      return connectionDoc.docs.isNotEmpty;
+    } catch (e) {
+      debugPrint('Error checking if user is in connections: $e');
+      return false;
     }
   }
 
@@ -1762,14 +1882,13 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
                   ],
                 ),
                 
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
                 
                 // Contact information section
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.start,
-                    children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.start,
+                  children: [
                       // Email (clickable) with fallback from user profile
                       FutureBuilder<String?>(
                         future: connection.contactEmail.trim().isNotEmpty
@@ -1777,8 +1896,9 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
                             : _getUserEmail(connection.contactUserId),
                         builder: (context, snapshot) {
                           final email = (snapshot.data ?? '').trim();
-                          return GestureDetector(
+                          return InkWell(
                             onTap: email.isNotEmpty ? () => _launchEmail(email) : null,
+                            borderRadius: BorderRadius.circular(4),
                             child: Row(
                               children: [
                                 Icon(Icons.email_outlined, color: Colors.white, size: 16),
@@ -1803,7 +1923,7 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
                         },
                       ),
                       
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 2),
                       
                       // LinkedIn (clickable) - shows username with LinkedIn logo
                       FutureBuilder<String?>(
@@ -1812,8 +1932,9 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
                           final linkedInUrl = snapshot.data;
                           if (linkedInUrl != null && linkedInUrl.isNotEmpty) {
                             final linkedInUsername = _extractLinkedInUsername(linkedInUrl);
-                            return GestureDetector(
+                            return InkWell(
                               onTap: () => _launchLinkedIn(linkedInUrl),
+                              borderRadius: BorderRadius.circular(4),
                               child: Row(
                                 children: [
                                   // LinkedIn logo (using "in" text badge)
@@ -1872,42 +1993,81 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
                         },
                       ),
                       
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 2),
                       
-                      // Phone (fetched from Firestore)
-                      FutureBuilder<String?>(
-                        future: _getUserPhoneNumber(connection.contactUserId),
+                      // Phone (fetched from Firestore with privacy check)
+                      FutureBuilder<Map<String, dynamic>>(
+                        future: Future.wait([
+                          _getUserPhoneNumber(connection.contactUserId),
+                          _getUserPrivacySettings(connection.contactUserId),
+                          Future.value(Provider.of<AuthService>(context, listen: false).user?.uid ?? ''),
+                        ]).then((results) async {
+                          final currentUserId = results[2] as String;
+                          final ownerUserId = connection.contactUserId;
+                          // Check if current user is in the contact's connections list
+                          final isConnected = await _isUserInConnections(ownerUserId, currentUserId);
+                          return {
+                            'phoneNumber': results[0] as String?,
+                            'privacySettings': results[1] as Map<String, dynamic>,
+                            'isConnected': isConnected,
+                          };
+                        }),
                         builder: (context, snapshot) {
-                          final phoneNumber = snapshot.data;
-                          if (phoneNumber != null && phoneNumber.isNotEmpty) {
-                            return Row(
-                              children: [
-                                const Icon(Icons.phone_outlined, color: Colors.white, size: 16),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    phoneNumber,
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w400,
-                                      letterSpacing: 0.2,
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              ],
-                            );
+                          if (!snapshot.hasData) {
+                            return const SizedBox.shrink();
                           }
-                          // If phone number is not available, check connection.contactPhone as fallback
-                          if (connection.contactPhone != null && connection.contactPhone!.isNotEmpty) {
+
+                          final phoneNumber = snapshot.data!['phoneNumber'] as String?;
+                          final privacySettings = snapshot.data!['privacySettings'] as Map<String, dynamic>;
+                          final phoneNumberPrivacy = privacySettings['phoneNumberPrivacy'] as String? ?? 'connections_only';
+                          final allowedPhoneViewers = (privacySettings['allowedPhoneViewers'] as List?)?.cast<String>() ?? [];
+                          final isConnected = snapshot.data!['isConnected'] as bool? ?? false;
+
+                          // Get current user ID
+                          final authService = Provider.of<AuthService>(context, listen: false);
+                          final currentUserId = authService.user?.uid ?? '';
+
+                          // Check if phone number should be visible
+                          final shouldShow = PrivacyUtils.shouldShowPhoneNumber(
+                            phoneNumberPrivacy: phoneNumberPrivacy,
+                            isConnected: isConnected,
+                            viewerUserId: currentUserId,
+                            ownerUserId: connection.contactUserId,
+                            allowedPhoneViewers: allowedPhoneViewers,
+                          );
+
+                          // Determine the phone number to display
+                          String? displayPhoneNumber;
+                          if (phoneNumber != null && phoneNumber.isNotEmpty) {
+                            displayPhoneNumber = phoneNumber;
+                          } else if (connection.contactPhone != null && connection.contactPhone!.isNotEmpty) {
+                            displayPhoneNumber = connection.contactPhone;
+                          }
+
+                          if (displayPhoneNumber != null && displayPhoneNumber.isNotEmpty) {
+                            // Use PrivacyUtils to get display text
+                            final displayText = PrivacyUtils.getPhoneNumberDisplay(
+                              phoneNumber: displayPhoneNumber,
+                              phoneNumberPrivacy: phoneNumberPrivacy,
+                              isConnected: isConnected,
+                              viewerUserId: currentUserId,
+                              ownerUserId: connection.contactUserId,
+                              allowedPhoneViewers: allowedPhoneViewers,
+                              placeholder: 'Phone number hidden',
+                            );
+
+                            // If phone number is hidden, don't show the row
+                            if (!shouldShow || displayText == 'Phone number hidden') {
+                              return const SizedBox.shrink();
+                            }
+
                             return Row(
                               children: [
                                 const Icon(Icons.phone_outlined, color: Colors.white, size: 16),
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
-                                    connection.contactPhone!,
+                                    displayText,
                                     style: const TextStyle(
                                       color: Colors.white,
                                       fontSize: 14,
@@ -1924,45 +2084,42 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
                         },
                       ),
                       
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 4),
                       
-                      // Bottom section with Message and Date
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          // Message button
-                          GestureDetector(
-                            onTap: () {
-                              _openChat(connection);
-                            },
-                            child: const Text(
-                              'Message',
-                              style: TextStyle(
-                                color: Color(0xFFFFA500), // Vibrant orange/yellow like reference
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                letterSpacing: 0.3,
-                              ),
-                            ),
+                      // Message button
+                      GestureDetector(
+                        onTap: () {
+                          _openChat(connection);
+                        },
+                        child: const Text(
+                          'Message',
+                          style: TextStyle(
+                            color: Color(0xFFFFA500), // Vibrant orange/yellow like reference
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 0.3,
                           ),
-                          
-                          // Date
-                          Text(
-                            '${DateTime.now().day}/${DateTime.now().month}/${DateTime.now().year}',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w400,
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
                       
-                      // Thin divider line between message button and group name
+                      // Thin divider line between message button and date
                       Container(
                         height: 1,
                         color: Colors.white.withOpacity(0.2),
-                        margin: const EdgeInsets.only(top: 8, bottom: 8),
+                        margin: const EdgeInsets.only(top: 4, bottom: 4),
+                      ),
+                      
+                      // Date
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: Text(
+                          '${DateTime.now().day}/${DateTime.now().month}/${DateTime.now().year}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w400,
+                          ),
+                        ),
                       ),
                       
                       // Group name (if connection is in a group)
@@ -2003,7 +2160,6 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
                           },
                         ),
                     ],
-                  ),
                 ),
             ],
           ),

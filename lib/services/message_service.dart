@@ -153,15 +153,16 @@ class MessageService {
     }
   }
 
-  // Get messages for a chat
-  static Stream<List<MessageModel>> getMessages(String senderId, String receiverId) {
+  // Get messages for a chat with pagination support
+  static Stream<List<MessageModel>> getMessages(String senderId, String receiverId, {int limit = 50}) {
     final chatId = _getChatId(senderId, receiverId);
-    print('📱 MessageService: Getting messages for chatId: $chatId');
+    print('📱 MessageService: Getting messages for chatId: $chatId (limit: $limit)');
     
     return _firestore
         .collection(_messagesCollection)
         .where('chatId', isEqualTo: chatId)
         .orderBy('timestamp', descending: false)
+        .limit(limit)
         .snapshots()
         .map((snapshot) {
       print('📱 MessageService: Found ${snapshot.docs.length} messages');
@@ -170,6 +171,28 @@ class MessageService {
         return MessageModel.fromMap(data);
       }).toList();
     });
+  }
+  
+  // Get older messages with pagination (for loading more)
+  static Future<List<MessageModel>> getOlderMessages(String senderId, String receiverId, DateTime beforeTimestamp, {int limit = 50}) async {
+    final chatId = _getChatId(senderId, receiverId);
+    try {
+      final snapshot = await _firestore
+          .collection(_messagesCollection)
+          .where('chatId', isEqualTo: chatId)
+          .where('timestamp', isLessThan: Timestamp.fromDate(beforeTimestamp))
+          .orderBy('timestamp', descending: true)
+          .limit(limit)
+          .get();
+      
+      return snapshot.docs.map((doc) {
+        final data = doc.data();
+        return MessageModel.fromMap(data);
+      }).toList();
+    } catch (e) {
+      print('❌ Error loading older messages: $e');
+      return [];
+    }
   }
 
   // Mark message as read

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:ui';
 import '../constants/app_colors.dart';
 
 class CustomTextField extends StatelessWidget {
@@ -58,7 +59,7 @@ class CustomTextField extends StatelessWidget {
           enabled: enabled,
           style: TextStyle(
             fontSize: 15,
-            color: enabled ? AppColors.grey700 : AppColors.textSecondary, // Lighter text when disabled
+            color: enabled ? AppColors.grey700 : AppColors.textSecondary,
             fontWeight: FontWeight.w400,
             letterSpacing: -0.2,
           ),
@@ -79,7 +80,7 @@ class CustomTextField extends StatelessWidget {
                 : null,
             suffixIcon: suffixIcon,
             filled: true,
-            fillColor: enabled ? AppColors.white : AppColors.grey50, // Gray background when disabled (Deep Neutral for Panels)
+            fillColor: enabled ? AppColors.white : AppColors.grey50,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
               borderSide: BorderSide(color: borderColor ?? AppColors.grey100, width: 1),

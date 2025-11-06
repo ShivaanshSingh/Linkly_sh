@@ -18,6 +18,9 @@ class NotificationService extends ChangeNotifier {
   List<Map<String, dynamic>> _notifications = [];
   final Set<String> _seenNotificationDocIds = <String>{};
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _userNotifSub;
+  
+  // Performance optimization: Debounce notifyListeners
+  Timer? _debounceTimer;
 
   String? get fcmToken => _fcmToken;
   bool get isLoading => _isLoading;
@@ -186,7 +189,8 @@ class NotificationService extends ChangeNotifier {
     };
     
     _notifications.insert(0, notification);
-    notifyListeners();
+    // Debounce notifyListeners to reduce rebuilds
+    _debounceNotifyListeners();
   }
 
   void _handleBackgroundMessage(RemoteMessage message) {
@@ -596,12 +600,21 @@ class NotificationService extends ChangeNotifier {
   }
 
   void _setLoading(bool loading) {
+    if (_isLoading == loading) return; // Avoid unnecessary updates
     _isLoading = loading;
-    notifyListeners();
+    _debounceNotifyListeners();
+  }
+  
+  void _debounceNotifyListeners() {
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 100), () {
+      notifyListeners();
+    });
   }
 
   @override
   void dispose() {
+    _debounceTimer?.cancel();
     _userNotifSub?.cancel();
     super.dispose();
   }

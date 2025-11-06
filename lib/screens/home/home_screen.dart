@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../constants/app_colors.dart';
 import '../../services/auth_service.dart';
 import '../../services/post_service.dart';
@@ -190,6 +191,8 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
   double _pageOffset = 0.0; // Track page scroll position for smooth indicator animation (0.0 = Feeds, 1.0 = Digital Card)
   late ScrollController _scrollController;
   double _scrollOffset = 0.0; // Track scroll position for fade effect
+  bool _hasLoadedInitialPosts = false; // Flag to prevent multiple initial loads
+  bool _isInitialLoading = false; // Flag to track if initial load is in progress
 
   @override
   void initState() {
@@ -209,12 +212,45 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
       vsync: this,
     );
     
-    // Load posts when the widget initializes
+    // Load posts only once when the widget initializes
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final postService = Provider.of<PostService>(context, listen: false);
-      final authService = Provider.of<AuthService>(context, listen: false);
-      postService.getPosts(currentUserId: authService.user?.uid);
+      if (!_hasLoadedInitialPosts) {
+        _loadPostsOnce();
+      }
     });
+  }
+
+  Future<void> _loadPostsOnce() async {
+    if (_isInitialLoading) return; // Prevent multiple calls
+    
+    final postService = Provider.of<PostService>(context, listen: false);
+    final authService = Provider.of<AuthService>(context, listen: false);
+    
+    // Only load if posts list is empty and we're not already loading
+    if (postService.posts.isEmpty && !postService.isLoading) {
+      if (mounted) {
+        setState(() {
+          _isInitialLoading = true;
+        });
+      }
+      
+      await postService.getPosts(currentUserId: authService.user?.uid);
+      
+      // Mark as loaded after the initial load completes (success or failure)
+      if (mounted) {
+        setState(() {
+          _hasLoadedInitialPosts = true;
+          _isInitialLoading = false;
+        });
+      }
+    } else {
+      // Posts already loaded or loading, mark as done
+      if (mounted) {
+        setState(() {
+          _hasLoadedInitialPosts = true;
+        });
+      }
+    }
   }
 
   @override
@@ -605,10 +641,29 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
   Widget _buildFeedsContentWrapper() {
     return Consumer<PostService>(
       builder: (context, postService, child) {
-        if (postService.isLoading) {
-          return const Center(child: CircularProgressIndicator());
+        // Show loading indicator during initial load
+        if (_isInitialLoading || (postService.isLoading && postService.posts.isEmpty && !_hasLoadedInitialPosts)) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const CircularProgressIndicator(
+                  color: AppColors.primary,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Loading posts...',
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
+          );
         }
-        if (postService.error != null) {
+        
+        if (postService.error != null && postService.posts.isEmpty) {
           return Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -636,28 +691,48 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
             final authService = Provider.of<AuthService>(context, listen: false);
             await postService.getPosts(currentUserId: authService.user?.uid);
           },
-          child: ListView(
-            controller: _scrollController,
-            padding: EdgeInsets.zero,
-            physics: const ClampingScrollPhysics(),
-            children: [
-              // Spacer for header height - allows posts to scroll to top
-              SizedBox(
-                height: 280, // Header + status + tabs height with extra clearance
-              ),
-              // Posts section or empty state
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: postService.posts.isEmpty
-                    ? _buildEmptyPostsState()
-                    : Column(
-                        children: postService.posts
-                            .map((post) => _buildFeedPost(post, postService.posts.indexOf(post)))
-                            .toList(),
+          child: postService.posts.isEmpty
+              ? ListView(
+                  controller: _scrollController,
+                  padding: EdgeInsets.zero,
+                  physics: const ClampingScrollPhysics(),
+                  children: [
+                    SizedBox(height: 280),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: _buildEmptyPostsState(),
+                    ),
+                  ],
+                )
+              : ListView.builder(
+                  controller: _scrollController,
+                  padding: EdgeInsets.zero,
+                  physics: const ClampingScrollPhysics(),
+                  itemCount: postService.posts.length + 1, // +1 for spacer
+                  itemBuilder: (context, index) {
+                    if (index == 0) {
+                      // Spacer for header height - allows posts to scroll to top
+                      return const SizedBox(
+                        height: 280, // Header + status + tabs height with extra clearance
+                      );
+                    }
+                    
+                    final postIndex = index - 1;
+                    if (postIndex >= postService.posts.length) {
+                      return const SizedBox.shrink();
+                    }
+                    
+                    final post = postService.posts[postIndex];
+                    return Padding(
+                      padding: EdgeInsets.only(
+                        left: 16,
+                        right: 16,
+                        bottom: postIndex < postService.posts.length - 1 ? 16 : 16,
                       ),
-              ),
-            ],
-          ),
+                      child: _buildFeedPost(post, postIndex),
+                    );
+                  },
+                ),
         );
       },
     );
@@ -750,27 +825,27 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            AppColors.grey50,
-            AppColors.surfaceDark,
-            AppColors.grey700,
+            const Color(0xFF1A1F3A).withOpacity(0.6),
+            const Color(0xFF23284A).withOpacity(0.5),
+            const Color(0xFF2A2F50).withOpacity(0.6),
           ],
         ),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: AppColors.primary.withOpacity(0.3),
-          width: 1.5,
+          color: AppColors.primary.withOpacity(0.15),
+          width: 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: AppColors.primary.withOpacity(0.25),
-            blurRadius: 25,
-            offset: const Offset(0, 8),
-            spreadRadius: 2,
+            color: AppColors.primary.withOpacity(0.1),
+            blurRadius: 20,
+            offset: const Offset(0, 4),
+            spreadRadius: 0,
           ),
           BoxShadow(
-            color: Colors.black.withOpacity(0.4),
-            blurRadius: 15,
-            offset: const Offset(0, 4),
+            color: Colors.black.withOpacity(0.3),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
@@ -900,19 +975,20 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
             ),
           ),
           
-          // Post content
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Text(
-              post.content,
-              style: const TextStyle(
-                fontSize: 15,
-                color: AppColors.textPrimary,
-                height: 1.6,
-                letterSpacing: 0.2,
+          // Post content (only show if content is not empty)
+          if (post.content.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Text(
+                post.content,
+                style: const TextStyle(
+                  fontSize: 15,
+                  color: AppColors.textPrimary,
+                  height: 1.6,
+                  letterSpacing: 0.2,
+                ),
               ),
             ),
-          ),
           
           // Post image (if available)
           if (post.imageUrl != null && post.imageUrl!.isNotEmpty)
@@ -920,88 +996,21 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
               margin: const EdgeInsets.fromLTRB(20, 16, 20, 0),
               height: 220,
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(20),
                 boxShadow: [
                   BoxShadow(
-                    color: AppColors.primary.withOpacity(0.2),
-                    blurRadius: 15,
-                    offset: const Offset(0, 5),
+                    color: AppColors.primary.withOpacity(0.15),
+                    blurRadius: 12,
+                    offset: const Offset(0, 3),
                   ),
                 ],
               ),
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(16),
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    Image.network(
-                      post.imageUrl!,
-                      width: double.infinity,
-                      height: 220,
-                      fit: BoxFit.cover,
-                      loadingBuilder: (context, child, loadingProgress) {
-                        if (loadingProgress == null) return child;
-                        return Container(
-                          height: 220,
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [
-                                AppColors.grey700.withOpacity(0.6),
-                                AppColors.grey50.withOpacity(0.4),
-                              ],
-                            ),
-                          ),
-                          child: Center(
-                            child: CircularProgressIndicator(
-                              value: loadingProgress.expectedTotalBytes != null
-                                  ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
-                                  : null,
-                              color: AppColors.primary,
-                              strokeWidth: 3,
-                            ),
-                          ),
-                        );
-                      },
-                      errorBuilder: (context, error, stackTrace) {
-                        return Container(
-                          height: 220,
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [
-                                AppColors.grey700.withOpacity(0.6),
-                                AppColors.grey50.withOpacity(0.4),
-                              ],
-                            ),
-                          ),
-                          child: Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.broken_image_outlined,
-                                  size: 60,
-                                  color: AppColors.grey400,
-                                ),
-                                const SizedBox(height: 12),
-                                Text(
-                                  'Failed to load image',
-                                  style: TextStyle(
-                                    color: AppColors.grey500,
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ],
+                borderRadius: BorderRadius.circular(20),
+                child: _RetryableNetworkImage(
+                  imageUrl: post.imageUrl!,
+                  height: 220,
+                  width: double.infinity,
                 ),
               ),
             ),
@@ -1011,10 +1020,10 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
             padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
             child: Container(
               decoration: BoxDecoration(
-                color: AppColors.grey800.withOpacity(0.4),
-                borderRadius: BorderRadius.circular(16),
+                color: AppColors.grey800.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(20),
                 border: Border.all(
-                  color: AppColors.grey400.withOpacity(0.1),
+                  color: AppColors.grey400.withOpacity(0.05),
                 ),
               ),
               padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
@@ -1024,7 +1033,7 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
                   GestureDetector(
                     onTap: () => _toggleLike(index),
                     child: ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(16),
                       child: BackdropFilter(
                         filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
                         child: Container(
@@ -1034,19 +1043,19 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
                               colors: [
-                                const Color(0xFF1F295B).withOpacity(0.85),
-                                const Color(0xFF283B89).withOpacity(0.8),
+                                const Color(0xFF1F295B).withOpacity(0.5),
+                                const Color(0xFF283B89).withOpacity(0.4),
                               ],
                             ),
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(16),
                             border: Border.all(
-                              color: const Color(0xFF6B8FAE).withOpacity(0.4),
-                              width: 1.5,
+                              color: const Color(0xFF6B8FAE).withOpacity(0.2),
+                              width: 1,
                             ),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withOpacity(0.2),
-                                blurRadius: 8,
+                                color: Colors.black.withOpacity(0.15),
+                                blurRadius: 6,
                                 offset: const Offset(0, 2),
                               ),
                             ],
@@ -1084,7 +1093,7 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
                   GestureDetector(
                     onTap: () => _showCommentsModal(post),
                     child: ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(16),
                       child: BackdropFilter(
                         filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
                         child: Container(
@@ -1094,19 +1103,19 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
                               colors: [
-                                const Color(0xFF1F295B).withOpacity(0.85),
-                                const Color(0xFF283B89).withOpacity(0.8),
+                                const Color(0xFF1F295B).withOpacity(0.5),
+                                const Color(0xFF283B89).withOpacity(0.4),
                               ],
                             ),
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(16),
                             border: Border.all(
-                              color: const Color(0xFF6B8FAE).withOpacity(0.4),
-                              width: 1.5,
+                              color: const Color(0xFF6B8FAE).withOpacity(0.2),
+                              width: 1,
                             ),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withOpacity(0.2),
-                                blurRadius: 8,
+                                color: Colors.black.withOpacity(0.15),
+                                blurRadius: 6,
                                 offset: const Offset(0, 2),
                               ),
                             ],
@@ -1132,7 +1141,7 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
                   GestureDetector(
                     onTap: () => _sharePost(post),
                     child: ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(16),
                       child: BackdropFilter(
                         filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
                         child: Container(
@@ -1142,19 +1151,19 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
                               colors: [
-                                const Color(0xFF1F295B).withOpacity(0.85),
-                                const Color(0xFF283B89).withOpacity(0.8),
+                                const Color(0xFF1F295B).withOpacity(0.5),
+                                const Color(0xFF283B89).withOpacity(0.4),
                               ],
                             ),
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(16),
                             border: Border.all(
-                              color: const Color(0xFF6B8FAE).withOpacity(0.4),
-                              width: 1.5,
+                              color: const Color(0xFF6B8FAE).withOpacity(0.2),
+                              width: 1,
                             ),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withOpacity(0.2),
-                                blurRadius: 8,
+                                color: Colors.black.withOpacity(0.15),
+                                blurRadius: 6,
                                 offset: const Offset(0, 2),
                               ),
                             ],
@@ -1762,6 +1771,207 @@ class CommentsModal extends StatefulWidget {
 class _CommentsModalState extends State<CommentsModal> {
   final TextEditingController _commentController = TextEditingController();
   List<Map<String, dynamic>> _comments = [];
+  bool _isLoadingComments = false;
+  bool _isSubmittingComment = false;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadComments();
+  }
+
+  Future<void> _loadComments() async {
+    setState(() {
+      _isLoadingComments = true;
+    });
+
+    try {
+      final commentsSnapshot = await _firestore
+          .collection('posts')
+          .doc(widget.post.id)
+          .collection('comments')
+          .orderBy('createdAt', descending: true)
+          .get();
+
+      final comments = commentsSnapshot.docs.map((doc) {
+        final data = doc.data();
+        return {
+          'id': doc.id,
+          'name': data['userName'] ?? 'User',
+          'avatar': data['userAvatar'] ?? 'U',
+          'content': data['content'] ?? '',
+          'time': _formatTimestamp(data['createdAt']),
+          'userId': data['userId'] ?? '',
+        };
+      }).toList();
+
+      if (mounted) {
+        setState(() {
+          _comments = comments;
+          _isLoadingComments = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading comments: $e');
+      if (mounted) {
+        setState(() {
+          _isLoadingComments = false;
+        });
+      }
+    }
+  }
+
+  String _formatTimestamp(dynamic timestamp) {
+    if (timestamp == null) return 'now';
+    
+    DateTime dateTime;
+    if (timestamp is Timestamp) {
+      dateTime = timestamp.toDate();
+    } else if (timestamp is DateTime) {
+      dateTime = timestamp;
+    } else {
+      return 'now';
+    }
+
+    final now = DateTime.now();
+    final difference = now.difference(dateTime);
+
+    if (difference.inMinutes < 1) {
+      return 'now';
+    } else if (difference.inMinutes < 60) {
+      return '${difference.inMinutes}m ago';
+    } else if (difference.inHours < 24) {
+      return '${difference.inHours}h ago';
+    } else {
+      return '${difference.inDays}d ago';
+    }
+  }
+
+  // Helper method to check if error is a network/transient error
+  bool _isTransientError(dynamic error) {
+    final errorString = error.toString().toLowerCase();
+    return errorString.contains('unavailable') ||
+           errorString.contains('network') ||
+           errorString.contains('timeout') ||
+           errorString.contains('connection') ||
+           errorString.contains('socket') ||
+           errorString.contains('host');
+  }
+
+  Future<void> _addComment() async {
+    if (_commentController.text.trim().isEmpty || _isSubmittingComment) return;
+
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final currentUser = authService.userModel;
+    final currentUserId = authService.user?.uid;
+
+    if (currentUser == null || currentUserId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please log in to comment'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
+    final commentText = _commentController.text.trim();
+    final commentId = DateTime.now().millisecondsSinceEpoch.toString();
+    final userName = currentUser.fullName ?? 'User';
+    final userAvatar = userName.isNotEmpty ? userName[0].toUpperCase() : 'U';
+
+    // Optimistic update: Add comment to UI immediately
+    final optimisticComment = {
+      'id': commentId,
+      'name': userName,
+      'avatar': userAvatar,
+      'content': commentText,
+      'time': 'now',
+      'userId': currentUserId,
+    };
+
+    setState(() {
+      _comments.insert(0, optimisticComment);
+      _isSubmittingComment = true;
+    });
+
+    _commentController.clear();
+
+    // Save to Firestore with retry logic
+    const maxRetries = 3;
+    int retryCount = 0;
+    bool success = false;
+
+    while (retryCount < maxRetries && !success) {
+      try {
+        final batch = _firestore.batch();
+
+        // Add comment document
+        final commentRef = _firestore
+            .collection('posts')
+            .doc(widget.post.id)
+            .collection('comments')
+            .doc(commentId);
+
+        batch.set(commentRef, {
+          'userId': currentUserId,
+          'userName': userName,
+          'userAvatar': userAvatar,
+          'content': commentText,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+
+        // Update post commentsCount
+        final postRef = _firestore.collection('posts').doc(widget.post.id);
+        batch.update(postRef, {
+          'commentsCount': FieldValue.increment(1),
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+
+        await batch.commit();
+        
+        success = true;
+        debugPrint('Comment added successfully');
+
+        // Refresh comments to get server timestamp
+        await _loadComments();
+      } catch (e) {
+        retryCount++;
+        final isTransient = _isTransientError(e);
+
+        if (isTransient && retryCount < maxRetries) {
+          final delaySeconds = retryCount;
+          debugPrint('Transient error adding comment (attempt $retryCount/$maxRetries), retrying in ${delaySeconds}s...');
+          await Future.delayed(Duration(seconds: delaySeconds));
+        } else {
+          // Revert optimistic update on failure
+          if (mounted) {
+            setState(() {
+              _comments.removeWhere((c) => c['id'] == commentId);
+              _isSubmittingComment = false;
+            });
+            
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Text('Unable to add comment. Please check your connection.'),
+                duration: const Duration(seconds: 2),
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          }
+          debugPrint('Error adding comment: $e');
+          return;
+        }
+      }
+    }
+
+    if (mounted) {
+      setState(() {
+        _isSubmittingComment = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1832,69 +2042,83 @@ class _CommentsModalState extends State<CommentsModal> {
               
               // Comments list
               Expanded(
-                child: ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  itemCount: _comments.length,
-                  itemBuilder: (context, index) {
-                    final comment = _comments[index];
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 16),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          CircleAvatar(
-                            radius: 16,
-                            backgroundColor: AppColors.primary,
+                child: _isLoadingComments
+                    ? const Center(
+                        child: CircularProgressIndicator(),
+                      )
+                    : _comments.isEmpty
+                        ? Center(
                             child: Text(
-                              comment['avatar'],
+                              'No comments yet. Be the first to comment!',
                               style: TextStyle(
-                                color: AppColors.white,
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
+                                color: AppColors.textSecondary,
+                                fontSize: 14,
                               ),
                             ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
+                          )
+                        : ListView.builder(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            itemCount: _comments.length,
+                            itemBuilder: (context, index) {
+                              final comment = _comments[index];
+                              return Container(
+                                margin: const EdgeInsets.only(bottom: 16),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(
-                                      comment['name'],
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.bold,
-                                        color: AppColors.textPrimary,
+                                    CircleAvatar(
+                                      radius: 16,
+                                      backgroundColor: AppColors.primary,
+                                      child: Text(
+                                        comment['avatar'] ?? 'U',
+                                        style: TextStyle(
+                                          color: AppColors.white,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                        ),
                                       ),
                                     ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      comment['time'],
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: AppColors.textSecondary,
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            children: [
+                                              Text(
+                                                comment['name'] ?? 'User',
+                                                style: TextStyle(
+                                                  fontSize: 14,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: AppColors.textPrimary,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 8),
+                                              Text(
+                                                comment['time'] ?? 'now',
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  color: AppColors.textSecondary,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            comment['content'] ?? '',
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              color: AppColors.textPrimary,
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ),
                                   ],
                                 ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  comment['content'],
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: AppColors.textPrimary,
-                                  ),
-                                ),
-                              ],
-                            ),
+                              );
+                            },
                           ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
               ),
               
               // Comment input
@@ -1960,22 +2184,33 @@ class _CommentsModalState extends State<CommentsModal> {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    GestureDetector(
-                      onTap: _addComment,
-                      child: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary,
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          Icons.send,
-                          color: AppColors.white,
-                          size: 16,
+                                          const SizedBox(width: 8),
+                      GestureDetector(
+                        onTap: _isSubmittingComment ? null : _addComment,
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: _isSubmittingComment
+                                ? AppColors.primary.withOpacity(0.5)
+                                : AppColors.primary,
+                            shape: BoxShape.circle,
+                          ),
+                          child: _isSubmittingComment
+                              ? SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: const AlwaysStoppedAnimation<Color>(AppColors.white),
+                                  ),
+                                )
+                              : Icon(
+                                  Icons.send,
+                                  color: AppColors.white,
+                                  size: 16,
+                                ),
                         ),
                       ),
-                    ),
                   ],
                 ),
               ),
@@ -1986,23 +2221,7 @@ class _CommentsModalState extends State<CommentsModal> {
     );
   }
 
-  void _addComment() {
-    if (_commentController.text.trim().isNotEmpty) {
-      final authService = Provider.of<AuthService>(context, listen: false);
-      final currentUser = authService.userModel;
-      
-      setState(() {
-        _comments.insert(0, {
-          'id': DateTime.now().millisecondsSinceEpoch.toString(),
-          'name': currentUser?.fullName ?? 'User',
-          'avatar': currentUser?.fullName?.isNotEmpty == true ? currentUser!.fullName[0].toUpperCase() : 'U',
-          'content': _commentController.text.trim(),
-          'time': 'now',
-        });
-      });
-      _commentController.clear();
-    }
-  }
+
 
   @override
   void dispose() {
@@ -2165,6 +2384,280 @@ class _ShareOption extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+// Retryable Network Image Widget with automatic retry logic and optimization
+class _RetryableNetworkImage extends StatefulWidget {
+  final String imageUrl;
+  final double? width;
+  final double? height;
+  final BoxFit fit;
+
+  const _RetryableNetworkImage({
+    required this.imageUrl,
+    this.width,
+    this.height,
+    this.fit = BoxFit.cover,
+  });
+
+  @override
+  State<_RetryableNetworkImage> createState() => _RetryableNetworkImageState();
+}
+
+class _RetryableNetworkImageState extends State<_RetryableNetworkImage> {
+  int _attemptKey = 0;
+  static const int _maxRetries = 3;
+  bool _hasError = false;
+  bool _isRetrying = false;
+  bool _hasScheduledRetry = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Pre-cache image after first frame for better performance
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _precacheImage();
+      }
+    });
+  }
+
+  Future<void> _precacheImage() async {
+    if (!mounted) return;
+    try {
+      final imageProvider = NetworkImage(widget.imageUrl);
+      await precacheImage(imageProvider, context);
+    } catch (e) {
+      // Ignore precache errors, let the image widget handle loading
+      debugPrint('Precache failed for ${widget.imageUrl}: $e');
+    }
+  }
+
+  void _retry() {
+    setState(() {
+      _attemptKey = 0;
+      _hasError = false;
+      _isRetrying = false;
+      _hasScheduledRetry = false;
+    });
+    _precacheImage();
+  }
+
+  void _scheduleRetry() {
+    if (_hasScheduledRetry || _attemptKey >= _maxRetries) {
+      if (_attemptKey >= _maxRetries && mounted) {
+        setState(() {
+          _hasError = true;
+          _isRetrying = false;
+        });
+      }
+      return;
+    }
+
+    _hasScheduledRetry = true;
+    final currentAttempt = _attemptKey + 1;
+    final delaySeconds = currentAttempt;
+    
+    debugPrint('RetryableNetworkImage: Failed to load ${widget.imageUrl} (attempt $currentAttempt/$_maxRetries), retrying in ${delaySeconds}s...');
+    
+    if (mounted) {
+      setState(() {
+        _isRetrying = true;
+      });
+    }
+    
+    Future.delayed(Duration(seconds: delaySeconds), () {
+      if (mounted) {
+        setState(() {
+          _attemptKey = currentAttempt;
+          _isRetrying = false;
+          _hasScheduledRetry = false;
+        });
+      }
+    });
+  }
+
+  Widget _buildLoadingContainer() {
+    return Container(
+      width: widget.width,
+      height: widget.height,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            AppColors.grey700.withOpacity(0.6),
+            AppColors.grey50.withOpacity(0.4),
+          ],
+        ),
+      ),
+      child: Center(
+        child: CircularProgressIndicator(
+          color: AppColors.primary,
+          strokeWidth: 3,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildErrorContainer({String? retryText}) {
+    return Container(
+      width: widget.width,
+      height: widget.height,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            AppColors.grey700.withOpacity(0.6),
+            AppColors.grey50.withOpacity(0.4),
+          ],
+        ),
+      ),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.broken_image_outlined,
+              size: 60,
+              color: AppColors.grey400,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              retryText ?? 'Failed to load image',
+              style: TextStyle(
+                color: AppColors.grey500,
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            if (_attemptKey >= _maxRetries) ...[
+              const SizedBox(height: 12),
+              GestureDetector(
+                onTap: _retry,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: AppColors.primary.withOpacity(0.5),
+                      width: 1,
+                    ),
+                  ),
+                  child: Text(
+                    'Retry',
+                    style: TextStyle(
+                      color: AppColors.primary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Show error state if all retries exhausted
+    if (_hasError && _attemptKey >= _maxRetries) {
+      return _buildErrorContainer();
+    }
+
+    // If we're retrying, show loading indicator
+    if (_isRetrying || (_attemptKey > 0 && _attemptKey < _maxRetries)) {
+      return _buildLoadingContainer();
+    }
+
+                   // Use optimized NetworkImage with caching and proper configuration
+      // Helper function to safely convert to int for caching
+      int? _safeToInt(double? value) {
+        if (value == null) return null;
+        if (!value.isFinite || value.isNaN || value <= 0) return null;
+        try {
+          return value.toInt();
+        } catch (e) {
+          return null;
+        }
+      }
+      
+      return Image.network(
+        widget.imageUrl,
+        key: ValueKey('${widget.imageUrl}_$_attemptKey'), // Key changes on retry to force reload
+        width: widget.width,
+        height: widget.height,
+        fit: widget.fit,
+        // Enable caching for better performance - safely convert to int only if valid
+        cacheWidth: _safeToInt(widget.width),
+        cacheHeight: _safeToInt(widget.height),
+        // Optimize image loading
+        filterQuality: FilterQuality.medium,
+      loadingBuilder: (context, child, loadingProgress) {
+        if (loadingProgress == null) {
+          // Image loaded successfully
+          if (_attemptKey > 0) {
+            // Reset retry state on successful load
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                setState(() {
+                  _attemptKey = 0;
+                  _hasError = false;
+                  _isRetrying = false;
+                  _hasScheduledRetry = false;
+                });
+              }
+            });
+          }
+          return child;
+        }
+        return _buildLoadingContainer();
+      },
+      errorBuilder: (context, error, stackTrace) {
+        debugPrint('Image load error for ${widget.imageUrl}: $error');
+        
+        // Schedule retry if we haven't exceeded max retries and not already retrying
+        if (!_hasScheduledRetry && _attemptKey < _maxRetries) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              _scheduleRetry();
+            }
+          });
+        } else if (_attemptKey >= _maxRetries) {
+          // All retries exhausted
+          if (mounted) {
+            setState(() {
+              _hasError = true;
+              _isRetrying = false;
+            });
+          }
+        }
+        
+        // Show loading indicator while retrying
+        if (_isRetrying || (_attemptKey > 0 && _attemptKey < _maxRetries)) {
+          return _buildLoadingContainer();
+        }
+        
+        // Show error state
+        return _buildErrorContainer();
+      },
+      // Add frame builder for smoother transitions
+      frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+        if (wasSynchronouslyLoaded) return child;
+        return AnimatedOpacity(
+          opacity: frame == null ? 0 : 1,
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOut,
+          child: child,
+        );
+      },
     );
   }
 }

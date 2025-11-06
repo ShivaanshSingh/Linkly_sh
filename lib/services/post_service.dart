@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -12,6 +13,13 @@ class PostService extends ChangeNotifier {
   List<PostModel> _posts = [];
   bool _isLoading = false;
   String? _error;
+  bool _isLoadingPosts = false; // Flag to prevent multiple simultaneous calls
+  
+  // Performance optimization: Cache and debounce
+  Timer? _debounceTimer;
+  DateTime? _lastPostsLoad;
+  String? _lastUserId;
+  static const _postsCacheDuration = Duration(minutes: 2);
 
   PostService() {
     try {
@@ -33,125 +41,173 @@ class PostService extends ChangeNotifier {
   String? get error => _error;
 
   // Get posts from user and their connections only
-  Future<void> getPosts({String? currentUserId}) async {
-    if (!_isFirebaseAvailable) {
-      _loadMockPosts();
+  Future<void> getPosts({String? currentUserId, bool forceRefresh = false}) async {
+    // Prevent multiple simultaneous calls
+    if (_isLoadingPosts) {
+      debugPrint('PostService: getPosts already in progress, skipping...');
       return;
     }
     
-    try {
-      _setLoading(true);
-      _error = null;
-      
-      debugPrint('PostService: Fetching posts for user: $currentUserId');
-      
-      if (currentUserId == null) {
-        debugPrint('PostService: No current user, loading empty feed');
-        _posts = [];
-        notifyListeners();
-        return;
-      }
+    // Check cache if not forcing refresh
+    if (!forceRefresh && 
+        currentUserId == _lastUserId &&
+        _lastPostsLoad != null && 
+        DateTime.now().difference(_lastPostsLoad!) < _postsCacheDuration &&
+        _posts.isNotEmpty) {
+      debugPrint('PostService: Using cached posts');
+      return;
+    }
+    
+    _isLoadingPosts = true;
+    
+    if (!_isFirebaseAvailable) {
+      _loadMockPosts();
+      _isLoadingPosts = false;
+      return;
+    }
+    
+    _setLoading(true);
+    _error = null;
+    
+    debugPrint('PostService: Fetching posts for user: $currentUserId');
+    
+    if (currentUserId == null) {
+      debugPrint('PostService: No current user, loading empty feed');
+      _posts = [];
+      _setLoading(false);
+      _isLoadingPosts = false;
+      notifyListeners();
+      return;
+    }
 
-      // Get user's connections
-      final connectionsSnapshot = await _firestore!
-          .collection('connections')
-          .where('userId', isEqualTo: currentUserId)
-          .get();
+    // Retry logic for loading posts
+    const maxRetries = 3;
+    int retryCount = 0;
+    bool success = false;
 
-      List<String> connectionUserIds = connectionsSnapshot.docs
-          .map((doc) {
-            final data = doc.data() as Map<String, dynamic>;
-            final dynamic raw = data['contactUserId'];
-            return raw is String && raw.isNotEmpty ? raw : null;
-          })
-          .whereType<String>()
-          .toList();
+    while (retryCount < maxRetries && !success) {
+      try {
+        // Get user's connections
+        final connectionsSnapshot = await _firestore!
+            .collection('connections')
+            .where('userId', isEqualTo: currentUserId)
+            .get();
 
-      // Add current user to the list so they see their own posts
-      connectionUserIds.add(currentUserId);
+        List<String> connectionUserIds = connectionsSnapshot.docs
+            .map((doc) {
+              final data = doc.data() as Map<String, dynamic>;
+              final dynamic raw = data['contactUserId'];
+              return raw is String && raw.isNotEmpty ? raw : null;
+            })
+            .whereType<String>()
+            .toList();
 
-      debugPrint('PostService: Found ${connectionUserIds.length} users to fetch posts from');
+        // Add current user to the list so they see their own posts
+        connectionUserIds.add(currentUserId);
 
-      // Get posts from user and their connections (without orderBy to avoid index issues)
-      List<PostModel> allPosts = [];
-      
-      // Get user's own posts
-      final userPostsSnapshot = await _firestore!
-          .collection(_collection)
-          .where('userId', isEqualTo: currentUserId)
-          .get();
-      
-      allPosts.addAll(userPostsSnapshot.docs
-          .map((doc) => PostModel.fromFirestore(doc))
-          .toList());
-      
-      // Get posts from each connection individually to avoid whereIn + orderBy index issues
-      for (String connectionId in connectionUserIds) {
-        if (connectionId != currentUserId) {
+        debugPrint('PostService: Found ${connectionUserIds.length} users to fetch posts from');
+
+        // Optimized: Fetch latest post for each user in parallel
+        // Use individual queries with limit(1) to minimize data transfer and ensure we only get the latest post
+        List<Future<PostModel?>> postFutures = connectionUserIds.map((userId) async {
           try {
-            final connectionPostsSnapshot = await _firestore!
+            // Fetch only the latest post for this user
+            final userPostsSnapshot = await _firestore!
                 .collection(_collection)
-                .where('userId', isEqualTo: connectionId)
+                .where('userId', isEqualTo: userId)
+                .orderBy('createdAt', descending: true)
+                .limit(1)
                 .get();
             
-            allPosts.addAll(connectionPostsSnapshot.docs
-                .map((doc) => PostModel.fromFirestore(doc))
-                .toList());
+            if (userPostsSnapshot.docs.isNotEmpty) {
+              return PostModel.fromFirestore(userPostsSnapshot.docs.first);
+            }
+            return null;
           } catch (e) {
-            debugPrint('PostService: Error fetching posts for connection $connectionId: $e');
-            // Continue with other connections even if one fails
+            // If orderBy fails (e.g., missing index), try without orderBy and get all posts, then filter
+            try {
+              debugPrint('PostService: orderBy failed for user $userId, trying without orderBy: $e');
+              final userPostsSnapshot = await _firestore!
+                  .collection(_collection)
+                  .where('userId', isEqualTo: userId)
+                  .get();
+              
+              if (userPostsSnapshot.docs.isNotEmpty) {
+                // Find the latest post manually
+                PostModel? latestPost;
+                for (var doc in userPostsSnapshot.docs) {
+                  final post = PostModel.fromFirestore(doc);
+                  if (latestPost == null || post.createdAt.isAfter(latestPost.createdAt)) {
+                    latestPost = post;
+                  }
+                }
+                return latestPost;
+              }
+            } catch (fallbackError) {
+              debugPrint('PostService: Error fetching posts for user $userId: $fallbackError');
+            }
+            return null;
           }
-        }
-      }
-      
-      // Group posts by userId and keep only the latest post from each user
-      Map<String, PostModel> latestPostsByUser = {};
-      for (var post in allPosts) {
-        if (!latestPostsByUser.containsKey(post.userId) || 
-            post.createdAt.isAfter(latestPostsByUser[post.userId]!.createdAt)) {
-          latestPostsByUser[post.userId] = post;
-        }
-      }
-      
-      // Convert map to list and sort by creation date (newest first)
-      List<PostModel> filteredPosts = latestPostsByUser.values.toList();
-      filteredPosts.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-      
-      _posts = filteredPosts;
+        }).toList();
+        
+        // Wait for all queries to complete in parallel
+        final postResults = await Future.wait(postFutures);
+        
+        // Filter out nulls and sort by creation date (newest first)
+        _posts = postResults
+            .whereType<PostModel>()
+            .toList()
+          ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
-      debugPrint('PostService: Loaded ${_posts.length} latest posts (one per user) from user and connections');
-      notifyListeners();
-    } catch (e) {
-      _error = e.toString();
-      debugPrint('PostService: Error fetching posts: $e');
-      
-      // Fallback: try to get user's own posts only (only latest one)
-      if (currentUserId != null) {
-        try {
-          final userPostsSnapshot = await _firestore!
-              .collection(_collection)
-              .where('userId', isEqualTo: currentUserId)
-              .orderBy('createdAt', descending: true)
-              .limit(1)
-              .get();
+        debugPrint('PostService: Loaded ${_posts.length} latest posts (one per user) from user and connections');
+        _lastPostsLoad = DateTime.now();
+        _lastUserId = currentUserId;
+        success = true;
+        // Don't notify here - we'll notify at the end after setting loading to false
+      } catch (e) {
+        retryCount++;
+        final isTransient = _isTransientError(e);
 
-          _posts = userPostsSnapshot.docs
-              .map((doc) => PostModel.fromFirestore(doc))
-              .toList();
+        if (isTransient && retryCount < maxRetries) {
+          // Transient error - retry with exponential backoff
+          final delaySeconds = retryCount;
+          debugPrint('PostService: Transient error fetching posts (attempt $retryCount/$maxRetries), retrying in ${delaySeconds}s...');
+          await Future.delayed(Duration(seconds: delaySeconds));
+          continue; // Retry
+        } else {
+          // Non-transient error or max retries reached
+          _error = e.toString();
+          debugPrint('PostService: Error fetching posts: $e');
           
-          debugPrint('PostService: Fallback loaded ${_posts.length} latest user post');
-        } catch (fallbackError) {
-          debugPrint('PostService: Fallback also failed: $fallbackError');
-          _posts = [];
+          // Fallback: try to get user's own posts only (only latest one)
+          try {
+            final userPostsSnapshot = await _firestore!
+                .collection(_collection)
+                .where('userId', isEqualTo: currentUserId)
+                .orderBy('createdAt', descending: true)
+                .limit(1)
+                .get();
+
+            _posts = userPostsSnapshot.docs
+                .map((doc) => PostModel.fromFirestore(doc))
+                .toList();
+            
+            debugPrint('PostService: Fallback loaded ${_posts.length} latest user post');
+            _error = null; // Clear error if fallback succeeds
+          } catch (fallbackError) {
+            debugPrint('PostService: Fallback also failed: $fallbackError');
+            _posts = [];
+          }
+          
+          // Don't notify here - we'll notify at the end after setting loading to false
+          break; // Exit retry loop
         }
-      } else {
-        _posts = [];
       }
-      
-      notifyListeners();
-    } finally {
-      _setLoading(false);
     }
+    
+    _setLoading(false);
+    _isLoadingPosts = false;
+    notifyListeners(); // Notify once at the end with final state
   }
 
   void _loadMockPosts() {
@@ -331,7 +387,18 @@ class PostService extends ChangeNotifier {
     }
   }
 
-  // Like/Unlike a post
+  // Helper method to check if error is a network/transient error
+  bool _isTransientError(dynamic error) {
+    final errorString = error.toString().toLowerCase();
+    return errorString.contains('unavailable') ||
+           errorString.contains('network') ||
+           errorString.contains('timeout') ||
+           errorString.contains('connection') ||
+           errorString.contains('socket') ||
+           errorString.contains('host');
+  }
+
+  // Like/Unlike a post with retry logic
   Future<bool> toggleLike(String postId, String userId) async {
     // Find the post index first
     final postIndex = _posts.indexWhere((post) => post.id == postId);
@@ -364,44 +431,66 @@ class PostService extends ChangeNotifier {
       return true;
     }
     
-    // Sync with Firestore in the background
-    try {
-      debugPrint('PostService: Toggling like for post: $postId, user: $userId');
-      
-      final postRef = _firestore!.collection(_collection).doc(postId);
-      
-      await _firestore!.runTransaction((transaction) async {
-        final postDoc = await transaction.get(postRef);
+    // Sync with Firestore in the background with retry logic
+    const maxRetries = 3;
+    int retryCount = 0;
+    
+    while (retryCount < maxRetries) {
+      try {
+        debugPrint('PostService: Toggling like for post: $postId, user: $userId (attempt ${retryCount + 1}/$maxRetries)');
         
-        if (!postDoc.exists) {
-          throw Exception('Post not found');
-        }
+        final postRef = _firestore!.collection(_collection).doc(postId);
         
-        final postData = postDoc.data()!;
-        final List<String> likes = List<String>.from(postData['likes'] ?? []);
-        
-        if (isCurrentlyLiked) {
-          likes.remove(userId);
-        } else {
-          likes.add(userId);
-        }
-        
-        transaction.update(postRef, {
-          'likes': likes,
-          'updatedAt': FieldValue.serverTimestamp(),
+        await _firestore!.runTransaction((transaction) async {
+          final postDoc = await transaction.get(postRef);
+          
+          if (!postDoc.exists) {
+            throw Exception('Post not found');
+          }
+          
+          final postData = postDoc.data()!;
+          final List<String> likes = List<String>.from(postData['likes'] ?? []);
+          
+          if (isCurrentlyLiked) {
+            likes.remove(userId);
+          } else {
+            likes.add(userId);
+          }
+          
+          transaction.update(postRef, {
+            'likes': likes,
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
         });
-      });
-      
-      debugPrint('PostService: Like toggled successfully');
-      return true;
-    } catch (e) {
-      // Revert optimistic update on error
-      debugPrint('PostService: Error toggling like, reverting: $e');
-      _posts[postIndex] = post; // Revert to original state
-      notifyListeners();
-      _error = e.toString();
-      return false;
+        
+        debugPrint('PostService: Like toggled successfully');
+        return true;
+      } catch (e) {
+        retryCount++;
+        final isTransient = _isTransientError(e);
+        
+        // If it's a transient error and we have retries left, wait and retry
+        if (isTransient && retryCount < maxRetries) {
+          final delaySeconds = retryCount; // Exponential backoff: 1s, 2s, 3s
+          debugPrint('PostService: Transient error (attempt $retryCount/$maxRetries), retrying in ${delaySeconds}s...');
+          await Future.delayed(Duration(seconds: delaySeconds));
+          continue; // Retry
+        } else {
+          // Non-transient error or max retries reached, revert and fail
+          debugPrint('PostService: Error toggling like, reverting: $e');
+          _posts[postIndex] = post; // Revert to original state
+          notifyListeners();
+          _error = e.toString();
+          return false;
+        }
+      }
     }
+    
+    // Should never reach here, but just in case
+    debugPrint('PostService: Max retries reached, reverting like');
+    _posts[postIndex] = post; // Revert to original state
+    notifyListeners();
+    return false;
   }
 
   // Share a post
@@ -641,8 +730,19 @@ class PostService extends ChangeNotifier {
   }
 
   void _setLoading(bool loading) {
+    if (_isLoading == loading) return; // Avoid unnecessary updates
     _isLoading = loading;
-    notifyListeners();
+    // Debounce notifyListeners for better performance
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 50), () {
+      notifyListeners();
+    });
+  }
+  
+  @override
+  void dispose() {
+    _debounceTimer?.cancel();
+    super.dispose();
   }
 
   void clearError() {
@@ -651,71 +751,106 @@ class PostService extends ChangeNotifier {
   }
 
   // Create a new post
-  Future<String?> createNewPost({
-    required String content,
-    String? imagePath,
-    required String userId,
-    required String userName,
-    String? userProfileImageUrl,
-  }) async {
-    try {
-      _setLoading(true);
-      _error = null;
-      debugPrint('PostService: Creating new post for user: $userName');
+    Future<String?> createNewPost({
+      required String content,
+      String? imagePath,
+      required String userId,
+      required String userName,
+      String? userProfileImageUrl,
+    }) async {
+      try {
+        _setLoading(true);
+        _error = null;
+        debugPrint('PostService: Creating new post for user: $userName');
 
-      String? imageUrl;
-      
-      // Upload image if provided
-      if (imagePath != null && imagePath.isNotEmpty) {
-        debugPrint('PostService: Uploading image...');
-        imageUrl = await _uploadPostImage(imagePath, userId);
-        if (imageUrl == null) {
-          debugPrint('PostService: Image upload failed, continuing without image');
+        String? imageUrl;
+        
+        // Upload image if provided (with retry logic already implemented)
+        if (imagePath != null && imagePath.isNotEmpty) {
+          debugPrint('PostService: Uploading image...');
+          imageUrl = await _uploadPostImage(imagePath, userId);
+          if (imageUrl == null) {
+            debugPrint('PostService: Image upload failed, continuing without image');
+          }
         }
+
+        final postId = DateTime.now().millisecondsSinceEpoch.toString();
+        final now = DateTime.now();
+        final post = PostModel(
+          id: postId,
+          userId: userId,
+          userName: userName,
+          userAvatar: userProfileImageUrl ?? (userName.isNotEmpty ? userName[0].toUpperCase() : 'U'),
+          content: content,
+          imageUrl: imageUrl,
+          likes: [],
+          shares: [],
+          commentsCount: 0,
+          createdAt: now,
+          updatedAt: now,
+        );
+
+        if (_isFirebaseAvailable && _firestore != null) {
+          // Save to Firestore with retry logic
+          const maxRetries = 3;
+          int retryCount = 0;
+          bool success = false;
+          
+          while (retryCount < maxRetries && !success) {
+            try {
+              debugPrint('PostService: Saving to Firestore... (attempt ${retryCount + 1}/$maxRetries)');
+              
+              // Add timeout to Firestore operation
+              await _firestore!.collection(_collection).doc(postId).set(post.toFirestore()).timeout(
+                const Duration(seconds: 15),
+                onTimeout: () {
+                  throw Exception('Firestore save timeout');
+                },
+              );
+              
+              debugPrint('PostService: Post saved to Firestore successfully');
+              success = true;
+            } catch (e) {
+              retryCount++;
+              final isTransient = _isTransientError(e);
+              
+              if (isTransient && retryCount < maxRetries) {
+                final delaySeconds = retryCount;
+                debugPrint('PostService: Transient error saving post (attempt $retryCount/$maxRetries), retrying in ${delaySeconds}s...');
+                await Future.delayed(Duration(seconds: delaySeconds));
+                continue; // Retry
+              } else {
+                // Non-transient error or max retries reached
+                debugPrint('PostService: Error saving post to Firestore: $e');
+                throw e; // Re-throw to be caught by outer catch
+              }
+            }
+          }
+          
+          if (!success) {
+            throw Exception('Failed to save post after $maxRetries attempts');
+          }
+        } else {
+          // Add to mock posts
+          debugPrint('PostService: Adding to mock posts...');
+          _posts.insert(0, post);
+          debugPrint('PostService: Post added to mock posts successfully');
+        }
+
+        notifyListeners();
+        debugPrint('PostService: Post creation completed successfully');
+        return postId;
+      } catch (e) {
+        debugPrint('PostService: Error creating post: $e');
+        _error = 'Failed to create post: ${e.toString()}';
+        notifyListeners();
+        return null;
+      } finally {
+        _setLoading(false);
       }
-
-      final postId = DateTime.now().millisecondsSinceEpoch.toString();
-      final now = DateTime.now();
-      final post = PostModel(
-        id: postId,
-        userId: userId,
-        userName: userName,
-        userAvatar: userProfileImageUrl ?? (userName.isNotEmpty ? userName[0].toUpperCase() : 'U'),
-        content: content,
-        imageUrl: imageUrl,
-        likes: [],
-        shares: [],
-        commentsCount: 0,
-        createdAt: now,
-        updatedAt: now,
-      );
-
-      if (_isFirebaseAvailable && _firestore != null) {
-        // Save to Firestore
-        debugPrint('PostService: Saving to Firestore...');
-        await _firestore!.collection(_collection).doc(postId).set(post.toFirestore());
-        debugPrint('PostService: Post saved to Firestore successfully');
-      } else {
-        // Add to mock posts
-        debugPrint('PostService: Adding to mock posts...');
-        _posts.insert(0, post);
-        debugPrint('PostService: Post added to mock posts successfully');
-      }
-
-      notifyListeners();
-      debugPrint('PostService: Post creation completed successfully');
-      return postId;
-    } catch (e) {
-      debugPrint('PostService: Error creating post: $e');
-      _error = 'Failed to create post: ${e.toString()}';
-      notifyListeners();
-      return null;
-    } finally {
-      _setLoading(false);
     }
-  }
 
-  // Upload post image to Firebase Storage
+  // Upload post image to Firebase Storage with retry logic and timeout
   Future<String?> _uploadPostImage(String imagePath, String userId) async {
     if (!_isFirebaseAvailable) {
       // Return a mock URL for demonstration
@@ -723,25 +858,61 @@ class PostService extends ChangeNotifier {
       return 'https://via.placeholder.com/400x300?text=Post+Image';
     }
     
-    try {
-      final file = File(imagePath);
-      final fileName = 'post_${DateTime.now().millisecondsSinceEpoch}.jpg';
-      final ref = FirebaseStorage.instance
-          .ref()
-          .child('post_images')
-          .child(userId)
-          .child(fileName);
+    const maxRetries = 3;
+    int retryCount = 0;
+    
+    while (retryCount < maxRetries) {
+      try {
+        final file = File(imagePath);
+        if (!await file.exists()) {
+          debugPrint('PostService: Image file not found: $imagePath');
+          return null;
+        }
+        
+        final fileName = 'post_${DateTime.now().millisecondsSinceEpoch}.jpg';
+        final ref = FirebaseStorage.instance
+            .ref()
+            .child('post_images')
+            .child(userId)
+            .child(fileName);
 
-      await ref.putFile(file);
-      final downloadUrl = await ref.getDownloadURL();
-      
-      debugPrint('PostService: Image uploaded successfully');
-      return downloadUrl;
-    } catch (e) {
-      debugPrint('PostService: Error uploading image: $e');
-      // Return a mock URL as fallback
-      return 'https://via.placeholder.com/400x300?text=Post+Image';
+        // Add timeout to upload operation
+        await ref.putFile(file).timeout(
+          const Duration(seconds: 30),
+          onTimeout: () {
+            throw Exception('Image upload timeout');
+          },
+        );
+        
+        // Add timeout to get download URL
+        final downloadUrl = await ref.getDownloadURL().timeout(
+          const Duration(seconds: 10),
+          onTimeout: () {
+            throw Exception('Get download URL timeout');
+          },
+        );
+        
+        debugPrint('PostService: Image uploaded successfully');
+        return downloadUrl;
+      } catch (e) {
+        retryCount++;
+        final isTransient = _isTransientError(e);
+        
+        if (isTransient && retryCount < maxRetries) {
+          final delaySeconds = retryCount;
+          debugPrint('PostService: Transient error uploading image (attempt $retryCount/$maxRetries), retrying in ${delaySeconds}s...');
+          await Future.delayed(Duration(seconds: delaySeconds));
+          continue; // Retry
+        } else {
+          debugPrint('PostService: Error uploading image: $e');
+          // Don't return mock URL on failure - return null so post can still be created without image
+          return null;
+        }
+      }
     }
+    
+    debugPrint('PostService: Max retries reached for image upload');
+    return null;
   }
 
   // Delete a post

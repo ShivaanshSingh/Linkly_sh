@@ -1,9 +1,23 @@
+import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/connection_request_model.dart';
 import '../models/connection_model.dart';
 
 class ConnectionRequestService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  
+  // Performance optimization: Cache connection checks
+  final Map<String, bool> _connectionCache = {};
+  final Map<String, DateTime> _cacheTimestamps = {};
+  static const _cacheDuration = Duration(minutes: 5);
+  
+  void _invalidateCache() {
+    final now = DateTime.now();
+    _cacheTimestamps.removeWhere((key, timestamp) => 
+      now.difference(timestamp) > _cacheDuration);
+    _connectionCache.removeWhere((key, _) => 
+      !_cacheTimestamps.containsKey(key));
+  }
 
   // Send a connection request
   Future<String> sendConnectionRequest({
@@ -16,23 +30,36 @@ class ConnectionRequestService {
     String? message,
   }) async {
     try {
+      // Check cache first
+      _invalidateCache();
+      final cacheKey = '${senderId}_$receiverId';
+      if (_connectionCache.containsKey(cacheKey) && _connectionCache[cacheKey] == true) {
+        throw Exception('Users are already connected');
+      }
+      
       // Check if users are already connected
       final existingConnection = await _firestore
           .collection('connections')
           .where('userId', isEqualTo: senderId)
           .where('contactUserId', isEqualTo: receiverId)
+          .limit(1)
           .get();
 
-      if (existingConnection.docs.isNotEmpty) {
+      final isConnected = existingConnection.docs.isNotEmpty;
+      _connectionCache[cacheKey] = isConnected;
+      _cacheTimestamps[cacheKey] = DateTime.now();
+      
+      if (isConnected) {
         throw Exception('Users are already connected');
       }
 
-      // Check if there's already a pending request
+      // Check if there's already a pending request (with limit for performance)
       final existingRequest = await _firestore
           .collection('connection_requests')
           .where('senderId', isEqualTo: senderId)
           .where('receiverId', isEqualTo: receiverId)
           .where('status', isEqualTo: 'pending')
+          .limit(1)
           .get();
 
       if (existingRequest.docs.isNotEmpty) {
@@ -115,12 +142,14 @@ class ConnectionRequestService {
         'respondedAt': Timestamp.fromDate(now),
       });
 
-      // Get user data for email
-      final senderUser = await _firestore.collection('users').doc(request.senderId).get();
-      final receiverUser = await _firestore.collection('users').doc(request.receiverId).get();
+      // Get user data for email (batch fetch for better performance)
+      final userDocs = await Future.wait([
+        _firestore.collection('users').doc(request.senderId).get(),
+        _firestore.collection('users').doc(request.receiverId).get(),
+      ]);
       
-      final senderEmail = senderUser.exists ? senderUser.data()!['email'] ?? '' : '';
-      final receiverEmail = receiverUser.exists ? receiverUser.data()!['email'] ?? '' : '';
+      final senderEmail = userDocs[0].exists ? userDocs[0].data()!['email'] ?? '' : '';
+      final receiverEmail = userDocs[1].exists ? userDocs[1].data()!['email'] ?? '' : '';
 
       // Create deterministic connection IDs (consistent with QR scanner)
       final connection1Id = '${request.senderId}_${request.receiverId}';
@@ -287,18 +316,22 @@ class ConnectionRequestService {
       final userId = connectionData['userId'];
       final contactUserId = connectionData['contactUserId'];
 
-      // Find and delete both connection records (bidirectional)
-      final connections = await _firestore
+      // Find and delete both connection records (bidirectional) - optimized with parallel queries
+      final connectionsFuture = _firestore
           .collection('connections')
           .where('userId', isEqualTo: userId)
           .where('contactUserId', isEqualTo: contactUserId)
           .get();
 
-      final reverseConnections = await _firestore
+      final reverseConnectionsFuture = _firestore
           .collection('connections')
           .where('userId', isEqualTo: contactUserId)
           .where('contactUserId', isEqualTo: userId)
           .get();
+      
+      final results = await Future.wait([connectionsFuture, reverseConnectionsFuture]);
+      final connections = results[0];
+      final reverseConnections = results[1];
 
       // Delete all related connections
       final batch = _firestore.batch();
@@ -320,18 +353,22 @@ class ConnectionRequestService {
   // Remove connection by user IDs
   Future<void> removeConnectionByUserIds(String userId, String contactUserId) async {
     try {
-      // Find connections between these two users
-      final connections = await _firestore
+      // Find connections between these two users - optimized with parallel queries
+      final connectionsFuture = _firestore
           .collection('connections')
           .where('userId', isEqualTo: userId)
           .where('contactUserId', isEqualTo: contactUserId)
           .get();
 
-      final reverseConnections = await _firestore
+      final reverseConnectionsFuture = _firestore
           .collection('connections')
           .where('userId', isEqualTo: contactUserId)
           .where('contactUserId', isEqualTo: userId)
           .get();
+      
+      final results = await Future.wait([connectionsFuture, reverseConnectionsFuture]);
+      final connections = results[0];
+      final reverseConnections = results[1];
 
       // Delete all related connections
       final batch = _firestore.batch();

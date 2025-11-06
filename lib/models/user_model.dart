@@ -12,6 +12,8 @@ class UserModel {
   final String? bio;
   final String? phoneNumber;
   final String accountType;
+  final String phoneNumberPrivacy; // 'connections_only', 'private', 'custom'
+  final List<String> allowedPhoneViewers; // List of user IDs who can see phone number when privacy is 'custom'
   final DateTime createdAt;
   final DateTime lastSeen;
   final bool isOnline;
@@ -29,6 +31,8 @@ class UserModel {
     this.bio,
     this.phoneNumber,
     this.accountType = 'Public',
+    this.phoneNumberPrivacy = 'connections_only',
+    this.allowedPhoneViewers = const [],
     required this.createdAt,
     required this.lastSeen,
     this.isOnline = false,
@@ -37,6 +41,27 @@ class UserModel {
   });
 
   factory UserModel.fromMap(Map<String, dynamic> map) {
+    // Safe timestamp conversion
+    DateTime safeCreatedAt;
+    final dynamic createdAt = map['createdAt'];
+    if (createdAt is Timestamp) {
+      safeCreatedAt = createdAt.toDate();
+    } else if (createdAt is DateTime) {
+      safeCreatedAt = createdAt;
+    } else {
+      safeCreatedAt = DateTime.now();
+    }
+    
+    DateTime safeLastSeen;
+    final dynamic lastSeen = map['lastSeen'];
+    if (lastSeen is Timestamp) {
+      safeLastSeen = lastSeen.toDate();
+    } else if (lastSeen is DateTime) {
+      safeLastSeen = lastSeen;
+    } else {
+      safeLastSeen = DateTime.now();
+    }
+    
     return UserModel(
       uid: map['uid'] ?? '',
       email: map['email'] ?? '',
@@ -48,8 +73,10 @@ class UserModel {
       bio: map['bio'],
       phoneNumber: map['phoneNumber'],
       accountType: map['accountType'] ?? 'Public',
-      createdAt: (map['createdAt'] as Timestamp).toDate(),
-      lastSeen: (map['lastSeen'] as Timestamp).toDate(),
+      phoneNumberPrivacy: map['phoneNumberPrivacy'] ?? 'connections_only',
+      allowedPhoneViewers: List<String>.from(map['allowedPhoneViewers'] ?? const []),
+      createdAt: safeCreatedAt,
+      lastSeen: safeLastSeen,
       isOnline: map['isOnline'] ?? false,
       fcmToken: map['fcmToken'],
       socialLinks: _parseSocialLinks(map['socialLinks']),
@@ -69,6 +96,8 @@ class UserModel {
       bio: data['bio'],
       phoneNumber: data['phoneNumber'],
       accountType: data['accountType'] ?? 'Public',
+      phoneNumberPrivacy: data['phoneNumberPrivacy'] ?? 'connections_only',
+      allowedPhoneViewers: List<String>.from(data['allowedPhoneViewers'] ?? const []),
       createdAt: data['createdAt'] != null ? (data['createdAt'] as Timestamp).toDate() : DateTime.now(),
       lastSeen: data['lastSeen'] != null ? (data['lastSeen'] as Timestamp).toDate() : DateTime.now(),
       isOnline: data['isOnline'] ?? false,
@@ -89,6 +118,8 @@ class UserModel {
       'bio': bio,
       'phoneNumber': phoneNumber,
       'accountType': accountType,
+      'phoneNumberPrivacy': phoneNumberPrivacy,
+      'allowedPhoneViewers': allowedPhoneViewers,
       'createdAt': Timestamp.fromDate(createdAt),
       'lastSeen': Timestamp.fromDate(lastSeen),
       'isOnline': isOnline,
@@ -127,6 +158,8 @@ class UserModel {
     String? bio,
     String? phoneNumber,
     String? accountType,
+    String? phoneNumberPrivacy,
+    List<String>? allowedPhoneViewers,
     DateTime? createdAt,
     DateTime? lastSeen,
     bool? isOnline,
@@ -144,6 +177,8 @@ class UserModel {
       bio: bio ?? this.bio,
       phoneNumber: phoneNumber ?? this.phoneNumber,
       accountType: accountType ?? this.accountType,
+      phoneNumberPrivacy: phoneNumberPrivacy ?? this.phoneNumberPrivacy,
+      allowedPhoneViewers: allowedPhoneViewers ?? this.allowedPhoneViewers,
       createdAt: createdAt ?? this.createdAt,
       lastSeen: lastSeen ?? this.lastSeen,
       isOnline: isOnline ?? this.isOnline,

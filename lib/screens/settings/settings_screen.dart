@@ -44,7 +44,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() {});
   }
 
-
   void _showLogoutDialog(BuildContext context, AuthService authService) {
     showDialog(
       context: context,
@@ -313,12 +312,14 @@ class _SettingsSection extends StatelessWidget {
 class _SettingsTile extends StatelessWidget {
   final IconData icon;
   final String title;
+  final String? subtitle;
   final VoidCallback? onTap;
   final Color? textColor;
 
   const _SettingsTile({
     required this.icon,
     required this.title,
+    this.subtitle,
     this.onTap,
     this.textColor,
   });
@@ -337,6 +338,15 @@ class _SettingsTile extends StatelessWidget {
           fontWeight: FontWeight.w500,
         ),
       ),
+      subtitle: subtitle != null
+          ? Text(
+              subtitle!,
+              style: TextStyle(
+                color: AppColors.grey600,
+                fontSize: 12,
+              ),
+            )
+          : null,
       trailing: const Icon(
         Icons.chevron_right,
         color: AppColors.grey400,
@@ -392,4 +402,61 @@ class _SwitchSettingsTile extends StatelessWidget {
     );
   }
 }
+
+class _RadioSettingsTile extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final String value;
+  final String groupValue;
+  final ValueChanged<String> onChanged;
+
+  const _RadioSettingsTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.value,
+    required this.groupValue,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isSelected = value == groupValue;
+    return ListTile(
+      leading: Icon(
+        icon,
+        color: isSelected ? AppColors.primary : AppColors.grey600,
+      ),
+      title: Text(
+        title,
+        style: TextStyle(
+          color: isSelected ? AppColors.primary : AppColors.grey900,
+          fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+        ),
+      ),
+      subtitle: Text(
+        subtitle,
+        style: TextStyle(
+          color: AppColors.grey600,
+          fontSize: 12,
+        ),
+      ),
+      trailing: Radio<String>(
+        value: value,
+        groupValue: groupValue,
+        onChanged: (value) {
+          if (value != null) {
+            onChanged(value);
+          }
+        },
+        activeColor: AppColors.primary,
+      ),
+      onTap: () {
+        onChanged(value);
+      },
+    );
+  }
+}
+
 

@@ -89,18 +89,49 @@ class LinklyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => NotificationService()),
         ChangeNotifierProvider(create: (_) => PostService()),
       ],
-      child: Consumer<AuthService>(
-        builder: (context, authService, _) {
-          return MaterialApp.router(
-            title: 'Linkly',
-            debugShowCheckedModeBanner: false,
-            theme: AppTheme.darkTheme, // Always use dark theme for consistency
-            darkTheme: AppTheme.darkTheme,
-            themeMode: ThemeMode.dark, // Force dark mode to prevent system theme interference
-            routerConfig: _createRouter(authService),
-          );
-        },
-      ),
+      child: _RouterWrapper(),
+    );
+  }
+}
+
+class _RouterWrapper extends StatefulWidget {
+  @override
+  State<_RouterWrapper> createState() => _RouterWrapperState();
+}
+
+class _RouterWrapperState extends State<_RouterWrapper> {
+  late final GoRouter _router;
+  
+  @override
+  void initState() {
+    super.initState();
+    final authService = Provider.of<AuthService>(context, listen: false);
+    _router = _createRouter(authService);
+    
+    // Listen to auth changes and refresh router
+    authService.addListener(_onAuthChanged);
+  }
+  
+  void _onAuthChanged() {
+    _router.refresh();
+  }
+  
+  @override
+  void dispose() {
+    final authService = Provider.of<AuthService>(context, listen: false);
+    authService.removeListener(_onAuthChanged);
+    super.dispose();
+  }
+  
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp.router(
+      title: 'Linkly',
+      debugShowCheckedModeBanner: false,
+      theme: AppTheme.darkTheme,
+      darkTheme: AppTheme.darkTheme,
+      themeMode: ThemeMode.dark,
+      routerConfig: _router,
     );
   }
 }
@@ -112,9 +143,6 @@ GoRouter _createRouter(AuthService authService) {
       final bool isAuthenticated = authService.isAuthenticated;
       final bool isLoading = authService.isLoading;
       final String currentPath = state.uri.toString();
-
-      debugPrint('🔄 Router redirect: $currentPath');
-      debugPrint('🔄 Auth state: isAuthenticated=$isAuthenticated, isLoading=$isLoading');
 
       // Don't redirect if we're on splash screen or if loading
       if (currentPath == '/splash' || isLoading) {
@@ -133,7 +161,6 @@ GoRouter _createRouter(AuthService authService) {
       if (!isAuthenticated) {
         // If trying to access a protected route, redirect to onboarding
         if (!isAuthRoute) {
-          debugPrint('🔄 Not authenticated, redirecting to onboarding');
           return '/onboarding';
         }
         // If already on an auth route, allow it
@@ -143,7 +170,6 @@ GoRouter _createRouter(AuthService authService) {
       else {
         // If authenticated and on an auth route, redirect to home
         if (isAuthRoute) {
-          debugPrint('🔄 Authenticated, redirecting to home');
           return '/home';
         }
         // If authenticated and on a protected route, allow it
