@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'dart:ui';
 import '../../constants/app_colors.dart';
 import '../../services/connection_request_service.dart';
 import '../../services/auth_service.dart';
@@ -103,18 +104,18 @@ class _SearchUsersScreenState extends State<SearchUsersScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.white,
+      backgroundColor: AppColors.grey900,
       appBar: AppBar(
-        backgroundColor: AppColors.white,
+        backgroundColor: AppColors.grey900,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.grey900),
+          icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: const Text(
           'Search People',
           style: TextStyle(
-            color: AppColors.grey900,
+            color: AppColors.textPrimary,
             fontWeight: FontWeight.bold,
           ),
         ),
@@ -122,49 +123,87 @@ class _SearchUsersScreenState extends State<SearchUsersScreen> {
       body: Column(
         children: [
           // Search bar
-          Container(
+          Padding(
             padding: const EdgeInsets.all(16),
-            child: TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                hintText: 'Search by username...',
-                prefixIcon: const Icon(Icons.search, color: AppColors.grey500),
-                suffixIcon: _searchController.text.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear, color: AppColors.grey500),
-                        onPressed: () {
-                          _searchController.clear();
-                          setState(() {
-                            _searchResults = [];
-                            _error = null;
-                          });
-                        },
-                      )
-                    : null,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: AppColors.grey300),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: AppColors.grey300),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: AppColors.primary),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        const Color(0xFF1F295B).withOpacity(0.6),
+                        const Color(0xFF283B89).withOpacity(0.5),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: Colors.white.withOpacity(0.2),
+                      width: 1,
+                    ),
+                  ),
+                  child: TextField(
+                    controller: _searchController,
+                    style: const TextStyle(color: AppColors.textPrimary),
+                    decoration: InputDecoration(
+                      hintText: 'Search by username...',
+                      hintStyle: TextStyle(
+                        color: AppColors.textSecondary.withOpacity(0.7),
+                      ),
+                      prefixIcon: Icon(
+                        Icons.search,
+                        color: AppColors.textPrimary.withOpacity(0.7),
+                      ),
+                      suffixIcon: _searchController.text.isNotEmpty
+                          ? IconButton(
+                              icon: Icon(
+                                Icons.clear,
+                                color: AppColors.textPrimary.withOpacity(0.7),
+                              ),
+                              onPressed: () {
+                                _searchController.clear();
+                                setState(() {
+                                  _searchResults = [];
+                                  _error = null;
+                                });
+                              },
+                            )
+                          : null,
+                      filled: true,
+                      fillColor: Colors.transparent,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                          color: AppColors.primary.withOpacity(0.5),
+                          width: 1.5,
+                        ),
+                      ),
+                    ),
+                    onChanged: (value) {
+                      setState(() {});
+                      if (value.trim().isNotEmpty) {
+                        _searchUsers();
+                      } else {
+                        setState(() {
+                          _searchResults = [];
+                          _error = null;
+                        });
+                      }
+                    },
+                  ),
                 ),
               ),
-              onChanged: (value) {
-                setState(() {});
-                if (value.trim().isNotEmpty) {
-                  _searchUsers();
-                } else {
-                  setState(() {
-                    _searchResults = [];
-                    _error = null;
-                  });
-                }
-              },
             ),
           ),
           
@@ -179,29 +218,29 @@ class _SearchUsersScreenState extends State<SearchUsersScreen> {
 
   Widget _buildSearchResults() {
     if (_searchController.text.trim().isEmpty) {
-      return const Center(
+      return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
               Icons.search,
               size: 64,
-              color: AppColors.grey400,
+              color: AppColors.textSecondary,
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
             Text(
               'Search for people to connect with',
               style: TextStyle(
                 fontSize: 16,
-                color: AppColors.grey600,
+                color: AppColors.textSecondary,
               ),
             ),
-            SizedBox(height: 8),
+            const SizedBox(height: 8),
             Text(
               'Enter a username to get started',
               style: TextStyle(
                 fontSize: 14,
-                color: AppColors.grey500,
+                color: AppColors.textSecondary,
               ),
             ),
           ],
@@ -211,7 +250,9 @@ class _SearchUsersScreenState extends State<SearchUsersScreen> {
 
     if (_isLoading) {
       return const Center(
-        child: CircularProgressIndicator(),
+        child: CircularProgressIndicator(
+          color: AppColors.primary,
+        ),
       );
     }
 
@@ -223,7 +264,7 @@ class _SearchUsersScreenState extends State<SearchUsersScreen> {
             Icon(
               Icons.error_outline,
               size: 64,
-              color: AppColors.grey400,
+              color: AppColors.textSecondary,
             ),
             const SizedBox(height: 16),
             Text(
@@ -231,7 +272,7 @@ class _SearchUsersScreenState extends State<SearchUsersScreen> {
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
-                color: AppColors.grey900,
+                color: AppColors.textPrimary,
               ),
             ),
             const SizedBox(height: 8),
@@ -239,7 +280,7 @@ class _SearchUsersScreenState extends State<SearchUsersScreen> {
               _error!,
               style: TextStyle(
                 fontSize: 14,
-                color: AppColors.grey600,
+                color: AppColors.textSecondary,
               ),
               textAlign: TextAlign.center,
             ),
@@ -256,7 +297,7 @@ class _SearchUsersScreenState extends State<SearchUsersScreen> {
             Icon(
               Icons.person_search,
               size: 64,
-              color: AppColors.grey400,
+              color: AppColors.textSecondary,
             ),
             const SizedBox(height: 16),
             Text(
@@ -264,7 +305,7 @@ class _SearchUsersScreenState extends State<SearchUsersScreen> {
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
-                color: AppColors.grey900,
+                color: AppColors.textPrimary,
               ),
             ),
             const SizedBox(height: 8),
@@ -272,7 +313,7 @@ class _SearchUsersScreenState extends State<SearchUsersScreen> {
               'Try searching with a different username',
               style: TextStyle(
                 fontSize: 14,
-                color: AppColors.grey600,
+                color: AppColors.textSecondary,
               ),
             ),
           ],
@@ -293,74 +334,92 @@ class _SearchUsersScreenState extends State<SearchUsersScreen> {
   Widget _buildUserCard(Map<String, dynamic> user) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.white,
+      child: ClipRRect(
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.grey200),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 24,
-            backgroundColor: AppColors.primary,
-            backgroundImage: user['profileImageUrl'] != null
-                ? NetworkImage(user['profileImageUrl'])
-                : null,
-            child: user['profileImageUrl'] == null
-                ? Text(
-                    (user['fullName'] ?? user['username']).isNotEmpty 
-                        ? (user['fullName'] ?? user['username'])[0].toUpperCase() 
-                        : 'U',
-                    style: const TextStyle(
-                      color: AppColors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                    ),
-                  )
-                : null,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  const Color(0xFF1F295B).withOpacity(0.6),
+                  const Color(0xFF283B89).withOpacity(0.5),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: Colors.white.withOpacity(0.2),
+                width: 1,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.2),
+                  blurRadius: 10,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Row(
               children: [
-                Text(
-                  user['fullName'] ?? user['username'],
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                    color: AppColors.grey900,
+                CircleAvatar(
+                  radius: 24,
+                  backgroundColor: AppColors.primary,
+                  backgroundImage: user['profileImageUrl'] != null
+                      ? NetworkImage(user['profileImageUrl'])
+                      : null,
+                  child: user['profileImageUrl'] == null
+                      ? Text(
+                          (user['fullName'] ?? user['username']).isNotEmpty 
+                              ? (user['fullName'] ?? user['username'])[0].toUpperCase() 
+                              : 'U',
+                          style: const TextStyle(
+                            color: AppColors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                          ),
+                        )
+                      : null,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        user['fullName'] ?? user['username'],
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '@${user['username']}',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  '@${user['username']}',
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: AppColors.grey600,
+                ElevatedButton(
+                  onPressed: () => _sendConnectionRequest(user),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: AppColors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   ),
+                  child: const Text('Connect'),
                 ),
               ],
             ),
           ),
-          ElevatedButton(
-            onPressed: () => _sendConnectionRequest(user),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: AppColors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            ),
-            child: const Text('Connect'),
-          ),
-        ],
+        ),
       ),
     );
   }

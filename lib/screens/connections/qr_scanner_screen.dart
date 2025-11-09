@@ -68,6 +68,9 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
       // Create mutual connections for both users without pre-check queries
       await _connectInstant(scannedUserId, displayNameHint: user?['fullName'] ?? user?['username']);
 
+      // Provide tactile feedback on successful scan & processing
+      await HapticFeedback.mediumImpact();
+
       // Close the scanner screen once connection is made
       if (mounted) {
         // Get root navigator context before popping to show dialog after closing scanner

@@ -467,7 +467,7 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
               },
             )
           : null,
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );
   }
 
@@ -730,6 +730,9 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
                   controller: _scrollController,
                   padding: EdgeInsets.zero,
                   physics: const AlwaysScrollableScrollPhysics(),
+                  cacheExtent: 500, // Cache more items for smoother scrolling
+                  addAutomaticKeepAlives: false, // Don't keep items alive unnecessarily
+                  addRepaintBoundaries: true, // Isolate repaints for better performance
                   itemCount: postService.posts.length + 1, // +1 for spacer
                   itemBuilder: (context, index) {
                     if (index == 0) {
@@ -745,13 +748,15 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
                     }
                     
                     final post = postService.posts[postIndex];
-                    return Padding(
-                      padding: EdgeInsets.only(
-                        left: ResponsiveUtils.getHorizontalPadding(context),
-                        right: ResponsiveUtils.getHorizontalPadding(context),
-                        bottom: ResponsiveUtils.getVerticalPadding(context),
+                    return RepaintBoundary(
+                      child: Padding(
+                        padding: EdgeInsets.only(
+                          left: ResponsiveUtils.getHorizontalPadding(context),
+                          right: ResponsiveUtils.getHorizontalPadding(context),
+                          bottom: ResponsiveUtils.getVerticalPadding(context),
+                        ),
+                        child: _buildFeedPost(post, postIndex),
                       ),
-                      child: _buildFeedPost(post, postIndex),
                     );
                   },
                 ),
@@ -764,6 +769,7 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
   Widget _buildDigitalCardContentWrapper() {
     return SingleChildScrollView(
       padding: const EdgeInsets.only(top: 280), // Match header height for consistency
+      physics: const ClampingScrollPhysics(), // Smooth scrolling physics
       child: _buildDigitalCardContent(),
     );
   }
@@ -854,7 +860,7 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
         ),
         borderRadius: BorderRadius.circular(ResponsiveUtils.getBorderRadius(context, base: 24)),
         border: Border.all(
-          color: AppColors.primary.withOpacity(0.15),
+          color: Colors.white.withOpacity(0.2),
           width: 1,
         ),
         boxShadow: [
@@ -1018,31 +1024,15 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
           
           // Post image (if available)
           if (post.imageUrl != null && post.imageUrl!.isNotEmpty)
-            Container(
-              margin: EdgeInsets.fromLTRB(
+            Padding(
+              padding: EdgeInsets.fromLTRB(
                 ResponsiveUtils.getHorizontalPadding(context),
                 ResponsiveUtils.getVerticalPadding(context),
                 ResponsiveUtils.getHorizontalPadding(context),
                 0,
               ),
-              height: MediaQuery.of(context).size.width * 0.6, // Responsive height based on screen width
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.primary.withOpacity(0.15),
-                    blurRadius: 12,
-                    offset: const Offset(0, 3),
-                  ),
-                ],
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(ResponsiveUtils.getBorderRadius(context, base: 20)),
-                child: _RetryableNetworkImage(
-                  imageUrl: post.imageUrl!,
-                  height: MediaQuery.of(context).size.width * 0.6,
-                  width: double.infinity,
-                ),
+              child: _AdaptiveImageContainer(
+                imageUrl: post.imageUrl!,
               ),
             ),
           
@@ -2439,6 +2429,117 @@ class _ShareOption extends StatelessWidget {
 }
 
 // Retryable Network Image Widget with automatic retry logic and optimization
+// Widget that adapts container size to image aspect ratio
+class _AdaptiveImageContainer extends StatefulWidget {
+  final String imageUrl;
+
+  const _AdaptiveImageContainer({
+    required this.imageUrl,
+  });
+
+  @override
+  State<_AdaptiveImageContainer> createState() => _AdaptiveImageContainerState();
+}
+
+class _AdaptiveImageContainerState extends State<_AdaptiveImageContainer> {
+  double? _aspectRatio;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadImageDimensions();
+  }
+
+  Future<void> _loadImageDimensions() async {
+    try {
+      final imageProvider = NetworkImage(widget.imageUrl);
+      final imageStream = imageProvider.resolve(const ImageConfiguration());
+      final completer = Completer<ImageInfo>();
+      
+      final listener = ImageStreamListener((ImageInfo info, bool synchronousCall) {
+        if (!completer.isCompleted) {
+          completer.complete(info);
+        }
+      });
+      
+      imageStream.addListener(listener);
+      
+      final imageInfo = await completer.future;
+      final image = imageInfo.image;
+      
+      imageStream.removeListener(listener);
+      
+      if (mounted) {
+        setState(() {
+          _aspectRatio = image.width / image.height;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      // If we can't get dimensions, use a default aspect ratio (16:9)
+      if (mounted) {
+        setState(() {
+          _aspectRatio = 16 / 9;
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading || _aspectRatio == null) {
+      return Container(
+        width: double.infinity,
+        height: MediaQuery.of(context).size.width / (16 / 9), // Default 16:9 while loading
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(ResponsiveUtils.getBorderRadius(context, base: 20)),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.primary.withOpacity(0.15),
+              blurRadius: 12,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(ResponsiveUtils.getBorderRadius(context, base: 20)),
+          child: Center(
+            child: CircularProgressIndicator(
+              color: AppColors.primary,
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(ResponsiveUtils.getBorderRadius(context, base: 20)),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withOpacity(0.15),
+            blurRadius: 12,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(ResponsiveUtils.getBorderRadius(context, base: 20)),
+        child: AspectRatio(
+          aspectRatio: _aspectRatio!,
+          child: _RetryableNetworkImage(
+            imageUrl: widget.imageUrl,
+            width: double.infinity,
+            fit: BoxFit.cover,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _RetryableNetworkImage extends StatefulWidget {
   final String imageUrl;
   final double? width;

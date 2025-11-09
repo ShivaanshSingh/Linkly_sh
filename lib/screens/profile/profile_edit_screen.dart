@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:io';
+import 'dart:ui';
 import '../../services/auth_service.dart';
 import '../../constants/app_colors.dart';
 import '../../widgets/custom_button.dart';
@@ -38,6 +39,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
   List<String> _allowedPhoneViewers = [];
   List<Map<String, dynamic>> _connections = [];
   bool _isLoadingConnections = false;
+  bool _isUpdatingPhonePrivacy = false;
 
   @override
   void initState() {
@@ -278,25 +280,26 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
   }
 
   Future<void> _updatePhonePrivacy(String value) async {
-    if (!mounted) return;
+    if (!mounted || _isUpdatingPhonePrivacy) return;
     
     setState(() {
       _phoneNumberPrivacy = value;
+      _isUpdatingPhonePrivacy = true;
       // Set loading state if custom is selected and connections need to be loaded
       if (value == 'custom' && _connections.isEmpty) {
         _isLoadingConnections = true;
       }
     });
 
-    // Load connections if custom is selected
-    if (value == 'custom' && _connections.isEmpty) {
-      await _loadConnections();
-    }
-
-    if (!mounted) return;
-
-    final authService = Provider.of<AuthService>(context, listen: false);
     try {
+      // Load connections if custom is selected
+      if (value == 'custom' && _connections.isEmpty) {
+        await _loadConnections();
+      }
+
+      if (!mounted) return;
+
+      final authService = Provider.of<AuthService>(context, listen: false);
       await authService.updatePhonePrivacySettings(
         phoneNumberPrivacy: value,
         allowedPhoneViewers: value == 'custom' ? _allowedPhoneViewers : null,
@@ -326,6 +329,12 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
         );
         // Revert on error - reload from userModel
         await _loadPhonePrivacySettings();
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isUpdatingPhonePrivacy = false;
+        });
       }
     }
   }
@@ -487,6 +496,8 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
   Future<void> _saveProfile() async {
     if (!_formKey.currentState!.validate()) return;
 
+    if (!mounted) return;
+
     setState(() {
       _isLoading = true;
     });
@@ -496,6 +507,8 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
       
       // Upload image if selected
       String? imageUrl = await _uploadImage();
+      
+      if (!mounted) return;
       
       // Update user profile
       final socialLinks = <String, String>{};
@@ -514,20 +527,48 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
         socialLinks: socialLinks,
       );
 
+      if (!mounted) return;
+
+      // Ensure phone privacy settings are also saved (only if not already updating)
+      if (!_isUpdatingPhonePrivacy) {
+        try {
+          await authService.updatePhonePrivacySettings(
+            phoneNumberPrivacy: _phoneNumberPrivacy,
+            allowedPhoneViewers: _phoneNumberPrivacy == 'custom' ? _allowedPhoneViewers : null,
+          );
+        } catch (e) {
+          debugPrint('Error saving phone privacy settings: $e');
+          // Don't fail the entire save if phone privacy fails
+        }
+      }
+
+      if (!mounted) return;
+
       // Refresh user data to ensure profile image is updated
       await authService.loadUserData();
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Profile updated successfully!'),
-            backgroundColor: AppColors.success,
-          ),
-        );
-        Navigator.of(context).pop();
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Profile updated successfully!'),
+          backgroundColor: AppColors.success,
+        ),
+      );
+      
+      if (mounted && Navigator.of(context).canPop()) {
+        // Use post frame callback to ensure navigation happens after current frame
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted && Navigator.of(context).canPop()) {
+            Navigator.of(context).pop();
+          }
+        });
       }
     } catch (e) {
-      _showErrorSnackBar('Failed to update profile: $e');
+      debugPrint('Error saving profile: $e');
+      if (mounted) {
+        _showErrorSnackBar('Failed to update profile: $e');
+      }
     } finally {
       if (mounted) {
         setState(() {
@@ -1137,119 +1178,143 @@ class _PhonePrivacySection extends StatelessWidget {
             ),
           ),
         ),
-        Container(
-          decoration: BoxDecoration(
-            color: AppColors.white,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 10,
-                offset: const Offset(0, 2),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    const Color(0xFF1F295B).withOpacity(0.6),
+                    const Color(0xFF283B89).withOpacity(0.5),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.2),
+                  width: 1,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.2),
+                    blurRadius: 10,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
-            ],
-          ),
-          child: Column(
-            children: [
-              _RadioPrivacyTile(
-                icon: Icons.people,
-                title: 'Connections Only',
-                subtitle: 'All people in your connections list can see your phone number',
-                value: 'connections_only',
-                groupValue: phoneNumberPrivacy,
-                onChanged: onPrivacyChanged,
-              ),
-              _RadioPrivacyTile(
-                icon: Icons.lock,
-                title: 'Private',
-                subtitle: 'Number hidden from everyone (only you see it)',
-                value: 'private',
-                groupValue: phoneNumberPrivacy,
-                onChanged: onPrivacyChanged,
-              ),
-              _RadioPrivacyTile(
-                icon: Icons.person,
-                title: 'Custom',
-                subtitle: 'Only selected users can see your contact number',
-                value: 'custom',
-                groupValue: phoneNumberPrivacy,
-                onChanged: onPrivacyChanged,
-              ),
-              if (phoneNumberPrivacy == 'custom') ...[
-                const Divider(height: 1),
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Select Connections',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.grey900,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      if (isLoadingConnections)
-                        const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 16),
-                          child: Center(
-                            child: CircularProgressIndicator(),
-                          ),
-                        )
-                      else if (connections.isEmpty)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          child: Text(
-                            'No connections available',
+              child: Column(
+                children: [
+                  _RadioPrivacyTile(
+                    icon: Icons.people,
+                    title: 'Connections Only',
+                    subtitle: 'All people in your connections list can see your phone number',
+                    value: 'connections_only',
+                    groupValue: phoneNumberPrivacy,
+                    onChanged: onPrivacyChanged,
+                  ),
+                  _RadioPrivacyTile(
+                    icon: Icons.lock,
+                    title: 'Private',
+                    subtitle: 'Number hidden from everyone (only you see it)',
+                    value: 'private',
+                    groupValue: phoneNumberPrivacy,
+                    onChanged: onPrivacyChanged,
+                  ),
+                  _RadioPrivacyTile(
+                    icon: Icons.person,
+                    title: 'Custom',
+                    subtitle: 'Only selected users can see your contact number',
+                    value: 'custom',
+                    groupValue: phoneNumberPrivacy,
+                    onChanged: onPrivacyChanged,
+                  ),
+                  if (phoneNumberPrivacy == 'custom') ...[
+                    Divider(
+                      height: 1,
+                      color: Colors.white.withOpacity(0.1),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Select Connections',
                             style: TextStyle(
-                              fontSize: 12,
-                              color: AppColors.grey600,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.textPrimary,
                             ),
                           ),
-                        )
-                      else ...[
-                        Text(
-                          '${allowedPhoneViewers.length} of ${connections.length} connection(s) selected',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: AppColors.grey600,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        ...connections.where((connection) {
-                          // Filter out any connections with null/empty IDs
-                          final userId = connection['id'];
-                          return userId != null && userId is String && userId.isNotEmpty;
-                        }).map((connection) {
-                          final userId = connection['id'] as String;
-                          final userName = connection['name'] as String? ?? 'Unknown';
-                          final isSelected = allowedPhoneViewers.contains(userId);
-
-                          return CheckboxListTile(
-                            dense: true,
-                            contentPadding: EdgeInsets.zero,
-                            title: Text(
-                              userName,
+                          const SizedBox(height: 8),
+                          if (isLoadingConnections)
+                            const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 16),
+                              child: Center(
+                                child: CircularProgressIndicator(
+                                  color: AppColors.primary,
+                                ),
+                              ),
+                            )
+                          else if (connections.isEmpty)
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              child: Text(
+                                'No connections available',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                            )
+                          else ...[
+                            Text(
+                              '${allowedPhoneViewers.length} of ${connections.length} connection(s) selected',
                               style: TextStyle(
-                                fontSize: 14,
-                                color: AppColors.grey900,
+                                fontSize: 12,
+                                color: AppColors.textSecondary,
                               ),
                             ),
-                            value: isSelected,
-                            onChanged: (value) {
-                              onToggleConnection(userId);
-                            },
-                            controlAffinity: ListTileControlAffinity.leading,
-                          );
-                        }).toList(),
-                      ],
-                    ],
-                  ),
-                ),
-              ],
-            ],
+                            const SizedBox(height: 12),
+                            ...connections.where((connection) {
+                              // Filter out any connections with null/empty IDs
+                              final userId = connection['id'];
+                              return userId != null && userId is String && userId.isNotEmpty;
+                            }).map((connection) {
+                              final userId = connection['id'] as String;
+                              final userName = connection['name'] as String? ?? 'Unknown';
+                              final isSelected = allowedPhoneViewers.contains(userId);
+
+                              return CheckboxListTile(
+                                dense: true,
+                                contentPadding: EdgeInsets.zero,
+                                title: Text(
+                                  userName,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: AppColors.textPrimary,
+                                  ),
+                                ),
+                                value: isSelected,
+                                onChanged: (value) {
+                                  onToggleConnection(userId);
+                                },
+                                controlAffinity: ListTileControlAffinity.leading,
+                                activeColor: AppColors.primary,
+                                checkColor: Colors.white,
+                              );
+                            }).toList(),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
           ),
         ),
       ],
@@ -1280,19 +1345,19 @@ class _RadioPrivacyTile extends StatelessWidget {
     return ListTile(
       leading: Icon(
         icon,
-        color: isSelected ? AppColors.primary : AppColors.grey600,
+        color: isSelected ? AppColors.primary : AppColors.textSecondary,
       ),
       title: Text(
         title,
         style: TextStyle(
-          color: isSelected ? AppColors.primary : AppColors.grey900,
+          color: isSelected ? AppColors.primary : AppColors.textPrimary,
           fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
         ),
       ),
       subtitle: Text(
         subtitle,
         style: TextStyle(
-          color: AppColors.grey600,
+          color: AppColors.textSecondary,
           fontSize: 12,
         ),
       ),
@@ -1305,6 +1370,12 @@ class _RadioPrivacyTile extends StatelessWidget {
           }
         },
         activeColor: AppColors.primary,
+        fillColor: MaterialStateProperty.resolveWith<Color>((Set<MaterialState> states) {
+          if (states.contains(MaterialState.selected)) {
+            return AppColors.primary;
+          }
+          return AppColors.textSecondary;
+        }),
       ),
       onTap: () {
         if (value != groupValue) {

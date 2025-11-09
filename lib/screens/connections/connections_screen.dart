@@ -38,6 +38,7 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
   final ConnectionRequestService _connectionRequestService = ConnectionRequestService();
   bool _selectionMode = false;
   final Set<String> _selectedConnectionIds = <String>{};
+  final Map<String, String> _userCompanyCache = <String, String>{};
 
   @override
   void initState() {
@@ -79,9 +80,66 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
         });
         // Respect current filters/search when live data changes
         _filterConnections();
+        _primeCompanyCache();
       }
     }, onError: (error) {
       debugPrint('❌ Error loading connections: $error');
+    });
+  }
+
+  void _primeCompanyCache() {
+    final Map<String, String> updates = {};
+    for (final connection in _connections) {
+      final userId = connection.contactUserId.trim();
+      if (userId.isEmpty) continue;
+
+      final existingCompany = connection.contactCompany?.trim() ?? '';
+      if (existingCompany.isNotEmpty) {
+        if (_userCompanyCache[userId] != existingCompany) {
+          updates[userId] = existingCompany;
+        }
+        continue;
+      }
+
+      if (_userCompanyCache.containsKey(userId)) continue;
+      _fetchAndCacheCompany(userId);
+    }
+
+    if (updates.isNotEmpty && mounted) {
+      final searchTermNotEmpty = _searchController.text.trim().isNotEmpty;
+      setState(() {
+        _userCompanyCache.addAll(updates);
+      });
+      if (searchTermNotEmpty) {
+        _filterConnections();
+      }
+    } else if (updates.isNotEmpty) {
+      _userCompanyCache.addAll(updates);
+    }
+  }
+
+  void _fetchAndCacheCompany(String userId) {
+    _firestore.collection('users').doc(userId).get().then((doc) {
+      final data = doc.data();
+      final rawCompany = data?['company'] ?? data?['organization'] ?? data?['org'];
+      final fetchedCompany = rawCompany is String ? rawCompany.trim() : '';
+
+      if (!mounted) {
+        if (fetchedCompany.isNotEmpty) {
+          _userCompanyCache[userId] = fetchedCompany;
+        }
+        return;
+      }
+
+      final shouldRefilter = fetchedCompany.isNotEmpty && _searchController.text.trim().isNotEmpty;
+      setState(() {
+        _userCompanyCache[userId] = fetchedCompany;
+      });
+      if (shouldRefilter) {
+        _filterConnections();
+      }
+    }).catchError((error) {
+      debugPrint('Error fetching company for $userId: $error');
     });
   }
 
@@ -139,6 +197,7 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
         _groups = freshGroups;
         _pendingRequests = freshPending;
       });
+      _primeCompanyCache();
       _filterConnections();
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -270,12 +329,15 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
   void _filterConnections() {
     setState(() {
       _filteredConnections = _connections.where((connection) {
-        final searchTerm = _searchController.text.toLowerCase();
-        
+        final searchTerm = _searchController.text.trim().toLowerCase();
+        final companyFromConnection = (connection.contactCompany ?? '').toLowerCase().trim();
+        final companyFromCache = (_userCompanyCache[connection.contactUserId] ?? '').toLowerCase().trim();
+
         // Check search term match
         final matchesSearch = connection.contactName.toLowerCase().contains(searchTerm) ||
                connection.contactEmail.toLowerCase().contains(searchTerm) ||
-               (connection.contactCompany?.toLowerCase().contains(searchTerm) ?? false);
+               (companyFromConnection.isNotEmpty && companyFromConnection.contains(searchTerm)) ||
+               (companyFromCache.isNotEmpty && companyFromCache.contains(searchTerm));
         
         // Check group filter
         bool matchesGroup = true;
@@ -1530,14 +1592,30 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
   }
 
   Future<String?> _getUserCompany(String userId) async {
+    if (userId.isEmpty) return null;
+
+    final cachedCompany = _userCompanyCache[userId];
+    if (cachedCompany != null) {
+      return cachedCompany.isNotEmpty ? cachedCompany : null;
+    }
+
     try {
       final userDoc = await _firestore.collection('users').doc(userId).get();
       if (!userDoc.exists) return null;
       final data = userDoc.data();
       if (data == null) return null;
-      final company = data['company'] ?? data['organization'] ?? data['org'];
-      if (company is String && company.trim().isNotEmpty) return company.trim();
-      return null;
+      final rawCompany = data['company'] ?? data['organization'] ?? data['org'];
+      final company = rawCompany is String ? rawCompany.trim() : '';
+
+      if (mounted) {
+        setState(() {
+          _userCompanyCache[userId] = company;
+        });
+      } else {
+        _userCompanyCache[userId] = company;
+      }
+
+      return company.isNotEmpty ? company : null;
     } catch (_) {
       return null;
     }
@@ -1572,15 +1650,25 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
   }
 
   Future<void> _launchEmail(String email) async {
-    final Uri emailUri = Uri(
-      scheme: 'mailto',
-      path: email,
-    );
-    if (await canLaunchUrl(emailUri)) {
-      await launchUrl(emailUri);
-    } else {
-      debugPrint('Could not launch email: $email');
+    final Uri emailUri = Uri.parse('mailto:$email');
+    final launchModes = <LaunchMode>[
+      LaunchMode.platformDefault,
+      LaunchMode.externalApplication,
+      LaunchMode.inAppBrowserView,
+    ];
+
+    for (final mode in launchModes) {
+      try {
+        final launched = await launchUrl(emailUri, mode: mode);
+        if (launched) {
+          return;
+        }
+      } catch (e) {
+        debugPrint('Email launch failed on mode $mode: $e');
+      }
     }
+
+    debugPrint('Could not launch email: $email');
   }
 
   Future<void> _launchLinkedIn(String url) async {
@@ -1591,11 +1679,51 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
     }
     
     final Uri linkedInUri = Uri.parse(linkedInUrl);
-    if (await canLaunchUrl(linkedInUri)) {
-      await launchUrl(linkedInUri, mode: LaunchMode.externalApplication);
-    } else {
-      debugPrint('Could not launch LinkedIn URL: $url');
+    final launchModes = <LaunchMode>[
+      LaunchMode.externalApplication,
+      LaunchMode.platformDefault,
+      LaunchMode.inAppBrowserView,
+    ];
+
+    for (final mode in launchModes) {
+      try {
+        final launched = await launchUrl(linkedInUri, mode: mode);
+        if (launched) {
+          return;
+        }
+      } catch (e) {
+        debugPrint('LinkedIn launch failed on mode $mode: $e');
+      }
     }
+
+    debugPrint('Could not launch LinkedIn URL: $url');
+  }
+
+  Future<void> _launchPhoneNumber(String phoneNumber) async {
+    final sanitizedNumber = phoneNumber.replaceAll(RegExp(r'[^0-9+]'), '');
+    if (sanitizedNumber.isEmpty) {
+      debugPrint('Phone number is empty, cannot open dialer.');
+      return;
+    }
+
+    final Uri phoneUri = Uri.parse('tel:$sanitizedNumber');
+    final launchModes = <LaunchMode>[
+      LaunchMode.platformDefault,
+      LaunchMode.externalApplication,
+    ];
+
+    for (final mode in launchModes) {
+      try {
+        final launched = await launchUrl(phoneUri, mode: mode);
+        if (launched) {
+          return;
+        }
+      } catch (e) {
+        debugPrint('Phone launch failed on mode $mode: $e');
+      }
+    }
+
+    debugPrint('Could not launch phone number: $phoneNumber');
   }
 
   String _extractLinkedInUsername(String linkedInUrl) {
@@ -1650,7 +1778,12 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
         
         final cardMaxWidth = ResponsiveUtils.getCardMaxWidth(context);
         final cardPadding = ResponsiveUtils.getPadding(context);
-        final avatarSize = ResponsiveUtils.getAvatarSize(context);
+        final avatarSize = ResponsiveUtils.getAvatarSize(
+          context,
+          small: 60,
+          medium: 72,
+          large: 84,
+        );
         final borderRadius = ResponsiveUtils.getBorderRadius(context);
         
         return Center(
@@ -1678,7 +1811,7 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
               ],
             ),
             child: AspectRatio(
-              aspectRatio: 3.5 / 2.5,
+              aspectRatio: 3.5 / 2.45,
               child: Padding(
                 padding: cardPadding,
                 child: Column(
@@ -1743,9 +1876,9 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
                               connection.contactName,
                               style: TextStyle(
                                 color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: ResponsiveUtils.getFontSize(context, baseSize: 20),
-                                letterSpacing: 0.5,
+                                fontWeight: FontWeight.w700,
+                                fontSize: ResponsiveUtils.getFontSize(context, baseSize: 22),
+                                letterSpacing: 0.15,
                               ),
                             )
                           else
@@ -1757,9 +1890,9 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
                                   name.isNotEmpty ? name : 'Contact',
                                   style: TextStyle(
                                     color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: ResponsiveUtils.getFontSize(context, baseSize: 20),
-                                    letterSpacing: 0.5,
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: ResponsiveUtils.getFontSize(context, baseSize: 22),
+                                    letterSpacing: 0.15,
                                   ),
                                 );
                               },
@@ -1776,8 +1909,8 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
                                     position,
                                     style: TextStyle(
                                       color: Colors.white,
-                                      fontSize: ResponsiveUtils.getFontSize(context, baseSize: 14),
-                                      fontWeight: FontWeight.bold,
+                                      fontSize: ResponsiveUtils.getFontSize(context, baseSize: 16),
+                                      fontWeight: FontWeight.w500,
                                       letterSpacing: 0.3,
                                     ),
                                   ),
@@ -1798,7 +1931,7 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
                                   company.isNotEmpty ? company : 'Professional',
                                   style: TextStyle(
                                     color: Colors.white,
-                                    fontSize: ResponsiveUtils.getFontSize(context, baseSize: 15),
+                                  fontSize: ResponsiveUtils.getFontSize(context, baseSize: 16),
                                     fontWeight: FontWeight.w400,
                                     letterSpacing: 0.3,
                                   ),
@@ -1850,7 +1983,7 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
                   ],
                 ),
                 
-                SizedBox(height: ResponsiveUtils.getSpacing(context, small: 8, medium: 12)),
+                SizedBox(height: ResponsiveUtils.getSpacing(context, small: 8, medium: 10)),
                 
                 // Contact information section
                 Column(
@@ -1883,8 +2016,7 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
                                       fontSize: ResponsiveUtils.getFontSize(context, baseSize: 14),
                                       fontWeight: FontWeight.w400,
                                       letterSpacing: 0.2,
-                                      decoration: email.isNotEmpty ? TextDecoration.underline : TextDecoration.none,
-                                      decorationColor: Colors.white,
+                                      decoration: TextDecoration.none,
                                     ),
                                     overflow: TextOverflow.ellipsis,
                                   ),
@@ -1895,77 +2027,55 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
                         },
                       ),
                       
-                      SizedBox(height: ResponsiveUtils.getSpacing(context, small: 2)),
+                      SizedBox(height: ResponsiveUtils.getSpacing(context, small: 6, medium: 8, large: 10)),
                       
                       // LinkedIn (clickable) - shows username with LinkedIn logo
                       FutureBuilder<String?>(
                         future: _getUserLinkedInUrl(connection.contactUserId),
                         builder: (context, snapshot) {
                           final linkedInUrl = snapshot.data;
-                          if (linkedInUrl != null && linkedInUrl.isNotEmpty) {
-                            final linkedInUsername = _extractLinkedInUsername(linkedInUrl);
-                            return InkWell(
-                              onTap: () => _launchLinkedIn(linkedInUrl),
-                              borderRadius: BorderRadius.circular(4),
-                              child: Row(
-                                children: [
-                                  // LinkedIn logo (using "in" text badge)
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white.withOpacity(0.2),
-                                      borderRadius: BorderRadius.circular(3),
-                                    ),
-                                    child: const Text(
-                                      'in',
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold,
-                                        fontFamily: 'Roboto',
-                                        letterSpacing: 0.5,
-                                      ),
+                          // Always show the same visual label while retaining tap behaviour when a URL exists
+                          final hasLinkedIn = linkedInUrl != null && linkedInUrl.isNotEmpty;
+
+                          return InkWell(
+                            onTap: hasLinkedIn ? () => _launchLinkedIn(linkedInUrl!) : null,
+                            borderRadius: BorderRadius.circular(4),
+                            child: Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(hasLinkedIn ? 0.2 : 0.1),
+                                    borderRadius: BorderRadius.circular(3),
+                                  ),
+                                  child: Text(
+                                    'in',
+                                    style: TextStyle(
+                                      color: Colors.white.withOpacity(hasLinkedIn ? 1 : 0.5),
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w700,
+                                      letterSpacing: 0.4,
                                     ),
                                   ),
-                                  const SizedBox(width: 6),
-                                  Expanded(
-                                    child: Text(
-                                      linkedInUsername,
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w400,
-                                        letterSpacing: 0.2,
-                                        decoration: TextDecoration.underline,
-                                        decorationColor: Colors.white,
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            );
-                          }
-                          // If no LinkedIn URL, show non-clickable placeholder
-                          return const Row(
-                            children: [
-                              Icon(Icons.link, color: Colors.white70, size: 16),
-                              SizedBox(width: 8),
-                              Text(
-                                'LinkedIn Profile',
-                                style: TextStyle(
-                                  color: Colors.white70,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w400,
-                                  letterSpacing: 0.2,
                                 ),
-                              ),
-                            ],
+                                const SizedBox(width: 6),
+                                Text(
+                                  'LinkedIn Profile',
+                                  style: TextStyle(
+                                    color: Colors.white.withOpacity(hasLinkedIn ? 1 : 0.7),
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w400,
+                                    letterSpacing: 0.2,
+                                    decoration: TextDecoration.none,
+                                  ),
+                                ),
+                              ],
+                            ),
                           );
                         },
                       ),
                       
-                      const SizedBox(height: 2),
+                      SizedBox(height: ResponsiveUtils.getSpacing(context, small: 8, medium: 10, large: 12)),
                       
                       // Phone (fetched from Firestore with privacy check)
                       FutureBuilder<Map<String, dynamic>>(
@@ -2033,35 +2143,41 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
                               return const SizedBox.shrink();
                             }
 
-                            return Row(
-                              children: [
-                                Icon(
-                                  Icons.phone_outlined, 
-                                  color: Colors.white, 
-                                  size: ResponsiveUtils.getIconSize(context, baseSize: 16),
-                                ),
-                                SizedBox(width: ResponsiveUtils.getSpacing(context, small: 6, medium: 8)),
-                                Expanded(
-                                  child: Text(
-                                    displayText,
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: ResponsiveUtils.getFontSize(context, baseSize: 14),
-                                      fontWeight: FontWeight.w400,
-                                      letterSpacing: 0.2,
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
+                            return InkWell(
+                              onTap: () => _launchPhoneNumber(displayPhoneNumber!),
+                              borderRadius: BorderRadius.circular(4),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.phone_outlined, 
+                                    color: Colors.white, 
+                                    size: ResponsiveUtils.getIconSize(context, baseSize: 16),
                                   ),
-                                ),
-                              ],
+                                  SizedBox(width: ResponsiveUtils.getSpacing(context, small: 6, medium: 8)),
+                                  Expanded(
+                                    child: Text(
+                                      displayText,
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: ResponsiveUtils.getFontSize(context, baseSize: 14),
+                                        fontWeight: FontWeight.w400,
+                                        letterSpacing: 0.2,
+                                        decoration: TextDecoration.none,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             );
                           }
                           return const SizedBox.shrink(); // Return empty widget if no phone number
                         },
                       ),
                       
-                      SizedBox(height: ResponsiveUtils.getSpacing(context, small: 4)),
-                      
+                      // Thin divider line
+                      SizedBox(height: ResponsiveUtils.getSpacing(context, small: 6, medium: 8, large: 10)),
+
                       // Message button
                       GestureDetector(
                         onTap: () {
@@ -2078,16 +2194,18 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
                         ),
                       ),
                       
-                      // Thin divider line between message button and date
+                      SizedBox(height: ResponsiveUtils.getSpacing(context, small: 10, medium: 14, large: 18)),
+
                       Container(
                         height: 1,
                         color: Colors.white.withOpacity(0.2),
                         margin: EdgeInsets.only(
-                          top: ResponsiveUtils.getSpacing(context, small: 4),
-                          bottom: ResponsiveUtils.getSpacing(context, small: 4),
+                          top: ResponsiveUtils.getSpacing(context, small: 4, medium: 6, large: 8),
                         ),
                       ),
-                      
+
+                      SizedBox(height: ResponsiveUtils.getSpacing(context, small: 6, medium: 8, large: 10)),
+
                       // Date
                       Align(
                         alignment: Alignment.centerRight,

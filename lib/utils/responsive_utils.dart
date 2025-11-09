@@ -40,10 +40,21 @@ class ResponsiveUtils {
   }
   
   /// Get responsive spacing (SizedBox height/width)
-  static double getSpacing(BuildContext context, {double small = 8, double medium = 12, double large = 16}) {
+  static double getSpacing(
+    BuildContext context, {
+    double small = 8,
+    double medium = 12,
+    double large = 16,
+  }) {
     final width = MediaQuery.of(context).size.width;
-    final scale = width < mobileBreakpoint ? 0.9 : (width < tabletBreakpoint ? 1.0 : 1.1);
-    return (small + medium + large) / 3 * scale;
+
+    if (width < mobileBreakpoint) {
+      return small;
+    } else if (width < tabletBreakpoint) {
+      return medium;
+    }
+
+    return large;
   }
   
   /// Get responsive font size
