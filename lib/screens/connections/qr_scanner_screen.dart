@@ -1,6 +1,7 @@
-import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'dart:async';
 import 'dart:ui';
+
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
@@ -10,6 +11,7 @@ import '../../services/auth_service.dart';
 import '../../services/group_service.dart';
 import '../chat/group_chat_screen.dart';
 import 'search_users_screen.dart';
+import '../../utils/haptics.dart';
 
 class QRScannerScreen extends StatefulWidget {
   const QRScannerScreen({super.key});
@@ -30,6 +32,7 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
 
   Future<void> _handleQRCode(String qrData) async {
     try {
+      await Haptics.scanSuccess();
       // Check if it's a group QR code
       if (qrData.startsWith('linkly://group/')) {
         final inviteCode = qrData.replaceFirst('linkly://group/', '');
@@ -67,9 +70,6 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
 
       // Create mutual connections for both users without pre-check queries
       await _connectInstant(scannedUserId, displayNameHint: user?['fullName'] ?? user?['username']);
-
-      // Provide tactile feedback on successful scan & processing
-      await HapticFeedback.mediumImpact();
 
       // Close the scanner screen once connection is made
       if (mounted) {
@@ -317,16 +317,16 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
     );
   }
 
-  Future<void> _selectGroupAndAdd(Map<String, dynamic> user, BuildContext context) async {
-    final auth = Provider.of<AuthService>(context, listen: false);
+  Future<void> _selectGroupAndAdd(Map<String, dynamic> user, BuildContext hostContext) async {
+    final auth = Provider.of<AuthService>(hostContext, listen: false);
     if (auth.user == null) return;
     final groups = await GroupService.getUserGroups(auth.user!.uid).first;
 
     String? selectedGroupId = groups.isNotEmpty ? groups.first.id : null;
 
     await showDialog(
-      context: context,
-      builder: (context) {
+      context: hostContext,
+      builder: (dialogContext) {
         return AlertDialog(
           backgroundColor: AppColors.grey800,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -351,7 +351,7 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => Navigator.of(dialogContext).pop(),
               child: const Text('Cancel', style: TextStyle(color: AppColors.textSecondary)),
             ),
             ElevatedButton(
@@ -364,15 +364,17 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
                     connectionId: '${auth.user!.uid}_${user['id']}',
                     connectionUserId: user['id'],
                   );
-                  if (mounted) {
-                    Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
+                  if (Navigator.of(dialogContext).canPop()) {
+                    Navigator.of(dialogContext).pop();
+                  }
+                  if (hostContext.mounted) {
+                    ScaffoldMessenger.of(hostContext).showSnackBar(
                       SnackBar(content: Text('Added ${user['fullName'] ?? user['username']} to group')),
                     );
                   }
                 } catch (e) {
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
+                  if (hostContext.mounted) {
+                    ScaffoldMessenger.of(hostContext).showSnackBar(
                       SnackBar(content: Text('Failed to add to group: $e')),
                     );
                   }
@@ -386,16 +388,16 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
     );
   }
 
-  Future<void> _createGroupAndAdd(Map<String, dynamic> user, BuildContext context) async {
-    final auth = Provider.of<AuthService>(context, listen: false);
+  Future<void> _createGroupAndAdd(Map<String, dynamic> user, BuildContext hostContext) async {
+    final auth = Provider.of<AuthService>(hostContext, listen: false);
     if (auth.user == null) return;
 
     final nameController = TextEditingController();
     final descController = TextEditingController();
 
     await showDialog(
-      context: context,
-      builder: (context) {
+      context: hostContext,
+      builder: (dialogContext) {
         return AlertDialog(
           backgroundColor: AppColors.grey800,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -429,7 +431,7 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => Navigator.of(dialogContext).pop(),
               child: const Text('Cancel', style: TextStyle(color: AppColors.textSecondary)),
             ),
             ElevatedButton(
@@ -448,15 +450,17 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
                     connectionId: '${auth.user!.uid}_${user['id']}',
                     connectionUserId: user['id'],
                   );
-                  if (mounted) {
-                    Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
+                  if (Navigator.of(dialogContext).canPop()) {
+                    Navigator.of(dialogContext).pop();
+                  }
+                  if (hostContext.mounted) {
+                    ScaffoldMessenger.of(hostContext).showSnackBar(
                       SnackBar(content: Text('Created "$name" and added ${user['fullName'] ?? user['username']}')),
                     );
                   }
                 } catch (e) {
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
+                  if (hostContext.mounted) {
+                    ScaffoldMessenger.of(hostContext).showSnackBar(
                       SnackBar(content: Text('Failed to create group: $e')),
                     );
                   }
@@ -821,8 +825,6 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
                 if (_isScanning && capture.barcodes.isNotEmpty) {
                   final String? code = capture.barcodes.first.rawValue;
                   if (code != null) {
-                    // Vibrate when QR code is detected
-                    HapticFeedback.heavyImpact();
                     setState(() {
                       _isScanning = false;
                     });

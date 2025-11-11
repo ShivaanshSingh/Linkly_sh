@@ -19,6 +19,7 @@ import '../../widgets/digital_card_widget.dart';
 import '../connections/qr_scanner_screen.dart';
 import '../../widgets/create_post_modal.dart';
 import '../../widgets/status_stories_widget.dart';
+import '../../utils/haptics.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -30,6 +31,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   int _selectedIndex = 0;
   late AnimationController _navAnimationController;
+  late final PageController _pageController = PageController(initialPage: _selectedIndex);
 
   final List<Widget> _screens = [
     const HomeDashboard(),
@@ -50,11 +52,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initializeNotifications();
     });
+    Haptics.navSelection();
   }
 
   @override
   void dispose() {
     _navAnimationController.dispose();
+    _pageController.dispose();
     super.dispose();
   }
 
@@ -80,100 +84,284 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _screens[_selectedIndex],
+      body: PageView(
+        controller: _pageController,
+        physics: const NeverScrollableScrollPhysics(),
+        onPageChanged: (index) {
+          if (index != _selectedIndex) {
+            setState(() {
+              _selectedIndex = index;
+            });
+          }
+        },
+        children: _screens,
+      ),
       bottomNavigationBar: _buildAnimatedBottomNavBar(),
     );
   }
 
   Widget _buildAnimatedBottomNavBar() {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.backgroundDark,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, -2),
-          ),
-        ],
+    final mediaQuery = MediaQuery.of(context);
+    final bool isCompactWidth = mediaQuery.size.width <= 360;
+    final double bottomInset = mediaQuery.viewPadding.bottom;
+    final double horizontalPadding = isCompactWidth ? 10 : 16;
+    final double verticalPadding = isCompactWidth ? 0 : 6;
+    final double navHeight = (isCompactWidth ? 42 : 60) + (bottomInset > 0 ? 4 : 0);
+    final double indicatorHeight = isCompactWidth ? 20 : 36;
+    final double indicatorTop = isCompactWidth ? 4 : 8;
+    final double indicatorRadius = isCompactWidth ? 12 : 16;
+
+    return SafeArea(
+      top: false,
+      minimum: EdgeInsets.fromLTRB(
+        horizontalPadding,
+        0,
+        horizontalPadding,
+        isCompactWidth ? 10 : 16,
       ),
-      child: SafeArea(
-        child: Container(
-          height: 60,
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _buildNavItem(0, Icons.home_outlined, Icons.home, 'Home'),
-              _buildNavItem(1, Icons.people_outlined, Icons.people, 'Connections'),
-              _buildNavItem(2, Icons.group_work_outlined, Icons.group_work, 'Groups'),
-              _buildNavItem(3, Icons.person_outlined, Icons.person, 'Profile'),
-              _buildNavItem(4, Icons.settings_outlined, Icons.settings, 'Settings'),
-            ],
-          ),
+      child: Padding(
+        padding: EdgeInsets.symmetric(vertical: verticalPadding),
+        child: LayoutBuilder(
+        builder: (context, constraints) {
+          final double availableWidth =
+              constraints.maxWidth - (isCompactWidth ? 2 : 0);
+          final double itemWidth = availableWidth / _screens.length;
+          final double outerHorizontalPadding = isCompactWidth ? 4 : 6;
+          final double innerHorizontalPadding = isCompactWidth ? 6 : 8;
+          final double adjustedIndicatorWidth =
+              (itemWidth - innerHorizontalPadding * 2).clamp(0.0, itemWidth);
+
+            return Container(
+              height: navHeight,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(20),
+                color: const Color(0xFF091021).withOpacity(0.62),
+                border: Border.all(color: Colors.white.withOpacity(0.02)),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF020609).withOpacity(0.45),
+                    blurRadius: 18,
+                    offset: const Offset(0, 12),
+                  ),
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(20),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(horizontal: outerHorizontalPadding),
+                    child: Container(
+                      padding: EdgeInsets.symmetric(vertical: isCompactWidth ? 1 : 4),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(16),
+                        color: const Color(0x1A6A7EFF),
+                        border: Border.all(color: Colors.white.withOpacity(0.04)),
+                      ),
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          Padding(
+                            padding: EdgeInsets.symmetric(horizontal: innerHorizontalPadding),
+                            child: Row(
+                              children: [
+                                _buildNavItem(
+                                  0,
+                                  Icons.home_outlined,
+                                  Icons.home,
+                                  'Home',
+                                  isCompact: isCompactWidth,
+                                ),
+                                _buildNavItem(
+                                  1,
+                                  Icons.people_outlined,
+                                  Icons.people,
+                                  'Connections',
+                                  isCompact: isCompactWidth,
+                                ),
+                                _buildNavItem(
+                                  2,
+                                  Icons.group_work_outlined,
+                                  Icons.group_work,
+                                  'Groups',
+                                  isCompact: isCompactWidth,
+                                ),
+                                _buildNavItem(
+                                  3,
+                                  Icons.person_outlined,
+                                  Icons.person,
+                                  'Profile',
+                                  isCompact: isCompactWidth,
+                                ),
+                                _buildNavItem(
+                                  4,
+                                  Icons.settings_outlined,
+                                  Icons.settings,
+                                  'Settings',
+                                  isCompact: isCompactWidth,
+                                ),
+                              ].map((child) => Expanded(child: child)).toList(),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
         ),
       ),
     );
   }
 
-  Widget _buildNavItem(int index, IconData icon, IconData activeIcon, String label) {
+  Widget _buildNavItem(
+    int index,
+    IconData icon,
+    IconData activeIcon,
+    String label, {
+    required bool isCompact,
+  }) {
     final isSelected = _selectedIndex == index;
+    final bool showLabel = !isCompact;
+    final double verticalItemPadding = isCompact ? 0 : 12;
+    final double iconPadding = isSelected
+        ? (isCompact ? 3.5 : 9)
+        : (isCompact ? 2.5 : 7);
+    final double iconSize = isSelected
+        ? (isCompact ? 17 : 26)
+        : (isCompact ? 15 : 23);
+    final double spacing = showLabel ? 6 : 0;
     
-    return Expanded(
-      child: GestureDetector(
-        onTap: () {
+    return Semantics(
+      selected: isSelected,
+      button: true,
+      label: label,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(isCompact ? 20 : 24),
+        splashColor: AppColors.primary.withOpacity(0.2),
+        highlightColor: Colors.transparent,
+        onTap: () async {
           if (_selectedIndex != index) {
+            await Haptics.navSelection();
             _navAnimationController.reset();
-            setState(() {
-              _selectedIndex = index;
-            });
+            _pageController.animateToPage(
+              index,
+              duration: const Duration(milliseconds: 320),
+              curve: Curves.easeOutCubic,
+            );
             _navAnimationController.forward();
           }
         },
-        behavior: HitTestBehavior.opaque,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 250),
-          curve: Curves.easeOutCubic,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              AnimatedSwitcher(
-                duration: const Duration(milliseconds: 250),
-                transitionBuilder: (Widget child, Animation<double> animation) {
-                  return FadeTransition(
-                    opacity: animation,
-                    child: ScaleTransition(
-                      scale: Tween<double>(begin: 0.8, end: 1.0).animate(
-                        CurvedAnimation(
-                          parent: animation,
-                          curve: Curves.easeOutCubic,
-                        ),
-                      ),
-                      child: child,
-                    ),
-                  );
-                },
-                child: Icon(
-                  isSelected ? activeIcon : icon,
-                  key: ValueKey('$index-$isSelected'),
-                  color: isSelected ? AppColors.primary : AppColors.grey500,
-                  size: 24,
-                ),
-              ),
-              const SizedBox(height: 4),
-              AnimatedDefaultTextStyle(
-                duration: const Duration(milliseconds: 250),
-                curve: Curves.easeOutCubic,
-                style: TextStyle(
-                  color: isSelected ? AppColors.primary : AppColors.grey500,
-                  fontSize: 12,
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                ),
-                child: Text(label),
-              ),
-            ],
+        child: SizedBox(
+          height: isCompact ? 48 : 64,
+          child: Center(
+            child: _NavItemContent(
+              isSelected: isSelected,
+              icon: isSelected ? activeIcon : icon,
+              iconPadding: iconPadding,
+              iconSize: iconSize,
+              showLabel: showLabel,
+              spacing: spacing,
+              label: label,
+              isCompact: isCompact,
+            ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _NavItemContent extends StatelessWidget {
+  const _NavItemContent({
+    required this.isSelected,
+    required this.icon,
+    required this.iconPadding,
+    required this.iconSize,
+    required this.showLabel,
+    required this.spacing,
+    required this.label,
+    required this.isCompact,
+  });
+
+  final bool isSelected;
+  final IconData icon;
+  final double iconPadding;
+  final double iconSize;
+  final bool showLabel;
+  final double spacing;
+  final String label;
+  final bool isCompact;
+
+  @override
+  Widget build(BuildContext context) {
+    final Color activeGlow = const Color(0xFF38BDF8);
+    final Color idleGlow = const Color(0x331E293B);
+    final double translateY = isSelected ? -6 : 0;
+
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 260),
+            curve: Curves.easeOutBack,
+            transform: Matrix4.identity()..translate(0.0, translateY),
+            margin: EdgeInsets.only(bottom: showLabel ? spacing : 0),
+            padding: EdgeInsets.all(isCompact ? iconPadding * 0.9 : iconPadding),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: isSelected
+                  ? const Color(0xFF1E3A8A).withOpacity(0.35)
+                  : idleGlow,
+              boxShadow: [
+                BoxShadow(
+                  color: (isSelected ? activeGlow : idleGlow)
+                      .withOpacity(isSelected ? 0.45 : 0.25),
+                  blurRadius: isSelected ? 22 : 14,
+                  offset: const Offset(0, 14),
+                ),
+              ],
+            ),
+            child: AnimatedScale(
+              scale: isSelected ? 1.12 : 0.94,
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOut,
+              child: Icon(
+                icon,
+                key: ValueKey('${icon.codePoint}-$isSelected'),
+                color: isSelected ? Colors.white : const Color(0xFF94A3B8),
+                size: isCompact ? iconSize * 0.95 : iconSize,
+              ),
+            ),
+          ),
+          if (showLabel) ...[
+            SizedBox(height: spacing),
+            AnimatedDefaultTextStyle(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeInOut,
+              style: TextStyle(
+                color: isSelected
+                    ? Colors.white
+                    : const Color(0xFFCBD5F5).withOpacity(0.8),
+                fontSize: isSelected ? 13 : 12,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                letterSpacing: 0.2,
+                height: 1.2,
+              ),
+              child: Text(
+                label,
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -195,6 +383,14 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
   double _scrollOffset = 0.0; // Track scroll position for fade effect
   bool _hasLoadedInitialPosts = false; // Flag to prevent multiple initial loads
   bool _isInitialLoading = false; // Flag to track if initial load is in progress
+
+  bool _isValidAvatarUrl(String? url) {
+    if (url == null || url.isEmpty) return false;
+    final uri = Uri.tryParse(url);
+    if (uri == null) return false;
+    final scheme = uri.scheme.toLowerCase();
+    return (scheme == 'http' || scheme == 'https') && uri.hasAuthority;
+  }
 
   @override
   void initState() {
@@ -535,7 +731,7 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
         ResponsiveUtils.getHorizontalPadding(context),
         0,
         ResponsiveUtils.getHorizontalPadding(context),
-        ResponsiveUtils.getSpacing(context, small: 8),
+        ResponsiveUtils.getSpacing(context, small: 1),
       ),
       decoration: BoxDecoration(
         color: AppColors.grey900, // Match background color
@@ -571,7 +767,9 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
                     child: GestureDetector(
                       onTap: () => _switchToTab(0),
                       child: Container(
-                        padding: EdgeInsets.symmetric(vertical: ResponsiveUtils.getSpacing(context, small: 8)),
+                        padding: EdgeInsets.symmetric(
+                          vertical: ResponsiveUtils.getSpacing(context, small: 2),
+                        ),
                         child: AnimatedDefaultTextStyle(
                           duration: const Duration(milliseconds: 100),
                           style: TextStyle(
@@ -592,7 +790,9 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
                     child: GestureDetector(
                       onTap: () => _switchToTab(1),
                       child: Container(
-                        padding: EdgeInsets.symmetric(vertical: ResponsiveUtils.getSpacing(context, small: 8)),
+                        padding: EdgeInsets.symmetric(
+                          vertical: ResponsiveUtils.getSpacing(context, small: 2),
+                        ),
                         child: AnimatedDefaultTextStyle(
                           duration: const Duration(milliseconds: 100),
                           style: TextStyle(
@@ -899,15 +1099,20 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
                   ),
                   child: CircleAvatar(
                     radius: ResponsiveUtils.getAvatarSize(context, small: 20, medium: 22, large: 24),
-                    backgroundColor: Colors.transparent,
-                    child: Text(
-                      post.userAvatar.isNotEmpty ? post.userAvatar[0].toUpperCase() : 'U',
-                      style: TextStyle(
-                        color: AppColors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: ResponsiveUtils.getFontSize(context, baseSize: 18),
-                      ),
-                    ),
+                    backgroundColor: AppColors.grey900.withOpacity(0.6),
+                    backgroundImage: _isValidAvatarUrl(post.userAvatar)
+                        ? NetworkImage(post.userAvatar)
+                        : null,
+                    child: _isValidAvatarUrl(post.userAvatar)
+                        ? null
+                        : Text(
+                            post.userAvatar.isNotEmpty ? post.userAvatar[0].toUpperCase() : 'U',
+                            style: TextStyle(
+                              color: AppColors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: ResponsiveUtils.getFontSize(context, baseSize: 18),
+                            ),
+                          ),
                   ),
                 ),
                 SizedBox(width: ResponsiveUtils.getHorizontalPadding(context)),
@@ -1237,13 +1442,13 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
 
   Widget _buildDigitalCardContent() {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 16),
+      padding: const EdgeInsets.symmetric(vertical: 1),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           // Card instructions
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -1256,7 +1461,7 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
                   ),
                   textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 2),
                 const Text(
                   'Share your professional identity in style',
                   style: TextStyle(
@@ -1269,12 +1474,12 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
             ),
           ),
           
-          const SizedBox(height: 20),
+          const SizedBox(height: 8),
           
           // Digital Card Widget
           const DigitalCardWidget(),
           
-          const SizedBox(height: 20),
+          const SizedBox(height: 8),
           
           // Quick actions
           Padding(

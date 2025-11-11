@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
+import '../constants/digital_card_themes.dart';
 
 class UserModel {
   final String uid;
@@ -19,6 +20,7 @@ class UserModel {
   final bool isOnline;
   final String? fcmToken;
   final Map<String, String> socialLinks;
+  final String digitalCardTheme;
 
   UserModel({
     required this.uid,
@@ -38,6 +40,7 @@ class UserModel {
     this.isOnline = false,
     this.fcmToken,
     this.socialLinks = const {},
+    this.digitalCardTheme = DigitalCardThemes.defaultThemeId,
   });
 
   factory UserModel.fromMap(Map<String, dynamic> map) {
@@ -80,6 +83,7 @@ class UserModel {
       isOnline: map['isOnline'] ?? false,
       fcmToken: map['fcmToken'],
       socialLinks: _parseSocialLinks(map['socialLinks']),
+      digitalCardTheme: map['digitalCardTheme'] ?? DigitalCardThemes.defaultThemeId,
     );
   }
 
@@ -103,6 +107,7 @@ class UserModel {
       isOnline: data['isOnline'] ?? false,
       fcmToken: data['fcmToken'],
       socialLinks: _parseSocialLinks(data['socialLinks']),
+      digitalCardTheme: data['digitalCardTheme'] ?? DigitalCardThemes.defaultThemeId,
     );
   }
 
@@ -125,6 +130,7 @@ class UserModel {
       'isOnline': isOnline,
       'fcmToken': fcmToken,
       'socialLinks': socialLinks,
+      'digitalCardTheme': digitalCardTheme,
     };
   }
 
@@ -165,6 +171,7 @@ class UserModel {
     bool? isOnline,
     String? fcmToken,
     Map<String, String>? socialLinks,
+    String? digitalCardTheme,
   }) {
     return UserModel(
       uid: uid ?? this.uid,
@@ -184,6 +191,7 @@ class UserModel {
       isOnline: isOnline ?? this.isOnline,
       fcmToken: fcmToken ?? this.fcmToken,
       socialLinks: socialLinks ?? this.socialLinks,
+      digitalCardTheme: digitalCardTheme ?? this.digitalCardTheme,
     );
   }
 }

@@ -229,9 +229,34 @@ GoRouter _createRouter(AuthService authService) {
     ),
     GoRoute(
       path: '/connections',
-      builder: (context, state) {
+      pageBuilder: (context, state) {
         final groupName = state.uri.queryParameters['group'];
-        return ConnectionsScreen(groupName: groupName);
+        return CustomTransitionPage<void>(
+          key: state.pageKey,
+          child: ConnectionsScreen(groupName: groupName),
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            final curvedAnimation = CurvedAnimation(
+              parent: animation,
+              curve: Curves.easeInOutCubicEmphasized,
+            );
+            final dissolve = Tween<double>(begin: 0.0, end: 1.0).animate(curvedAnimation);
+            final scale = Tween<double>(begin: 1.04, end: 1.0).animate(curvedAnimation);
+
+            return AnimatedBuilder(
+              animation: dissolve,
+              builder: (context, _) {
+                return Opacity(
+                  opacity: dissolve.value,
+                  child: Transform.scale(
+                    scale: scale.value,
+                    alignment: Alignment.center,
+                    child: child,
+                  ),
+                );
+              },
+            );
+          },
+        );
       },
     ),
     GoRoute(

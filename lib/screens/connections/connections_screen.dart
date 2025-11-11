@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:ui';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
@@ -17,6 +19,7 @@ import '../../utils/responsive_utils.dart';
 import '../chat/chat_screen.dart';
 import 'search_users_screen.dart';
 import 'qr_scanner_screen.dart';
+import '../../constants/digital_card_themes.dart';
 
 class ConnectionsScreen extends StatefulWidget {
   final String? groupName;
@@ -26,7 +29,7 @@ class ConnectionsScreen extends StatefulWidget {
   State<ConnectionsScreen> createState() => _ConnectionsScreenState();
 }
 
-class _ConnectionsScreenState extends State<ConnectionsScreen> {
+class _ConnectionsScreenState extends State<ConnectionsScreen> with SingleTickerProviderStateMixin {
   final TextEditingController _searchController = TextEditingController();
   String _selectedGroup = 'All Groups';
   String _sortBy = 'Sort by Name';
@@ -39,10 +42,24 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
   bool _selectionMode = false;
   final Set<String> _selectedConnectionIds = <String>{};
   final Map<String, String> _userCompanyCache = <String, String>{};
+  final Map<String, DigitalCardThemeData> _userThemeCache = <String, DigitalCardThemeData>{};
+  final Map<String, StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>> _userThemeSubscriptions =
+      <String, StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>>{};
+  late final AnimationController _loadingController;
+  late final Animation<double> _loadingPulse;
+  bool _isInitialConnectionsLoading = true;
 
   @override
   void initState() {
     super.initState();
+    _loadingController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    );
+    _loadingPulse = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _loadingController, curve: Curves.easeInOut),
+    );
+    _loadingController.repeat(reverse: true);
     // Set the selected group if provided via route parameter
     if (widget.groupName != null && widget.groupName!.isNotEmpty) {
       _selectedGroup = widget.groupName!;
@@ -52,9 +69,39 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
     _loadPendingRequests();
   }
 
+  @override
+  void dispose() {
+    _loadingController.dispose();
+    _searchController.dispose();
+    for (final subscription in _userThemeSubscriptions.values) {
+      subscription.cancel();
+    }
+    _userThemeSubscriptions.clear();
+    super.dispose();
+  }
+
   void _loadConnections() {
     final authService = Provider.of<AuthService>(context, listen: false);
-    if (authService.user == null) return;
+    if (authService.user == null) {
+      if (mounted) {
+        setState(() {
+          _isInitialConnectionsLoading = false;
+        });
+      }
+      if (_loadingController.isAnimating) {
+        _loadingController.stop();
+      }
+      return;
+    }
+
+    if (mounted) {
+      setState(() {
+        _isInitialConnectionsLoading = true;
+      });
+    }
+    if (!_loadingController.isAnimating) {
+      _loadingController.repeat(reverse: true);
+    }
 
     // Listen to connections in real-time
     _firestore
@@ -77,13 +124,26 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
               .toList();
           // Sort by createdAt descending manually
           _connections.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          _isInitialConnectionsLoading = false;
         });
+        if (_loadingController.isAnimating) {
+          _loadingController.stop();
+        }
         // Respect current filters/search when live data changes
         _filterConnections();
         _primeCompanyCache();
+        _primeThemeCache();
       }
     }, onError: (error) {
       debugPrint('❌ Error loading connections: $error');
+      if (mounted) {
+        setState(() {
+          _isInitialConnectionsLoading = false;
+        });
+      }
+      if (_loadingController.isAnimating) {
+        _loadingController.stop();
+      }
     });
   }
 
@@ -116,6 +176,48 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
     } else if (updates.isNotEmpty) {
       _userCompanyCache.addAll(updates);
     }
+  }
+
+  void _primeThemeCache() {
+    for (final connection in _connections) {
+      final userId = connection.contactUserId.trim();
+      if (userId.isEmpty) continue;
+      if (_userThemeSubscriptions.containsKey(userId)) continue;
+      _listenForThemeChanges(userId);
+    }
+
+    // Clean up any subscriptions for users no longer present in the list
+    final currentIds = _connections.map((c) => c.contactUserId.trim()).toSet();
+    final staleIds = _userThemeSubscriptions.keys.where((id) => !currentIds.contains(id)).toList();
+    for (final staleId in staleIds) {
+      _userThemeSubscriptions.remove(staleId)?.cancel();
+      _userThemeCache.remove(staleId);
+    }
+  }
+
+  void _listenForThemeChanges(String userId) {
+    final subscription = _firestore
+        .collection('users')
+        .doc(userId)
+        .snapshots()
+        .listen((snapshot) {
+      final data = snapshot.data();
+      final themeId = (data?['digitalCardTheme'] as String?) ?? DigitalCardThemes.defaultThemeId;
+      final themeData = DigitalCardThemes.themeById(themeId);
+
+      if (!mounted) {
+        _userThemeCache[userId] = themeData;
+        return;
+      }
+
+      setState(() {
+        _userThemeCache[userId] = themeData;
+      });
+    }, onError: (error) {
+      debugPrint('Error listening for theme changes for $userId: $error');
+    });
+
+    _userThemeSubscriptions[userId] = subscription;
   }
 
   void _fetchAndCacheCompany(String userId) {
@@ -730,9 +832,9 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
                                                       ),
                                                       const SizedBox(width: 8),
                                                       PopupMenuButton<String>(
-                                                        icon: Icon(
+                                                        icon: const Icon(
                                                           Icons.more_vert,
-                                                          color: Colors.white.withOpacity(0.7),
+                                                          color: Colors.white,
                                                           size: 20,
                                                         ),
                                                         onSelected: (String value) {
@@ -933,6 +1035,142 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
     }
   }
 
+  Widget _buildLoadingState(BuildContext context) {
+    return AnimatedBuilder(
+      key: const ValueKey('connections-loading'),
+      animation: _loadingPulse,
+      builder: (context, child) {
+        final double animationValue = _loadingPulse.value;
+        final double horizontalPadding = ResponsiveUtils.getHorizontalPadding(context);
+        final double verticalPadding = ResponsiveUtils.getVerticalPadding(context);
+        final double spacingSmall = ResponsiveUtils.getSpacing(context, small: 12);
+        final double spacingFilters = ResponsiveUtils.getSpacing(context, small: 12);
+        final double cardSpacing = ResponsiveUtils.getSpacing(context, small: 14);
+        final double borderRadius = ResponsiveUtils.getBorderRadius(context);
+        final double avatarSize = ResponsiveUtils.getAvatarSize(context, small: 60, medium: 72, large: 84);
+        final Color barColor = Colors.white.withOpacity(0.12 + (animationValue * 0.12));
+        final Color accentColor = Colors.white.withOpacity(0.18 + (animationValue * 0.1));
+        final Color dividerColor = Colors.white.withOpacity(0.08 + animationValue * 0.05);
+        final Color cardStart = Color.lerp(const Color(0xFF1F295B), Colors.black, 0.12 + animationValue * 0.08)!;
+        final Color cardEnd = Color.lerp(const Color(0xFF283B89), Colors.black, 0.18 + animationValue * 0.1)!;
+
+        Widget buildBar({double? width, required double height, double radius = 12}) {
+          return Container(
+            width: width ?? double.infinity,
+            height: height,
+            decoration: BoxDecoration(
+              color: barColor,
+              borderRadius: BorderRadius.circular(radius),
+            ),
+          );
+        }
+
+        Widget buildCard() {
+          return Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [cardStart, cardEnd],
+              ),
+              borderRadius: BorderRadius.circular(borderRadius),
+              border: Border.all(color: Colors.white.withOpacity(0.08)),
+            ),
+            padding: ResponsiveUtils.getPadding(context),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: avatarSize,
+                      height: avatarSize,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: accentColor,
+                      ),
+                    ),
+                    SizedBox(width: ResponsiveUtils.getHorizontalPadding(context) * 0.6),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          buildBar(height: 16, radius: 8),
+                          SizedBox(height: ResponsiveUtils.getSpacing(context, small: 4)),
+                          buildBar(height: 12, radius: 8, width: 140),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: accentColor,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: ResponsiveUtils.getSpacing(context, small: 12)),
+                buildBar(height: 12, radius: 6),
+                SizedBox(height: ResponsiveUtils.getSpacing(context, small: 8)),
+                buildBar(height: 12, radius: 6, width: 200),
+                SizedBox(height: ResponsiveUtils.getSpacing(context, small: 10)),
+                buildBar(height: 12, radius: 6, width: 120),
+                SizedBox(height: ResponsiveUtils.getSpacing(context, small: 12)),
+                Container(
+                  height: 1.5,
+                  decoration: BoxDecoration(
+                    color: dividerColor,
+                    borderRadius: BorderRadius.circular(1),
+                  ),
+                ),
+                SizedBox(height: ResponsiveUtils.getSpacing(context, small: 12)),
+                Row(
+                  children: [
+                    Expanded(child: buildBar(height: 12, radius: 6)),
+                    SizedBox(width: ResponsiveUtils.getSpacing(context, small: 12)),
+                    buildBar(height: 12, radius: 6, width: 80),
+                  ],
+                ),
+              ],
+            ),
+          );
+        }
+
+        return SingleChildScrollView(
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(
+              horizontalPadding,
+              verticalPadding + ResponsiveUtils.getSpacing(context, small: 16),
+              horizontalPadding,
+              verticalPadding,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                buildBar(height: 52, radius: 18),
+                SizedBox(height: spacingSmall),
+                Row(
+                  children: [
+                    Expanded(child: buildBar(height: 48, radius: 14)),
+                    SizedBox(width: spacingFilters),
+                    Expanded(child: buildBar(height: 48, radius: 14)),
+                  ],
+                ),
+                SizedBox(height: cardSpacing),
+                ...List.generate(3, (index) => Padding(
+                      padding: EdgeInsets.only(bottom: cardSpacing),
+                      child: buildCard(),
+                    )),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -941,11 +1179,13 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
         backgroundColor: AppColors.grey900,
         elevation: 0,
         surfaceTintColor: Colors.transparent,
-        toolbarHeight: 100,
+        toolbarHeight: 92,
+        titleSpacing: 0,
         title: Padding(
           padding: EdgeInsets.only(
             top: ResponsiveUtils.getSpacing(context, small: 8),
             left: ResponsiveUtils.getHorizontalPadding(context),
+            right: ResponsiveUtils.getHorizontalPadding(context),
           ),
           child: Align(
             alignment: Alignment.centerLeft,
@@ -959,7 +1199,7 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
                     color: AppColors.textPrimary,
                     fontWeight: FontWeight.w700,
                     fontSize: ResponsiveUtils.getFontSize(context, baseSize: 24),
-                    letterSpacing: -0.5,
+                    letterSpacing: -0.4,
                   ),
                 ),
                 SizedBox(height: ResponsiveUtils.getSpacing(context, small: 4)),
@@ -975,493 +1215,407 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
             ),
           ),
         ),
-        titleSpacing: 0,
-        actions: [
-          ...(_selectionMode
-              ? [
-                  Center(
-                    child: Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: Text(
-                        '${_selectedConnectionIds.length} selected',
-                        style: const TextStyle(color: AppColors.textPrimary, fontSize: 12),
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    tooltip: 'Add selected to group',
-                    icon: const Icon(Icons.group_add, color: AppColors.textPrimary),
-                    onPressed: _showAddSelectedToGroupDialog,
-                  ),
-                  IconButton(
-                    tooltip: 'Cancel selection',
-                    icon: const Icon(Icons.close, color: AppColors.textPrimary),
-                    onPressed: _toggleSelectionMode,
-                  ),
-                ]
-              : [
-                  Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: AppColors.grey700,
-                      shape: BoxShape.circle,
-                    ),
-                    child: IconButton(
-                      icon: const Icon(Icons.person_add, color: AppColors.textPrimary, size: 18),
-                      onPressed: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (context) => const SearchUsersScreen(),
-                          ),
-                        );
-                      },
-                      tooltip: 'Search People',
-                      padding: EdgeInsets.zero,
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: _pendingRequests.isNotEmpty ? AppColors.primary : AppColors.grey700,
-                      shape: BoxShape.circle,
-                      boxShadow: _pendingRequests.isNotEmpty ? [
-                        BoxShadow(
-                          color: AppColors.primary.withOpacity(0.3),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ] : null,
-                    ),
-                    child: IconButton(
-                      icon: Icon(
-                        Icons.person_add_alt_1, 
-                        color: _pendingRequests.isNotEmpty ? Colors.white : AppColors.textPrimary,
-                        size: 18
-                      ),
-                      onPressed: () {
-                        _showConnectionRequestsDialog();
-                      },
-                      tooltip: 'Connection Requests',
-                      padding: EdgeInsets.zero,
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  Container(
-                    width: 36,
-                    height: 36,
-                    decoration: const BoxDecoration(
-                      color: AppColors.grey700,
-                      shape: BoxShape.circle,
-                    ),
-                    child: IconButton(
-                      tooltip: 'Select multiple',
-                      icon: const Icon(Icons.checklist, color: AppColors.textPrimary, size: 18),
-                      onPressed: _toggleSelectionMode,
-                      padding: EdgeInsets.zero,
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          Color(0xFF4A90E2), // Medium blue
-                          Color(0xFF9B59B6), // Medium purple
-                        ],
-                      ),
-                      borderRadius: BorderRadius.circular(10),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.2),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: IconButton(
-                      icon: const Icon(Icons.refresh, color: Colors.white, size: 18),
-                      onPressed: _refreshData,
-                      tooltip: 'Refresh',
-                      padding: EdgeInsets.zero,
-                    ),
-                  ),
-                ]),
-        ],
       ),
       body: LayoutBuilder(
-        builder: (context, constraints) {
+        builder: (context, _) {
           
-          return SingleChildScrollView(
-            padding: EdgeInsets.only(bottom: ResponsiveUtils.getVerticalPadding(context)),
-            child: Column(
-              children: [
-              // Connection Requests Section
-          if (_pendingRequests.isNotEmpty) ...[
-            Container(
-              margin: EdgeInsets.fromLTRB(
-                ResponsiveUtils.getHorizontalPadding(context),
-                ResponsiveUtils.getSpacing(context, small: 8),
-                ResponsiveUtils.getHorizontalPadding(context),
-                ResponsiveUtils.getSpacing(context, small: 8),
-              ),
-              padding: ResponsiveUtils.getPadding(context),
-              decoration: BoxDecoration(
-                color: AppColors.primary.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.primary.withOpacity(0.3), width: 1),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.person_add,
-                    color: AppColors.primary,
-                    size: ResponsiveUtils.getIconSize(context, baseSize: 20),
-                  ),
-                  SizedBox(width: ResponsiveUtils.getSpacing(context, small: 8, medium: 12)),
-                  Text(
-                    '${_pendingRequests.length} connection request${_pendingRequests.length == 1 ? '' : 's'} pending',
-                    style: TextStyle(
-                      color: AppColors.primary,
-                      fontSize: ResponsiveUtils.getFontSize(context, baseSize: 15),
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: -0.2,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            // Connection Requests List
-            Container(
-              margin: EdgeInsets.fromLTRB(
-                ResponsiveUtils.getHorizontalPadding(context),
-                0,
-                ResponsiveUtils.getHorizontalPadding(context),
-                ResponsiveUtils.getVerticalPadding(context),
-              ),
-              child: Column(
-                children: _pendingRequests.map((request) => _buildConnectionRequestCard(request)).toList(),
-              ),
-            ),
-          ],
-          
-          // Search bar
-          Padding(
-            padding: EdgeInsets.fromLTRB(
-              ResponsiveUtils.getHorizontalPadding(context),
-              ResponsiveUtils.getVerticalPadding(context) + ResponsiveUtils.getSpacing(context, small: 8),
-              ResponsiveUtils.getHorizontalPadding(context),
-              ResponsiveUtils.getSpacing(context, small: 16),
-            ),
-            child: Container(
-              decoration: BoxDecoration(
-                color: const Color(0xFF2A2F50),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: Colors.white.withOpacity(0.15),
-                  width: 1,
-                ),
-              ),
-              child: TextField(
-                controller: _searchController,
-                onChanged: (value) => _filterConnections(),
-                style: TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: ResponsiveUtils.getFontSize(context, baseSize: 15),
-                  fontWeight: FontWeight.w400,
-                ),
-                decoration: InputDecoration(
-                  hintText: 'Search by name, email, or company...',
-                  hintStyle: TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: ResponsiveUtils.getFontSize(context, baseSize: 15),
-                    fontWeight: FontWeight.w400,
-                  ),
-                  filled: false,
-                  prefixIcon: Icon(
-                    Icons.search,
-                    color: AppColors.textSecondary,
-                    size: ResponsiveUtils.getIconSize(context, baseSize: 20),
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(
-                      color: Colors.white.withOpacity(0.2),
-                      width: 1,
-                    ),
-                  ),
-                  contentPadding: EdgeInsets.symmetric(
-                    horizontal: ResponsiveUtils.getHorizontalPadding(context),
-                    vertical: ResponsiveUtils.getVerticalPadding(context),
-                  ),
-                ),
-              ),
-            ),
-          ),
-          
-          // Filter dropdowns
-          Padding(
-            padding: EdgeInsets.fromLTRB(
-              ResponsiveUtils.getHorizontalPadding(context),
-              0,
-              ResponsiveUtils.getHorizontalPadding(context),
-              ResponsiveUtils.getSpacing(context, small: 20),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF2A2F50),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: Colors.white.withOpacity(0.15),
-                        width: 1,
-                      ),
-                    ),
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<String>(
-                        value: _selectedGroup,
-                        isExpanded: true,
-                        onChanged: (String? newValue) {
-                          if (newValue != null) {
-                            if (newValue == 'CREATE_GROUP') {
-                              // Show create group dialog without requiring a specific connection
-                              _showCreateGroupDialogGeneric();
-                            } else {
-                              setState(() {
-                                _selectedGroup = newValue;
-                              });
-                              _filterConnections();
-                            }
-                          }
-                        },
-                        style: TextStyle(
-                          color: AppColors.textPrimary,
-                          fontSize: ResponsiveUtils.getFontSize(context, baseSize: 15),
-                          fontWeight: FontWeight.w400,
-                        ),
-                        dropdownColor: const Color(0xFF2A2F50),
-                        icon: Icon(
-                          Icons.keyboard_arrow_down,
-                          color: AppColors.textSecondary,
-                          size: ResponsiveUtils.getIconSize(context, baseSize: 24),
-                        ),
-                        items: [
-                          DropdownMenuItem<String>(
-                            value: 'All Groups',
-                            child: Padding(
-                              padding: EdgeInsets.symmetric(horizontal: ResponsiveUtils.getHorizontalPadding(context)),
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    Icons.group, 
-                                    color: AppColors.textPrimary, 
-                                    size: ResponsiveUtils.getIconSize(context, baseSize: 18),
-                                  ),
-                                  SizedBox(width: ResponsiveUtils.getSpacing(context, small: 8, medium: 12)),
-                                  Text(
-                                    'All Groups',
-                                    style: TextStyle(
-                                      color: AppColors.textPrimary,
-                                      fontSize: ResponsiveUtils.getFontSize(context, baseSize: 15),
-                                      fontWeight: FontWeight.w400,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
+          return AnimatedSwitcher(
+            duration: const Duration(milliseconds: 300),
+            switchInCurve: Curves.easeOut,
+            switchOutCurve: Curves.easeIn,
+            child: _isInitialConnectionsLoading
+                ? _buildLoadingState(context)
+                : SingleChildScrollView(
+                    key: const ValueKey('connections-content'),
+                    padding: EdgeInsets.only(bottom: ResponsiveUtils.getVerticalPadding(context)),
+                    child: Column(
+                      children: [
+                        Padding(
+                          padding: EdgeInsets.fromLTRB(
+                            ResponsiveUtils.getHorizontalPadding(context),
+                            ResponsiveUtils.getSpacing(context, small: 12),
+                            ResponsiveUtils.getHorizontalPadding(context),
+                            ResponsiveUtils.getSpacing(context, small: 16),
                           ),
-                          ..._groups.map((group) => DropdownMenuItem<String>(
-                            value: group.name,
-                            child: Padding(
-                              padding: EdgeInsets.symmetric(horizontal: ResponsiveUtils.getHorizontalPadding(context)),
-                              child: Row(
-                                children: [
-                                  Container(
-                                    width: 12,
-                                    height: 12,
-                                    decoration: BoxDecoration(
-                                      color: Color(int.parse(group.color.replaceFirst('#', '0xFF'))),
-                                      shape: BoxShape.circle,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    group.name,
-                                    style: const TextStyle(
-                                      color: AppColors.textPrimary,
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w500,
-                                      letterSpacing: -0.2,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          )),
-                          const DropdownMenuItem<String>(
-                            value: 'CREATE_GROUP',
-                            child: Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 16),
-                              child: Row(
-                                children: [
-                                  Icon(Icons.add_circle, color: Colors.white, size: 16),
-                                  SizedBox(width: 8),
-                                  Text(
-                                    'Create Group',
-                                    style: TextStyle(color: Colors.white),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                SizedBox(width: ResponsiveUtils.getSpacing(context, small: 12)),
-                Expanded(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF2A2F50),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: Colors.white.withOpacity(0.15),
-                        width: 1,
-                      ),
-                    ),
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<String>(
-                        value: _sortBy,
-                        isExpanded: true,
-                        style: TextStyle(
-                          color: AppColors.textPrimary,
-                          fontSize: ResponsiveUtils.getFontSize(context, baseSize: 15),
-                          fontWeight: FontWeight.w400,
-                        ),
-                        dropdownColor: const Color(0xFF2A2F50),
-                        icon: Icon(
-                          Icons.keyboard_arrow_down,
-                          color: AppColors.textSecondary,
-                          size: ResponsiveUtils.getIconSize(context, baseSize: 24),
-                        ),
-                        items: ['Sort by Name', 'Sort by Date', 'Sort by Company'].map((String value) {
-                          return DropdownMenuItem<String>(
-                            value: value,
-                            child: Padding(
-                              padding: EdgeInsets.symmetric(horizontal: ResponsiveUtils.getHorizontalPadding(context)),
-                              child: Text(
-                                value,
-                                style: TextStyle(
-                                  color: AppColors.textPrimary,
-                                  fontSize: ResponsiveUtils.getFontSize(context, baseSize: 15),
-                                  fontWeight: FontWeight.w400,
-                                ),
-                              ),
-                            ),
-                          );
-                        }).toList(),
-                        onChanged: (String? newValue) {
-                          setState(() {
-                            _sortBy = newValue!;
-                          });
-                        },
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          
-          // Connections list
-          _filteredConnections.isEmpty
-              ? _buildEmptyState()
-              : Column(
-                  children: _filteredConnections.map((connection) => 
-                    Padding(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: ResponsiveUtils.getHorizontalPadding(context),
-                        vertical: ResponsiveUtils.getSpacing(context, small: 4),
-                      ),
-                      child: GestureDetector(
-                        onLongPress: () {
-                          if (!_selectionMode) {
-                            _toggleSelectionMode();
-                            _toggleSelectConnection(connection);
-                          }
-                        },
-                        onTap: () {
-                          if (_selectionMode) {
-                            _toggleSelectConnection(connection);
-                          }
-                        },
-                        child: Stack(
-                          children: [
-                            _buildConnectionCard(connection),
-                            if (_selectionMode)
-                              Positioned(
-                                top: 10,
-                                left: 10,
-                                child: Builder(
-                                  builder: (context) {
-                                    final bool isSelected = _selectedConnectionIds.contains(connection.id);
-                                    return GestureDetector(
-                                      onTap: () => _toggleSelectConnection(connection),
-                                      child: AnimatedContainer(
-                                        duration: const Duration(milliseconds: 150),
-                                        width: 28,
-                                        height: 28,
-                                        decoration: BoxDecoration(
-                                          color: isSelected ? AppColors.primary : Colors.transparent,
-                                          shape: BoxShape.circle,
-                                          border: Border.all(
-                                            color: isSelected ? AppColors.primary : Colors.white.withOpacity(0.9),
-                                            width: 2,
-                                          ),
-                                          boxShadow: isSelected
-                                              ? [
-                                                  BoxShadow(
-                                                    color: AppColors.primary.withOpacity(0.4),
-                                                    blurRadius: 6,
-                                                    offset: const Offset(0, 2),
-                                                  ),
-                                                ]
-                                              : null,
-                                        ),
-                                        child: isSelected
-                                            ? const Icon(Icons.check, color: Colors.white, size: 18)
-                                            : null,
+                          child: _selectionMode
+                              ? _SelectionActionsBar(
+                                  selectedCount: _selectedConnectionIds.length,
+                                  onAddToGroup: _showAddSelectedToGroupDialog,
+                                  onCancel: _toggleSelectionMode,
+                                )
+                              : _PrimaryActionsBar(
+                                  pendingRequestsCount: _pendingRequests.length,
+                                  onSearchPeople: () {
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                        builder: (context) => const SearchUsersScreen(),
                                       ),
                                     );
                                   },
+                                  onShowRequests: _showConnectionRequestsDialog,
+                                  onToggleSelection: _toggleSelectionMode,
+                                  onRefresh: _refreshData,
+                                ),
+                        ),
+
+                        // Connection Requests Section
+                        if (_pendingRequests.isNotEmpty) ...[
+                          Container(
+                            margin: EdgeInsets.fromLTRB(
+                              ResponsiveUtils.getHorizontalPadding(context),
+                              ResponsiveUtils.getSpacing(context, small: 8),
+                              ResponsiveUtils.getHorizontalPadding(context),
+                              ResponsiveUtils.getSpacing(context, small: 8),
+                            ),
+                            padding: ResponsiveUtils.getPadding(context),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: AppColors.primary.withOpacity(0.3), width: 1),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.person_add,
+                                  color: AppColors.primary,
+                                  size: ResponsiveUtils.getIconSize(context, baseSize: 20),
+                                ),
+                                SizedBox(width: ResponsiveUtils.getSpacing(context, small: 8, medium: 12)),
+                                Text(
+                                  '${_pendingRequests.length} connection request${_pendingRequests.length == 1 ? '' : 's'} pending',
+                                  style: TextStyle(
+                                    color: AppColors.primary,
+                                    fontSize: ResponsiveUtils.getFontSize(context, baseSize: 15),
+                                    fontWeight: FontWeight.w600,
+                                    letterSpacing: -0.2,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          // Connection Requests List
+                          Container(
+                            margin: EdgeInsets.fromLTRB(
+                              ResponsiveUtils.getHorizontalPadding(context),
+                              0,
+                              ResponsiveUtils.getHorizontalPadding(context),
+                              ResponsiveUtils.getVerticalPadding(context),
+                            ),
+                            child: Column(
+                              children: _pendingRequests.map((request) => _buildConnectionRequestCard(request)).toList(),
+                            ),
+                          ),
+                        ],
+
+                        // Search bar
+                        Padding(
+                          padding: EdgeInsets.fromLTRB(
+                            ResponsiveUtils.getHorizontalPadding(context),
+                            ResponsiveUtils.getVerticalPadding(context) + ResponsiveUtils.getSpacing(context, small: 8),
+                            ResponsiveUtils.getHorizontalPadding(context),
+                            ResponsiveUtils.getSpacing(context, small: 16),
+                          ),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF2A2F50),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: Colors.white.withOpacity(0.15),
+                                width: 1,
+                              ),
+                            ),
+                            child: TextField(
+                              controller: _searchController,
+                              onChanged: (value) => _filterConnections(),
+                              style: TextStyle(
+                                color: AppColors.textPrimary,
+                                fontSize: ResponsiveUtils.getFontSize(context, baseSize: 15),
+                                fontWeight: FontWeight.w400,
+                              ),
+                              decoration: InputDecoration(
+                                hintText: 'Search by name, email, or company...',
+                                hintStyle: TextStyle(
+                                  color: AppColors.textSecondary,
+                                  fontSize: ResponsiveUtils.getFontSize(context, baseSize: 15),
+                                  fontWeight: FontWeight.w400,
+                                ),
+                                filled: false,
+                                prefixIcon: Icon(
+                                  Icons.search,
+                                  color: AppColors.textSecondary,
+                                  size: ResponsiveUtils.getIconSize(context, baseSize: 20),
+                                ),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide.none,
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide.none,
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide(
+                                    color: Colors.white.withOpacity(0.2),
+                                    width: 1,
+                                  ),
+                                ),
+                                contentPadding: EdgeInsets.symmetric(
+                                  horizontal: ResponsiveUtils.getHorizontalPadding(context),
+                                  vertical: ResponsiveUtils.getVerticalPadding(context),
                                 ),
                               ),
-                          ],
+                            ),
+                          ),
                         ),
-                      ),
+
+                        // Filter dropdowns
+                        Padding(
+                          padding: EdgeInsets.fromLTRB(
+                            ResponsiveUtils.getHorizontalPadding(context),
+                            0,
+                            ResponsiveUtils.getHorizontalPadding(context),
+                            ResponsiveUtils.getSpacing(context, small: 20),
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF2A2F50),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: Colors.white.withOpacity(0.15),
+                                      width: 1,
+                                    ),
+                                  ),
+                                  child: DropdownButtonHideUnderline(
+                                    child: DropdownButton<String>(
+                                      value: _selectedGroup,
+                                      isExpanded: true,
+                                      onChanged: (String? newValue) {
+                                        if (newValue != null) {
+                                          if (newValue == 'CREATE_GROUP') {
+                                            _showCreateGroupDialogGeneric();
+                                          } else {
+                                            setState(() {
+                                              _selectedGroup = newValue;
+                                            });
+                                            _filterConnections();
+                                          }
+                                        }
+                                      },
+                                      style: TextStyle(
+                                        color: AppColors.textPrimary,
+                                        fontSize: ResponsiveUtils.getFontSize(context, baseSize: 15),
+                                        fontWeight: FontWeight.w400,
+                                      ),
+                                      dropdownColor: const Color(0xFF2A2F50),
+                                      icon: Icon(
+                                        Icons.keyboard_arrow_down,
+                                        color: AppColors.textSecondary,
+                                        size: ResponsiveUtils.getIconSize(context, baseSize: 24),
+                                      ),
+                                      items: [
+                                        DropdownMenuItem<String>(
+                                          value: 'All Groups',
+                                          child: Padding(
+                                            padding: EdgeInsets.symmetric(horizontal: ResponsiveUtils.getHorizontalPadding(context)),
+                                            child: Row(
+                                              children: [
+                                                Icon(
+                                                  Icons.group,
+                                                  color: AppColors.textPrimary,
+                                                  size: ResponsiveUtils.getIconSize(context, baseSize: 18),
+                                                ),
+                                                SizedBox(width: ResponsiveUtils.getSpacing(context, small: 8, medium: 12)),
+                                                Text(
+                                                  'All Groups',
+                                                  style: TextStyle(
+                                                    color: AppColors.textPrimary,
+                                                    fontSize: ResponsiveUtils.getFontSize(context, baseSize: 15),
+                                                    fontWeight: FontWeight.w400,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                        ..._groups.map((group) => DropdownMenuItem<String>(
+                                              value: group.name,
+                                              child: Padding(
+                                                padding: EdgeInsets.symmetric(horizontal: ResponsiveUtils.getHorizontalPadding(context)),
+                                                child: Row(
+                                                  children: [
+                                                    Container(
+                                                      width: 12,
+                                                      height: 12,
+                                                      decoration: BoxDecoration(
+                                                        color: Color(int.parse(group.color.replaceFirst('#', '0xFF'))),
+                                                        shape: BoxShape.circle,
+                                                      ),
+                                                    ),
+                                                    const SizedBox(width: 8),
+                                                    Text(
+                                                      group.name,
+                                                      style: const TextStyle(
+                                                        color: AppColors.textPrimary,
+                                                        fontSize: 15,
+                                                        fontWeight: FontWeight.w500,
+                                                        letterSpacing: -0.2,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            )),
+                                        const DropdownMenuItem<String>(
+                                          value: 'CREATE_GROUP',
+                                          child: Padding(
+                                            padding: EdgeInsets.symmetric(horizontal: 16),
+                                            child: Row(
+                                              children: [
+                                                Icon(Icons.add_circle, color: Colors.white, size: 16),
+                                                SizedBox(width: 8),
+                                                Text(
+                                                  'Create Group',
+                                                  style: TextStyle(color: Colors.white),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              SizedBox(width: ResponsiveUtils.getSpacing(context, small: 12)),
+                              Expanded(
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF2A2F50),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: Colors.white.withOpacity(0.15),
+                                      width: 1,
+                                    ),
+                                  ),
+                                  child: DropdownButtonHideUnderline(
+                                    child: DropdownButton<String>(
+                                      value: _sortBy,
+                                      isExpanded: true,
+                                      style: TextStyle(
+                                        color: AppColors.textPrimary,
+                                        fontSize: ResponsiveUtils.getFontSize(context, baseSize: 15),
+                                        fontWeight: FontWeight.w400,
+                                      ),
+                                      dropdownColor: const Color(0xFF2A2F50),
+                                      icon: Icon(
+                                        Icons.keyboard_arrow_down,
+                                        color: AppColors.textSecondary,
+                                        size: ResponsiveUtils.getIconSize(context, baseSize: 24),
+                                      ),
+                                      items: ['Sort by Name', 'Sort by Date', 'Sort by Company'].map((String value) {
+                                        return DropdownMenuItem<String>(
+                                          value: value,
+                                          child: Padding(
+                                            padding: EdgeInsets.symmetric(horizontal: ResponsiveUtils.getHorizontalPadding(context)),
+                                            child: Text(
+                                              value,
+                                              style: TextStyle(
+                                                color: AppColors.textPrimary,
+                                                fontSize: ResponsiveUtils.getFontSize(context, baseSize: 15),
+                                                fontWeight: FontWeight.w400,
+                                              ),
+                                            ),
+                                          ),
+                                        );
+                                      }).toList(),
+                                      onChanged: (String? newValue) {
+                                        setState(() {
+                                          _sortBy = newValue!;
+                                        });
+                                      },
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        // Connections list
+                        _filteredConnections.isEmpty
+                            ? _buildEmptyState()
+                            : Column(
+                                children: _filteredConnections.map((connection) => Padding(
+                                      padding: EdgeInsets.symmetric(
+                                        horizontal: ResponsiveUtils.getHorizontalPadding(context),
+                                        vertical: ResponsiveUtils.getSpacing(context, small: 4),
+                                      ),
+                                      child: GestureDetector(
+                                        onLongPress: () {
+                                          if (!_selectionMode) {
+                                            _toggleSelectionMode();
+                                            _toggleSelectConnection(connection);
+                                          }
+                                        },
+                                        onTap: () {
+                                          if (_selectionMode) {
+                                            _toggleSelectConnection(connection);
+                                          }
+                                        },
+                                        child: Stack(
+                                          children: [
+                                            _buildConnectionCard(connection),
+                                            if (_selectionMode)
+                                              Positioned(
+                                                top: 10,
+                                                left: 10,
+                                                child: Builder(
+                                                  builder: (context) {
+                                                    final bool isSelected = _selectedConnectionIds.contains(connection.id);
+                                                    return GestureDetector(
+                                                      onTap: () => _toggleSelectConnection(connection),
+                                                      child: AnimatedContainer(
+                                                        duration: const Duration(milliseconds: 150),
+                                                        width: 28,
+                                                        height: 28,
+                                                        decoration: BoxDecoration(
+                                                          color: isSelected ? AppColors.primary : Colors.transparent,
+                                                          shape: BoxShape.circle,
+                                                          border: Border.all(
+                                                            color: isSelected ? AppColors.primary : Colors.white.withOpacity(0.9),
+                                                            width: 2,
+                                                          ),
+                                                          boxShadow: isSelected
+                                                              ? [
+                                                                  BoxShadow(
+                                                                    color: AppColors.primary.withOpacity(0.4),
+                                                                    blurRadius: 6,
+                                                                    offset: const Offset(0, 2),
+                                                                  ),
+                                                                ]
+                                                              : null,
+                                                        ),
+                                                        child: isSelected
+                                                            ? const Icon(Icons.check, color: Colors.white, size: 18)
+                                                            : null,
+                                                      ),
+                                                    );
+                                                  },
+                                                ),
+                                              ),
+                                          ],
+                                        ),
+                                      ),
+                                    )).toList(),
+                              ),
+                      ],
                     ),
-                  ).toList(),
-                ),
-            ],
-          ),
-        );
+                  ),
+          );
       },
     ),
     );
@@ -1755,15 +1909,19 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
     return linkedInUrl;
   }
 
-  Widget _buildDefaultAvatar(String name) {
+  Widget _buildDefaultAvatar(
+    String name, {
+    Color backgroundColor = Colors.purple,
+    Color textColor = Colors.white,
+  }) {
     final initial = name.isNotEmpty ? name[0].toUpperCase() : 'A';
     return Container(
-      color: Colors.purple,
+      color: backgroundColor,
       child: Center(
         child: Text(
           initial,
-          style: const TextStyle(
-            color: Colors.white,
+          style: TextStyle(
+            color: textColor,
             fontWeight: FontWeight.bold,
             fontSize: 24,
           ),
@@ -1773,488 +1931,666 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
   }
 
   Widget _buildConnectionCard(ConnectionModel connection) {
+    final DigitalCardThemeData themeData =
+        _userThemeCache[connection.contactUserId] ?? DigitalCardThemes.themeById(DigitalCardThemes.defaultThemeId);
+    final List<Color> baseGradient = themeData.gradientColors;
+    final List<Color> highlightGradient = [
+      themeData.gradientColors.first.withOpacity(0.18),
+      themeData.gradientColors.last.withOpacity(0.0),
+    ];
+    final Color primaryTextColor = themeData.textPrimaryColor;
+    final Color secondaryTextColor = themeData.textSecondaryColor;
+    final Color iconColor = themeData.textPrimaryColor.withOpacity(0.9);
+    final Color mutedIconColor = themeData.textPrimaryColor.withOpacity(0.65);
+    final Color subtleFillColor = themeData.textPrimaryColor.withOpacity(0.12);
+    final Color dividerColor = themeData.textPrimaryColor.withOpacity(0.2);
+
     return LayoutBuilder(
       builder: (context, constraints) {
-        
-        final cardMaxWidth = ResponsiveUtils.getCardMaxWidth(context);
-        final cardPadding = ResponsiveUtils.getPadding(context);
-        final avatarSize = ResponsiveUtils.getAvatarSize(
+        final double maxWidth =
+            math.min(360.0, math.min(constraints.maxWidth, ResponsiveUtils.getCardMaxWidth(context)));
+        final double borderRadius = ResponsiveUtils.getBorderRadius(context);
+        final double widthAvailable = maxWidth;
+        final bool isCompactCard = widthAvailable < 330;
+        final double spacingSmall = isCompactCard
+            ? ResponsiveUtils.getSpacing(context, small: 4)
+            : ResponsiveUtils.getSpacing(context, small: 6);
+        final double spacingMedium = isCompactCard
+            ? ResponsiveUtils.getSpacing(context, small: 8)
+            : ResponsiveUtils.getSpacing(context, small: 10);
+        final double avatarSize = ResponsiveUtils.getAvatarSize(
           context,
-          small: 60,
-          medium: 72,
-          large: 84,
+          small: 58,
+          medium: 66,
+          large: 72,
+        ).clamp(52.0, 76.0);
+        final double iconSize =
+            ResponsiveUtils.getIconSize(context, baseSize: 16);
+        final double secondaryIconSize = isCompactCard ? iconSize - 2 : iconSize;
+        final double menuIconSize = isCompactCard ? 18.0 : 20.0;
+        final double groupIconSize = math.max(12.0, secondaryIconSize - 2);
+        final double detailGap = math.max(4.0, maxWidth * 0.02);
+        final EdgeInsets contentPadding = EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: isCompactCard ? 12 : 14,
         );
-        final borderRadius = ResponsiveUtils.getBorderRadius(context);
-        
+
         return Center(
-          child: Container(
-            margin: EdgeInsets.only(bottom: ResponsiveUtils.getSpacing(context, small: 8)),
-            constraints: BoxConstraints(
-              maxWidth: cardMaxWidth,
-            ),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 900),
+            curve: Curves.easeInOut,
+            margin: EdgeInsets.symmetric(vertical: spacingSmall),
+            width: maxWidth,
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
+              gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [
-                  Color(0xFF1F295B), // Dark navy/indigo (#1F295B) - corners and edges
-                  Color(0xFF283B89), // Medium-dark blue/royal blue (#283B89) - center
-                ],
+                colors: baseGradient,
               ),
               borderRadius: BorderRadius.circular(borderRadius),
+              border: Border.all(
+                color: themeData.borderColor.withOpacity(0.55),
+                width: 1.1,
+              ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.15),
-                  blurRadius: 10,
+                  color: Colors.black.withOpacity(0.18),
+                  blurRadius: 14,
+                  offset: const Offset(0, 6),
+                ),
+                BoxShadow(
+                  color: themeData.shadowColor.withOpacity(0.22),
+                  blurRadius: 12,
                   offset: const Offset(0, 4),
                 ),
               ],
             ),
             child: AspectRatio(
-              aspectRatio: 3.5 / 2.45,
+              aspectRatio: 3.5 / 2.2,
               child: Padding(
-                padding: cardPadding,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
+                padding: contentPadding,
+                child: Stack(
                   children: [
-                    // Header section with avatar and name
-                    Row(
+                    Positioned.fill(
+                      child: AnimatedBuilder(
+                        animation: _loadingPulse,
+                        builder: (context, _) {
+                          final double pulse = _loadingPulse.value;
+                          return Container(
+                            decoration: BoxDecoration(
+                              gradient: RadialGradient(
+                                center: Alignment(
+                                  math.sin(pulse * math.pi * 2) * 0.6,
+                                  math.cos(pulse * math.pi * 2) * 0.6,
+                                ),
+                                radius: 1.4,
+                                colors: [
+                                  highlightGradient.first
+                                      .withOpacity(0.05 + pulse * 0.12),
+                                  highlightGradient.last.withOpacity(0.0),
+                                ],
+                                stops: const [0.0, 1.0],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.max,
                       children: [
-                    // Profile image with circular design like reference
-                    FutureBuilder<List<String?>>(
-                      future: Future.wait([
-                        _getUserProfileImageUrl(connection.contactUserId),
-                        _getUserFullName(connection.contactUserId),
-                      ]),
-                      builder: (context, snapshot) {
-                        final profileImageUrl = snapshot.data?[0];
-                        final userName = snapshot.data?[1] ?? connection.contactName;
-                        final displayName = userName.isNotEmpty ? userName : 'Contact';
-                        return Container(
-                          width: avatarSize,
-                          height: avatarSize,
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: Colors.purple, 
-                              width: ResponsiveUtils.isMobile(context) ? 2.5 : 3,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.2),
-                                blurRadius: 8,
-                                offset: const Offset(0, 3),
-                              ),
-                            ],
-                          ),
-                          child: ClipOval(
-                            child: profileImageUrl != null
-                                ? Image.network(
-                                    profileImageUrl,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (context, error, stackTrace) {
-                                      return _buildDefaultAvatar(displayName);
-                                    },
-                                  )
-                                : _buildDefaultAvatar(displayName),
-                          ),
-                        );
-                      },
-                    ),
-                    SizedBox(width: ResponsiveUtils.getHorizontalPadding(context) * 0.75),
-                    
-                    // Name and title section
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Name with fallback to user profile when missing
-                          if (connection.contactName.trim().isNotEmpty)
-                            Text(
-                              connection.contactName,
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w700,
-                                fontSize: ResponsiveUtils.getFontSize(context, baseSize: 22),
-                                letterSpacing: 0.15,
-                              ),
-                            )
-                          else
-                            FutureBuilder<String?>(
-                              future: _getUserFullName(connection.contactUserId),
-                              builder: (context, snapshot) {
-                                final name = (snapshot.data ?? '').trim();
-                                return Text(
-                                  name.isNotEmpty ? name : 'Contact',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: ResponsiveUtils.getFontSize(context, baseSize: 22),
-                                    letterSpacing: 0.15,
-                                  ),
-                                );
-                              },
-                            ),
-                          // Position (Job Title) with fallback to user profile
-                          FutureBuilder<String?>(
-                            future: _getUserPosition(connection.contactUserId),
-                            builder: (context, snapshot) {
-                              final position = (snapshot.data ?? '').trim();
-                              if (position.isNotEmpty) {
-                                return Padding(
-                                  padding: EdgeInsets.only(top: ResponsiveUtils.getSpacing(context, small: 2)),
-                                  child: Text(
-                                    position,
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: ResponsiveUtils.getFontSize(context, baseSize: 16),
-                                      fontWeight: FontWeight.w500,
-                                      letterSpacing: 0.3,
-                                    ),
-                                  ),
-                                );
-                              }
-                              return const SizedBox.shrink();
-                            },
-                          ),
-                          Padding(
-                            padding: EdgeInsets.only(top: ResponsiveUtils.getSpacing(context, small: 2)),
-                            child: FutureBuilder<String?>(
-                              future: connection.contactCompany != null && connection.contactCompany!.trim().isNotEmpty
-                                  ? Future.value(connection.contactCompany)
-                                  : _getUserCompany(connection.contactUserId),
-                              builder: (context, snapshot) {
-                                final company = (snapshot.data ?? '').trim();
-                                return Text(
-                                  company.isNotEmpty ? company : 'Professional',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                  fontSize: ResponsiveUtils.getFontSize(context, baseSize: 16),
-                                    fontWeight: FontWeight.w400,
-                                    letterSpacing: 0.3,
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    
-                    // 3-dot menu like reference
-                    PopupMenuButton<String>(
-                      icon: Icon(
-                        Icons.more_vert,
-                        color: Colors.white,
-                        size: ResponsiveUtils.getIconSize(context, baseSize: 20),
-                      ),
-                      onSelected: (String value) {
-                        if (value == 'delete') {
-                          _showDeleteDialog(connection);
-                        } else if (value == 'add_to_group') {
-                          _showAddToGroupDialog(connection);
-                        }
-                      },
-                      itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-                        const PopupMenuItem<String>(
-                          value: 'add_to_group',
-                          child: Row(
-                            children: [
-                              Icon(Icons.group_add, color: Colors.blue),
-                              SizedBox(width: 8),
-                              Text('Add to Group'),
-                            ],
-                          ),
-                        ),
-                        const PopupMenuItem<String>(
-                          value: 'delete',
-                          child: Row(
-                            children: [
-                              Icon(Icons.delete_outline, color: Colors.red),
-                              SizedBox(width: 8),
-                              Text('Delete'),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-                
-                SizedBox(height: ResponsiveUtils.getSpacing(context, small: 8, medium: 10)),
-                
-                // Contact information section
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.start,
-                  children: [
-                      // Email (clickable) with fallback from user profile
-                      FutureBuilder<String?>(
-                        future: connection.contactEmail.trim().isNotEmpty
-                            ? Future.value(connection.contactEmail)
-                            : _getUserEmail(connection.contactUserId),
-                        builder: (context, snapshot) {
-                          final email = (snapshot.data ?? '').trim();
-                          return InkWell(
-                            onTap: email.isNotEmpty ? () => _launchEmail(email) : null,
-                            borderRadius: BorderRadius.circular(4),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.email_outlined, 
-                                  color: Colors.white, 
-                                  size: ResponsiveUtils.getIconSize(context, baseSize: 16),
-                                ),
-                                SizedBox(width: ResponsiveUtils.getSpacing(context, small: 6, medium: 8)),
-                                Expanded(
-                                  child: Text(
-                                    email.isNotEmpty ? email : 'Email',
-                                    style: TextStyle(
-                                      color: Colors.white.withOpacity(email.isNotEmpty ? 1 : 0.7),
-                                      fontSize: ResponsiveUtils.getFontSize(context, baseSize: 14),
-                                      fontWeight: FontWeight.w400,
-                                      letterSpacing: 0.2,
-                                      decoration: TextDecoration.none,
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          );
-                        },
-                      ),
-                      
-                      SizedBox(height: ResponsiveUtils.getSpacing(context, small: 6, medium: 8, large: 10)),
-                      
-                      // LinkedIn (clickable) - shows username with LinkedIn logo
-                      FutureBuilder<String?>(
-                        future: _getUserLinkedInUrl(connection.contactUserId),
-                        builder: (context, snapshot) {
-                          final linkedInUrl = snapshot.data;
-                          // Always show the same visual label while retaining tap behaviour when a URL exists
-                          final hasLinkedIn = linkedInUrl != null && linkedInUrl.isNotEmpty;
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            SizedBox(
+                              width: avatarSize,
+                              height: avatarSize,
+                              child: FutureBuilder<List<String?>>(
+                                future: Future.wait([
+                                  _getUserProfileImageUrl(connection.contactUserId),
+                                  _getUserFullName(connection.contactUserId),
+                                ]),
+                                builder: (context, snapshot) {
+                                  final String? profileImageUrl =
+                                      snapshot.data?[0];
+                                  final String userName =
+                                      (snapshot.data?[1] ?? connection.contactName)
+                                          .trim();
+                                  final String displayName =
+                                      userName.isNotEmpty ? userName : 'Contact';
 
-                          return InkWell(
-                            onTap: hasLinkedIn ? () => _launchLinkedIn(linkedInUrl!) : null,
-                            borderRadius: BorderRadius.circular(4),
-                            child: Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(hasLinkedIn ? 0.2 : 0.1),
-                                    borderRadius: BorderRadius.circular(3),
-                                  ),
-                                  child: Text(
-                                    'in',
-                                    style: TextStyle(
-                                      color: Colors.white.withOpacity(hasLinkedIn ? 1 : 0.5),
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w700,
-                                      letterSpacing: 0.4,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  'LinkedIn Profile',
-                                  style: TextStyle(
-                                    color: Colors.white.withOpacity(hasLinkedIn ? 1 : 0.7),
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w400,
-                                    letterSpacing: 0.2,
-                                    decoration: TextDecoration.none,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          );
-                        },
-                      ),
-                      
-                      SizedBox(height: ResponsiveUtils.getSpacing(context, small: 8, medium: 10, large: 12)),
-                      
-                      // Phone (fetched from Firestore with privacy check)
-                      FutureBuilder<Map<String, dynamic>>(
-                        future: Future.wait([
-                          _getUserPhoneNumber(connection.contactUserId),
-                          _getUserPrivacySettings(connection.contactUserId),
-                          Future.value(Provider.of<AuthService>(context, listen: false).user?.uid ?? ''),
-                        ]).then((results) async {
-                          final currentUserId = results[2] as String;
-                          final ownerUserId = connection.contactUserId;
-                          // Check if current user is in the contact's connections list
-                          final isConnected = await _isUserInConnections(ownerUserId, currentUserId);
-                          return {
-                            'phoneNumber': results[0] as String?,
-                            'privacySettings': results[1] as Map<String, dynamic>,
-                            'isConnected': isConnected,
-                          };
-                        }),
-                        builder: (context, snapshot) {
-                          if (!snapshot.hasData) {
-                            return const SizedBox.shrink();
-                          }
-
-                          final phoneNumber = snapshot.data!['phoneNumber'] as String?;
-                          final privacySettings = snapshot.data!['privacySettings'] as Map<String, dynamic>;
-                          final phoneNumberPrivacy = privacySettings['phoneNumberPrivacy'] as String? ?? 'connections_only';
-                          final allowedPhoneViewers = (privacySettings['allowedPhoneViewers'] as List?)?.cast<String>() ?? [];
-                          final isConnected = snapshot.data!['isConnected'] as bool? ?? false;
-
-                          // Get current user ID
-                          final authService = Provider.of<AuthService>(context, listen: false);
-                          final currentUserId = authService.user?.uid ?? '';
-
-                          // Check if phone number should be visible
-                          final shouldShow = PrivacyUtils.shouldShowPhoneNumber(
-                            phoneNumberPrivacy: phoneNumberPrivacy,
-                            isConnected: isConnected,
-                            viewerUserId: currentUserId,
-                            ownerUserId: connection.contactUserId,
-                            allowedPhoneViewers: allowedPhoneViewers,
-                          );
-
-                          // Determine the phone number to display
-                          String? displayPhoneNumber;
-                          if (phoneNumber != null && phoneNumber.isNotEmpty) {
-                            displayPhoneNumber = phoneNumber;
-                          } else if (connection.contactPhone != null && connection.contactPhone!.isNotEmpty) {
-                            displayPhoneNumber = connection.contactPhone;
-                          }
-
-                          if (displayPhoneNumber != null && displayPhoneNumber.isNotEmpty) {
-                            // Use PrivacyUtils to get display text
-                            final displayText = PrivacyUtils.getPhoneNumberDisplay(
-                              phoneNumber: displayPhoneNumber,
-                              phoneNumberPrivacy: phoneNumberPrivacy,
-                              isConnected: isConnected,
-                              viewerUserId: currentUserId,
-                              ownerUserId: connection.contactUserId,
-                              allowedPhoneViewers: allowedPhoneViewers,
-                              placeholder: 'Phone number hidden',
-                            );
-
-                            // If phone number is hidden, don't show the row
-                            if (!shouldShow || displayText == 'Phone number hidden') {
-                              return const SizedBox.shrink();
-                            }
-
-                            return InkWell(
-                              onTap: () => _launchPhoneNumber(displayPhoneNumber!),
-                              borderRadius: BorderRadius.circular(4),
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    Icons.phone_outlined, 
-                                    color: Colors.white, 
-                                    size: ResponsiveUtils.getIconSize(context, baseSize: 16),
-                                  ),
-                                  SizedBox(width: ResponsiveUtils.getSpacing(context, small: 6, medium: 8)),
-                                  Expanded(
-                                    child: Text(
-                                      displayText,
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: ResponsiveUtils.getFontSize(context, baseSize: 14),
-                                        fontWeight: FontWeight.w400,
-                                        letterSpacing: 0.2,
-                                        decoration: TextDecoration.none,
+                                  return Container(
+                                    decoration: BoxDecoration(
+                                      color: primaryTextColor.withOpacity(0.12),
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: themeData.borderColor,
+                                        width: ResponsiveUtils.isMobile(context)
+                                            ? 2.0
+                                            : 2.5,
                                       ),
-                                      overflow: TextOverflow.ellipsis,
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withOpacity(0.18),
+                                          blurRadius: 8,
+                                          offset: const Offset(0, 3),
+                                        ),
+                                      ],
                                     ),
+                                    child: ClipOval(
+                                      child: profileImageUrl != null
+                                          ? Image.network(
+                                              profileImageUrl,
+                                              fit: BoxFit.cover,
+                                              errorBuilder:
+                                                  (context, error, stack) =>
+                                                      _buildDefaultAvatar(
+                                                displayName,
+                                                backgroundColor: themeData.borderColor.withOpacity(0.8),
+                                                textColor: primaryTextColor,
+                                              ),
+                                            )
+                                          : _buildDefaultAvatar(
+                                              displayName,
+                                              backgroundColor: themeData.borderColor.withOpacity(0.8),
+                                              textColor: primaryTextColor,
+                                            ),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                            SizedBox(width: detailGap),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  if (connection.contactName.trim().isNotEmpty)
+                                    Text(
+                                      connection.contactName,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        color: primaryTextColor,
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: ResponsiveUtils.getFontSize(
+                                          context,
+                                          baseSize: isCompactCard ? 18 : 19,
+                                        ),
+                                        letterSpacing: 0.1,
+                                      ),
+                                    )
+                                  else
+                                    FutureBuilder<String?>(
+                                      future: _getUserFullName(
+                                        connection.contactUserId,
+                                      ),
+                                      builder: (context, snapshot) {
+                                        final String name =
+                                            (snapshot.data ?? '').trim();
+                                        return Text(
+                                          name.isNotEmpty ? name : 'Contact',
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            color: primaryTextColor,
+                                            fontWeight: FontWeight.w700,
+                                            fontSize: ResponsiveUtils.getFontSize(
+                                              context,
+                                              baseSize: isCompactCard ? 18 : 19,
+                                            ),
+                                            letterSpacing: 0.1,
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  SizedBox(height: spacingSmall),
+                                  FutureBuilder<String?>(
+                                    future:
+                                        _getUserPosition(connection.contactUserId),
+                                    builder: (context, snapshot) {
+                                      final String position =
+                                          (snapshot.data ?? '').trim();
+                                      if (position.isEmpty) {
+                                        return const SizedBox.shrink();
+                                      }
+                                      return Text(
+                                        position,
+                                        style: TextStyle(
+                                          color: secondaryTextColor,
+                                          fontSize: ResponsiveUtils.getFontSize(
+                                            context,
+                                            baseSize: isCompactCard ? 12 : 13,
+                                          ),
+                                          fontWeight: FontWeight.w500,
+                                          letterSpacing: 0.3,
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                  SizedBox(height: spacingSmall),
+                                  FutureBuilder<String?>(
+                                    future: connection.contactCompany != null &&
+                                            connection
+                                                .contactCompany!.trim().isNotEmpty
+                                        ? Future.value(connection.contactCompany)
+                                        : _getUserCompany(
+                                            connection.contactUserId,
+                                          ),
+                                    builder: (context, snapshot) {
+                                      final String company =
+                                          (snapshot.data ?? '').trim();
+                                      return Text(
+                                        company.isNotEmpty
+                                            ? company
+                                            : 'Professional',
+                                        style: TextStyle(
+                                          color: secondaryTextColor,
+                                          fontSize: ResponsiveUtils.getFontSize(
+                                            context,
+                                            baseSize: isCompactCard ? 12 : 13,
+                                          ),
+                                          fontWeight: FontWeight.w400,
+                                          letterSpacing: 0.2,
+                                        ),
+                                      );
+                                    },
                                   ),
                                 ],
                               ),
-                            );
-                          }
-                          return const SizedBox.shrink(); // Return empty widget if no phone number
-                        },
-                      ),
-                      
-                      // Thin divider line
-                      SizedBox(height: ResponsiveUtils.getSpacing(context, small: 6, medium: 8, large: 10)),
-
-                      // Message button
-                      GestureDetector(
-                        onTap: () {
-                          _openChat(connection);
-                        },
-                        child: Text(
-                          'Message',
-                          style: TextStyle(
-                            color: const Color(0xFFFFA500), // Vibrant orange/yellow like reference
-                            fontSize: ResponsiveUtils.getFontSize(context, baseSize: 16),
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: 0.3,
-                          ),
-                        ),
-                      ),
-                      
-                      SizedBox(height: ResponsiveUtils.getSpacing(context, small: 10, medium: 14, large: 18)),
-
-                      Container(
-                        height: 1,
-                        color: Colors.white.withOpacity(0.2),
-                        margin: EdgeInsets.only(
-                          top: ResponsiveUtils.getSpacing(context, small: 4, medium: 6, large: 8),
-                        ),
-                      ),
-
-                      SizedBox(height: ResponsiveUtils.getSpacing(context, small: 6, medium: 8, large: 10)),
-
-                      // Date
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: Text(
-                          '${DateTime.now().day}/${DateTime.now().month}/${DateTime.now().year}',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: ResponsiveUtils.getFontSize(context, baseSize: 12),
-                            fontWeight: FontWeight.w400,
-                          ),
-                        ),
-                      ),
-                      
-                      // Group name (if connection is in a group)
-                      if (connection.groupId != null && connection.groupId!.isNotEmpty)
-                        FutureBuilder<GroupModel?>(
-                          future: GroupService.getGroup(connection.groupId!),
-                          builder: (context, snapshot) {
-                            if (snapshot.hasData && snapshot.data != null) {
-                              return Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.15),
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                    color: Colors.white.withOpacity(0.2),
-                                    width: 0.5,
+                            ),
+                            PopupMenuButton<String>(
+                              icon: Icon(
+                                Icons.more_vert,
+                                color: mutedIconColor,
+                                size: menuIconSize,
+                              ),
+                              onSelected: (String value) {
+                                if (value == 'delete') {
+                                  _showDeleteDialog(connection);
+                                } else if (value == 'add_to_group') {
+                                  _showAddToGroupDialog(connection);
+                                }
+                              },
+                              itemBuilder: (BuildContext context) =>
+                                  <PopupMenuEntry<String>>[
+                                const PopupMenuItem<String>(
+                                  value: 'add_to_group',
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.group_add, color: Colors.blue),
+                                      SizedBox(width: 8),
+                                      Text('Add to Group'),
+                                    ],
                                   ),
                                 ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const Icon(Icons.group, color: Colors.white70, size: 14),
-                                    const SizedBox(width: 6),
-                                    Text(
-                                      snapshot.data!.name,
-                                      style: const TextStyle(
-                                        color: Colors.white70,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w400,
-                                        letterSpacing: 0.2,
+                                const PopupMenuItem<String>(
+                                  value: 'delete',
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.delete_outline,
+                                          color: Colors.red),
+                                      SizedBox(width: 8),
+                                      Text('Delete'),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: spacingMedium),
+                        Expanded(
+                          child: LayoutBuilder(
+                            builder: (context, detailsConstraints) {
+                              final bool canScroll =
+                                  detailsConstraints.maxHeight.isFinite &&
+                                      detailsConstraints.maxHeight > 0;
+                              final detailsContent = Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisAlignment: MainAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  FutureBuilder<String?> (
+                                    future: connection.contactEmail.trim().isNotEmpty
+                                        ? Future.value(connection.contactEmail)
+                                        : _getUserEmail(connection.contactUserId),
+                                    builder: (context, snapshot) {
+                                      final String email =
+                                          (snapshot.data ?? '').trim();
+                                      return InkWell(
+                                        onTap: email.isNotEmpty
+                                            ? () => _launchEmail(email)
+                                            : null,
+                                        borderRadius: BorderRadius.circular(4),
+                                        child: Row(
+                                          children: [
+                                            Icon(
+                                              Icons.email_outlined,
+                                              color: iconColor,
+                                              size: secondaryIconSize,
+                                            ),
+                                            SizedBox(width: spacingSmall),
+                                            Expanded(
+                                              child: Text(
+                                                email.isNotEmpty ? email : 'Email',
+                                                style: TextStyle(
+                                                  color: email.isNotEmpty
+                                                      ? primaryTextColor
+                                                      : primaryTextColor.withOpacity(0.7),
+                                                  fontSize: ResponsiveUtils.getFontSize(
+                                                    context,
+                                                    baseSize: isCompactCard ? 12 : 13,
+                                                  ),
+                                                  fontWeight: FontWeight.w400,
+                                                  letterSpacing: 0.2,
+                                                  decoration: TextDecoration.none,
+                                                ),
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                  SizedBox(height: spacingSmall),
+                                  FutureBuilder<String?> (
+                                    future: _getUserLinkedInUrl(
+                                      connection.contactUserId,
+                                    ),
+                                    builder: (context, snapshot) {
+                                      final String? linkedInUrl = snapshot.data;
+                                      final bool hasLinkedIn = linkedInUrl != null &&
+                                          linkedInUrl.isNotEmpty;
+
+                                      return InkWell(
+                                        onTap: hasLinkedIn
+                                            ? () => _launchLinkedIn(linkedInUrl!)
+                                            : null,
+                                        borderRadius: BorderRadius.circular(4),
+                                        child: Row(
+                                          children: [
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(
+                                                horizontal: 4,
+                                                vertical: 2,
+                                              ),
+                                              decoration: BoxDecoration(
+                                                color: hasLinkedIn
+                                                    ? subtleFillColor
+                                                    : subtleFillColor.withOpacity(0.6),
+                                                borderRadius: BorderRadius.circular(3),
+                                              ),
+                                              child: Text(
+                                                'in',
+                                                style: TextStyle(
+                                                  color: hasLinkedIn
+                                                      ? primaryTextColor
+                                                      : primaryTextColor.withOpacity(0.5),
+                                                  fontSize: 10,
+                                                  fontWeight: FontWeight.w700,
+                                                  letterSpacing: 0.4,
+                                                ),
+                                              ),
+                                            ),
+                                            SizedBox(width: spacingSmall),
+                                            Text(
+                                              'LinkedIn Profile',
+                                              style: TextStyle(
+                                                color: hasLinkedIn
+                                                    ? primaryTextColor
+                                                    : primaryTextColor.withOpacity(0.7),
+                                                fontSize: ResponsiveUtils.getFontSize(
+                                                  context,
+                                                  baseSize: isCompactCard ? 12 : 13,
+                                                ),
+                                                fontWeight: FontWeight.w400,
+                                                letterSpacing: 0.2,
+                                                decoration: TextDecoration.none,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                  SizedBox(height: spacingSmall),
+                                  FutureBuilder<Map<String, dynamic>> (
+                                    future: Future.wait([
+                                      _getUserPhoneNumber(connection.contactUserId),
+                                      _getUserPrivacySettings(connection.contactUserId),
+                                      Future.value(
+                                        Provider.of<AuthService>(
+                                          context,
+                                          listen: false,
+                                        ).user?.uid ??
+                                            '',
+                                      ),
+                                    ]).then((results) async {
+                                      final String currentUserId =
+                                          results[2] as String;
+                                      final String ownerUserId =
+                                          connection.contactUserId;
+                                      final bool isConnected =
+                                          await _isUserInConnections(
+                                        ownerUserId,
+                                        currentUserId,
+                                      );
+                                      return {
+                                        'phoneNumber': results[0] as String?,
+                                        'privacySettings':
+                                            results[1] as Map<String, dynamic>,
+                                        'isConnected': isConnected,
+                                      };
+                                    }),
+                                    builder: (context, snapshot) {
+                                      if (!snapshot.hasData) {
+                                        return const SizedBox.shrink();
+                                      }
+
+                                      final String? phoneNumber =
+                                          snapshot.data!['phoneNumber'] as String?;
+                                      final Map<String, dynamic> privacySettings =
+                                          snapshot.data!['privacySettings']
+                                              as Map<String, dynamic>;
+                                      final String phoneNumberPrivacy =
+                                          privacySettings['phoneNumberPrivacy']
+                                                  as String? ??
+                                              'connections_only';
+                                      final List<String> allowedPhoneViewers =
+                                          (privacySettings['allowedPhoneViewers']
+                                                      as List?)
+                                                  ?.cast<String>() ??
+                                              <String>[];
+                                      final bool isConnected =
+                                          snapshot.data!['isConnected'] as bool? ??
+                                              false;
+
+                                      final authService = Provider.of<AuthService>(
+                                        context,
+                                        listen: false,
+                                      );
+                                      final String viewerId =
+                                          authService.user?.uid ?? '';
+
+                                      final bool shouldShow =
+                                          PrivacyUtils.shouldShowPhoneNumber(
+                                        phoneNumberPrivacy: phoneNumberPrivacy,
+                                        isConnected: isConnected,
+                                        viewerUserId: viewerId,
+                                        ownerUserId: connection.contactUserId,
+                                        allowedPhoneViewers: allowedPhoneViewers,
+                                      );
+
+                                      String? displayPhoneNumber;
+                                      if (phoneNumber != null &&
+                                          phoneNumber.isNotEmpty) {
+                                        displayPhoneNumber = phoneNumber;
+                                      } else if (connection.contactPhone != null &&
+                                          connection.contactPhone!.isNotEmpty) {
+                                        displayPhoneNumber = connection.contactPhone;
+                                      }
+
+                                      if (displayPhoneNumber == null ||
+                                          displayPhoneNumber.isEmpty) {
+                                        return const SizedBox.shrink();
+                                      }
+
+                                      final String displayText =
+                                          PrivacyUtils.getPhoneNumberDisplay(
+                                        phoneNumber: displayPhoneNumber,
+                                        phoneNumberPrivacy: phoneNumberPrivacy,
+                                        isConnected: isConnected,
+                                        viewerUserId: viewerId,
+                                        ownerUserId: connection.contactUserId,
+                                        allowedPhoneViewers: allowedPhoneViewers,
+                                        placeholder: 'Phone number hidden',
+                                      );
+
+                                      if (!shouldShow ||
+                                          displayText == 'Phone number hidden') {
+                                        return const SizedBox.shrink();
+                                      }
+
+                                      return InkWell(
+                                        onTap: () =>
+                                            _launchPhoneNumber(displayPhoneNumber!),
+                                        borderRadius: BorderRadius.circular(4),
+                                        child: Row(
+                                          children: [
+                                            Icon(
+                                              Icons.phone_outlined,
+                                              color: iconColor,
+                                              size: secondaryIconSize,
+                                            ),
+                                            SizedBox(width: spacingSmall),
+                                            Expanded(
+                                              child: Text(
+                                                displayText,
+                                                style: TextStyle(
+                                                  color: primaryTextColor,
+                                                  fontSize: ResponsiveUtils.getFontSize(
+                                                    context,
+                                                    baseSize: isCompactCard ? 12 : 13,
+                                                  ),
+                                                  fontWeight: FontWeight.w400,
+                                                  letterSpacing: 0.2,
+                                                  decoration: TextDecoration.none,
+                                                ),
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                  SizedBox(height: spacingSmall),
+                                  GestureDetector(
+                                    onTap: () => _openChat(connection),
+                                    child: Text(
+                                      'Message',
+                                      style: TextStyle(
+                                        color: const Color(0xFFFFA500),
+                                        fontSize: ResponsiveUtils.getFontSize(
+                                          context,
+                                          baseSize: isCompactCard ? 12 : 14,
+                                        ),
+                                        fontWeight: FontWeight.w600,
+                                        letterSpacing: 0.3,
                                       ),
                                     ),
-                                  ],
+                                  ),
+                                  SizedBox(height: spacingMedium),
+                                  Container(
+                                    height: 1,
+                                    color: dividerColor,
+                                    margin: EdgeInsets.only(top: spacingSmall),
+                                  ),
+                                  SizedBox(height: spacingSmall),
+                                  Align(
+                                    alignment: Alignment.centerRight,
+                                    child: Text(
+                                      '${DateTime.now().day}/${DateTime.now().month}/${DateTime.now().year}',
+                                      style: TextStyle(
+                                        color: secondaryTextColor.withOpacity(0.9),
+                                        fontSize: ResponsiveUtils.getFontSize(
+                                          context,
+                                          baseSize: isCompactCard ? 10 : 11,
+                                        ),
+                                        fontWeight: FontWeight.w400,
+                                      ),
+                                    ),
+                                  ),
+                                  if (connection.groupId != null &&
+                                      connection.groupId!.isNotEmpty)
+                                    FutureBuilder<GroupModel?>(
+                                      future: GroupService.getGroup(
+                                        connection.groupId!,
+                                      ),
+                                      builder: (context, snapshot) {
+                                        if (!snapshot.hasData ||
+                                            snapshot.data == null) {
+                                          return const SizedBox.shrink();
+                                        }
+                                        return Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                            vertical: 4,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: subtleFillColor,
+                                            borderRadius: BorderRadius.circular(12),
+                                            border: Border.all(
+                                              color: dividerColor,
+                                              width: 0.5,
+                                            ),
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(
+                                                Icons.group,
+                                                color: mutedIconColor,
+                                                size: groupIconSize,
+                                              ),
+                                              SizedBox(width: spacingSmall),
+                                              Text(
+                                                snapshot.data!.name,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: TextStyle(
+                                                  color: secondaryTextColor,
+                                                  fontSize: ResponsiveUtils.getFontSize(
+                                                    context,
+                                                    baseSize: isCompactCard ? 11 : 12,
+                                                  ),
+                                                  fontWeight: FontWeight.w400,
+                                                  letterSpacing: 0.2,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                ],
+                              );
+
+                              if (!canScroll) {
+                                return detailsContent;
+                              }
+
+                              return ClipRect(
+                                child: SingleChildScrollView(
+                                  physics: const ClampingScrollPhysics(),
+                                  padding: EdgeInsets.zero,
+                                  child: detailsContent,
                                 ),
                               );
-                            }
-                            return const SizedBox.shrink();
-                          },
+                            },
+                          ),
                         ),
                       ],
                     ),
@@ -2267,7 +2603,6 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
       },
     );
   }
-
 
   void _showCreateGroupDialogGeneric() {
     final nameController = TextEditingController();
@@ -3318,10 +3653,326 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> {
     );
   }
 
+}
+
+class _SelectionActionsBar extends StatelessWidget {
+  final int selectedCount;
+  final VoidCallback onAddToGroup;
+  final VoidCallback onCancel;
+
+  const _SelectionActionsBar({
+    required this.selectedCount,
+    required this.onAddToGroup,
+    required this.onCancel,
+  });
+
   @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0x442D3D66),
+            Color(0x66253A61),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.white.withOpacity(0.12)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.28),
+            blurRadius: 22,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0x55FFFFFF), Color(0x22FFFFFF)],
+                ),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Text(
+                '$selectedCount selected',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                  letterSpacing: 0.25,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            _ActionIconButton(
+              icon: Icons.group_add,
+              tooltip: 'Add selected to group',
+              onPressed: onAddToGroup,
+              backgroundOpacity: 0.2,
+            ),
+            const SizedBox(width: 8),
+            _ActionIconButton(
+              icon: Icons.close,
+              tooltip: 'Cancel selection',
+              onPressed: onCancel,
+              backgroundOpacity: 0.2,
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
+
+class _PrimaryActionsBar extends StatelessWidget {
+  final int pendingRequestsCount;
+  final VoidCallback onSearchPeople;
+  final VoidCallback onShowRequests;
+  final VoidCallback onToggleSelection;
+  final VoidCallback onRefresh;
+
+  const _PrimaryActionsBar({
+    required this.pendingRequestsCount,
+    required this.onSearchPeople,
+    required this.onShowRequests,
+    required this.onToggleSelection,
+    required this.onRefresh,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final bool hasPendingRequests = pendingRequestsCount > 0;
+        final String requestLabel =
+            hasPendingRequests ? 'Requests ($pendingRequestsCount)' : 'Requests';
+
+        return ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 560),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color(0x332B3E6C),
+                  Color(0x4D1D2A47),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: Colors.white.withOpacity(0.1)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.25),
+                  blurRadius: 24,
+                  offset: const Offset(0, 12),
+                ),
+              ],
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: _GlassActionButton(
+                      icon: Icons.person_add,
+                      label: 'Discover',
+                      tooltip: 'Search People',
+                      onPressed: onSearchPeople,
+                    ),
+                  ),
+                  _GlassDivider(spacing: ResponsiveUtils.getSpacing(context, small: 10)),
+                  Expanded(
+                    child: _GlassActionButton(
+                      icon: Icons.person_add_alt_1,
+                      label: requestLabel,
+                      tooltip: 'Connection Requests',
+                      onPressed: onShowRequests,
+                      highlight: hasPendingRequests,
+                    ),
+                  ),
+                  _GlassDivider(spacing: ResponsiveUtils.getSpacing(context, small: 10)),
+                  Expanded(
+                    child: _GlassActionButton(
+                      icon: Icons.checklist_rtl,
+                      label: 'Select',
+                      tooltip: 'Select multiple',
+                      onPressed: onToggleSelection,
+                    ),
+                  ),
+                  _GlassDivider(spacing: ResponsiveUtils.getSpacing(context, small: 10)),
+                  Expanded(
+                    child: _GlassActionButton(
+                      icon: Icons.refresh,
+                      label: 'Sync',
+                      tooltip: 'Refresh',
+                      onPressed: onRefresh,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _GlassDivider extends StatelessWidget {
+  final double spacing;
+
+  const _GlassDivider({required this.spacing});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: spacing,
+      child: Center(
+        child: Container(
+          width: 1,
+          height: 40,
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.12),
+            borderRadius: BorderRadius.circular(1),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _GlassActionButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String tooltip;
+  final VoidCallback onPressed;
+  final bool showGlow;
+  final bool highlight;
+
+  const _GlassActionButton({
+    required this.icon,
+    required this.label,
+    required this.tooltip,
+    required this.onPressed,
+    this.showGlow = false,
+    this.highlight = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(18),
+          onTap: onPressed,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeInOut,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: highlight
+                    ? const [Color(0x664664C7), Color(0xAA4464C7)]
+                    : const [Color(0x332F486D), Color(0x55364D7F)],
+              ),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: Colors.white.withOpacity(highlight ? 0.22 : 0.12)),
+              boxShadow: showGlow || highlight
+                  ? [
+                      BoxShadow(
+                        color: const Color(0xFF4464C7).withOpacity(0.40),
+                        blurRadius: 24,
+                        offset: const Offset(0, 10),
+                      ),
+                    ]
+                  : [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.22),
+                        blurRadius: 18,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  icon,
+                  color: Colors.white.withOpacity(0.92),
+                  size: 18,
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 12,
+                    letterSpacing: 0.15,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ActionIconButton extends StatelessWidget {
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onPressed;
+  final double backgroundOpacity;
+
+  const _ActionIconButton({
+    required this.icon,
+    required this.tooltip,
+    required this.onPressed,
+    this.backgroundOpacity = 0.14,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onPressed,
+        customBorder: const CircleBorder(),
+        child: Container(
+          width: 34,
+          height: 34,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: Colors.white.withOpacity(backgroundOpacity),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.25),
+                blurRadius: 16,
+                offset: const Offset(0, 9),
+              ),
+            ],
+          ),
+          child: Icon(icon, color: Colors.white, size: 18),
+        ),
+      ),
+    );
+  }
+}
+
 

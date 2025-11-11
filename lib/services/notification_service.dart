@@ -18,6 +18,7 @@ class NotificationService extends ChangeNotifier {
   List<Map<String, dynamic>> _notifications = [];
   final Set<String> _seenNotificationDocIds = <String>{};
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _userNotifSub;
+  bool _skipInitialNotificationBatch = false;
   
   // Performance optimization: Debounce notifyListeners
   Timer? _debounceTimer;
@@ -206,6 +207,12 @@ class NotificationService extends ChangeNotifier {
     // Clean up any existing self-notifications from local list
     _cleanupSelfNotifications();
 
+    // Reset notification caches for fresh session
+    _seenNotificationDocIds.clear();
+    _notifications.clear();
+    _skipInitialNotificationBatch = true;
+    notifyListeners();
+
     // Start listening to Firestore notifications for this user (to show local notifications)
     _userNotifSub?.cancel();
     _userNotifSub = _firestore
@@ -213,6 +220,15 @@ class NotificationService extends ChangeNotifier {
         .where('receiverId', isEqualTo: userId)
         .snapshots()
         .listen((snapshot) {
+      if (_skipInitialNotificationBatch) {
+        for (final doc in snapshot.docs) {
+          _seenNotificationDocIds.add(doc.id);
+        }
+        _skipInitialNotificationBatch = false;
+        debugPrint('🧭 Initial notification batch recorded (${snapshot.docs.length} docs) without replaying alerts');
+        return;
+      }
+
       for (final doc in snapshot.docChanges) {
         if (doc.type != DocumentChangeType.added) continue;
         final id = doc.doc.id;

@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/user_model.dart';
+import '../constants/digital_card_themes.dart';
 
 class AuthService extends ChangeNotifier {
   FirebaseAuth? _auth;
@@ -32,6 +33,7 @@ class AuthService extends ChangeNotifier {
   UserModel? get userModel => _userModel;
   bool get isLoading => _isLoading;
   bool get isFirebaseAvailable => _isFirebaseAvailable;
+  String get digitalCardTheme => _userModel?.digitalCardTheme ?? DigitalCardThemes.defaultThemeId;
   bool get isAuthenticated => _user != null || (_userModel != null && !_isFirebaseAvailable);
 
   AuthService({bool firebaseInitialized = true}) {
@@ -789,6 +791,40 @@ class AuthService extends ChangeNotifier {
       rethrow;
     } finally {
       _setLoading(false);
+    }
+  }
+
+  Future<void> updateDigitalCardTheme(String themeId) async {
+    if (!DigitalCardThemes.isValid(themeId)) {
+      debugPrint('AuthService: Invalid digital card theme "$themeId"');
+      return;
+    }
+    if (_user == null) {
+      debugPrint('AuthService: Cannot update digital card theme without authenticated user');
+      return;
+    }
+
+    final String previousTheme = digitalCardTheme;
+
+    if (_userModel != null) {
+      _userModel = _userModel!.copyWith(digitalCardTheme: themeId);
+    }
+    notifyListeners();
+
+    if (_isFirebaseAvailable && _firestore != null) {
+      try {
+        await _firestore!.collection('users').doc(_user!.uid).update({
+          'digitalCardTheme': themeId,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+        debugPrint('AuthService: Digital card theme updated to $themeId');
+      } catch (e) {
+        debugPrint('AuthService: Failed to update digital card theme: $e');
+        if (_userModel != null) {
+          _userModel = _userModel!.copyWith(digitalCardTheme: previousTheme);
+          notifyListeners();
+        }
+      }
     }
   }
 }

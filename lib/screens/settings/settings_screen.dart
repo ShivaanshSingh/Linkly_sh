@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/auth_service.dart';
 import '../../constants/app_colors.dart';
+import '../../constants/digital_card_themes.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -42,6 +43,115 @@ class _SettingsScreenState extends State<SettingsScreen> {
       await prefs.setString(key, value);
     }
     setState(() {});
+  }
+
+  void _openDigitalCardThemePicker(AuthService authService) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        final currentThemeId = authService.digitalCardTheme;
+
+        return Container(
+          decoration: BoxDecoration(
+            color: AppColors.grey900,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.4),
+                blurRadius: 20,
+                offset: const Offset(0, -10),
+              ),
+            ],
+          ),
+          child: SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: AppColors.grey700,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Choose Digital Card Theme',
+                    style: TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  ...DigitalCardThemes.themes.map((theme) {
+                    final isSelected = theme.id == currentThemeId;
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: ListTile(
+                        onTap: () async {
+                          Navigator.of(sheetContext).pop();
+                          if (!isSelected) {
+                            await authService.updateDigitalCardTheme(theme.id);
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Digital card theme set to ${theme.name}'),
+                                  backgroundColor: AppColors.primary,
+                                  duration: const Duration(seconds: 2),
+                                ),
+                              );
+                            }
+                          }
+                        },
+                        contentPadding: EdgeInsets.zero,
+                        leading: Container(
+                          width: 48,
+                          height: 28,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: theme.gradientColors,
+                            ),
+                            border: Border.all(
+                              color: theme.borderColor.withOpacity(0.6),
+                              width: 1,
+                            ),
+                          ),
+                        ),
+                        title: Text(
+                          theme.name,
+                          style: const TextStyle(
+                            color: AppColors.textPrimary,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        trailing: isSelected
+                            ? const Icon(
+                                Icons.check_circle,
+                                color: AppColors.secondary,
+                              )
+                            : const Icon(
+                                Icons.circle_outlined,
+                                color: AppColors.grey600,
+                              ),
+                      ),
+                    );
+                  }).toList(),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
   }
 
   void _showLogoutDialog(BuildContext context, AuthService authService) {
@@ -211,6 +321,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     _allowConnectionRequests = value;
                   });
                   _saveSetting('allow_connection_requests', value);
+                },
+              ),
+              Consumer<AuthService>(
+                builder: (context, authService, child) {
+                  final themeName = DigitalCardThemes.nameForId(authService.digitalCardTheme);
+                  return _SettingsTile(
+                    icon: Icons.palette,
+                    title: 'Digital Card Theme',
+                    subtitle: themeName,
+                    onTap: () => _openDigitalCardThemePicker(authService),
+                  );
                 },
               ),
             ],

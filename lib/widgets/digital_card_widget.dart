@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../services/auth_service.dart';
 import '../constants/app_colors.dart';
+import '../constants/digital_card_themes.dart';
 
 class DigitalCardWidget extends StatefulWidget {
   const DigitalCardWidget({super.key});
@@ -54,9 +55,11 @@ class _DigitalCardWidgetState extends State<DigitalCardWidget>
   Widget build(BuildContext context) {
     return Consumer<AuthService>(
       builder: (context, authService, child) {
-        final userName = authService.userModel?.fullName ?? 
-                        authService.user?.displayName ?? 
-                        'User';
+        final userName = authService.userModel?.fullName ??
+            authService.user?.displayName ??
+            'User';
+        final theme =
+            DigitalCardThemes.themeById(authService.digitalCardTheme);
         
         return GestureDetector(
           onTap: _flipCard,
@@ -71,10 +74,12 @@ class _DigitalCardWidgetState extends State<DigitalCardWidget>
                 transform: Matrix4.identity()
                   ..setEntry(3, 2, 0.001) // perspective
                   ..rotateY(rotation),
-                child: isShowingFront ? _buildFrontCard(userName) : Transform(
+                child: isShowingFront
+                    ? _buildFrontCard(userName, authService, theme)
+                    : Transform(
                   alignment: Alignment.center,
                   transform: Matrix4.identity()..rotateY(3.14159), // Flip the back card to correct orientation
-                  child: _buildBackCard(),
+                      child: _buildBackCard(authService, theme),
                 ),
               );
             },
@@ -113,7 +118,24 @@ class _DigitalCardWidgetState extends State<DigitalCardWidget>
     return linkedInUrl;
   }
 
-  Widget _buildFrontCard(String userName) {
+  Widget _buildFrontCard(
+    String userName,
+    AuthService authService,
+    DigitalCardThemeData theme,
+  ) {
+    final position = authService.userModel?.position ?? '';
+    final email =
+        authService.userModel?.email ?? authService.user?.email ?? '';
+    final linkedIn =
+        authService.userModel?.socialLinks['linkedin'] ?? '';
+    final profileImageUrl =
+        authService.userModel?.profileImageUrl ?? authService.user?.photoURL;
+    final bool isTextBright = theme.textPrimaryColor.computeLuminance() > 0.5;
+    final Color badgeBackground =
+        isTextBright ? Colors.black.withOpacity(0.25) : Colors.white.withOpacity(0.25);
+    final Color overlayBackground =
+        isTextBright ? Colors.black.withOpacity(0.35) : Colors.white.withOpacity(0.35);
+
     return Center(
       child: Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
@@ -122,27 +144,24 @@ class _DigitalCardWidgetState extends State<DigitalCardWidget>
       ),
       clipBehavior: Clip.hardEdge,
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            Color(0xFF0D47A1), // Bright Royal Blue (top-left)
-            Color(0xFF002171), // Deep Navy Blue (bottom-right)
-          ],
+          colors: theme.gradientColors,
         ),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: const Color(0xFF6B8FAE).withOpacity(0.6), // Dark blue with silverish/metallic tint
+          color: theme.borderColor.withOpacity(0.65),
           width: 1.5,
         ),
         boxShadow: [
           BoxShadow(
-            color: AppColors.primaryLight.withOpacity(0.3),
+            color: theme.shadowColor.withOpacity(0.28),
             blurRadius: 20,
             offset: const Offset(0, 8),
           ),
           BoxShadow(
-            color: const Color(0xFF6B8FAE).withOpacity(0.2),
+            color: theme.borderColor.withOpacity(0.18),
             blurRadius: 15,
             offset: const Offset(0, 4),
             spreadRadius: 1,
@@ -165,121 +184,101 @@ class _DigitalCardWidgetState extends State<DigitalCardWidget>
                   // Username
                   Text(
                     userName,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
-                      color: AppColors.textPrimary, // White text for dark gradient background
+                      color: theme.textPrimaryColor,
                     ),
                     textAlign: TextAlign.center,
                   ),
                   
                   // Job Title (Position)
-                  Consumer<AuthService>(
-                    builder: (context, authService, child) {
-                      final position = authService.userModel?.position;
-                      
-                      if (position != null && position.isNotEmpty) {
-                        return Padding(
-                          padding: const EdgeInsets.only(top: 6),
-                          child: Text(
-                            position,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              color: AppColors.textSecondary,
-                              fontWeight: FontWeight.bold,
-                            ),
-                            textAlign: TextAlign.center,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        );
-                      }
-                      return const SizedBox(height: 6);
-                    },
-                  ),
-                  
-                  const SizedBox(height: 10),
-                  
-                  // Email
-                  Consumer<AuthService>(
-                    builder: (context, authService, child) {
-                      final email = authService.userModel?.email ?? authService.user?.email ?? '';
-                      
-                      return Text(
-                        email,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          color: AppColors.textSecondary, // Light gray for secondary text on dark background
-                          fontWeight: FontWeight.w400,
+                  if (position.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: Text(
+                        position,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: theme.textSecondaryColor,
+                          fontWeight: FontWeight.bold,
                         ),
                         textAlign: TextAlign.center,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                      );
-                    },
+                      ),
+                    )
+                  else
+                    const SizedBox(height: 6),
+                  
+                  const SizedBox(height: 10),
+                  
+                  // Email
+                  Text(
+                    email,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: theme.textSecondaryColor,
+                      fontWeight: FontWeight.w400,
+                    ),
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                   
                   // LinkedIn Account
-                  Consumer<AuthService>(
-                    builder: (context, authService, child) {
-                      final linkedIn = authService.userModel?.socialLinks['linkedin'];
-                      
-                      if (linkedIn != null && linkedIn.isNotEmpty) {
-                        final linkedInUsername = _extractLinkedInUsername(linkedIn);
-                        
-                        return Padding(
-                          padding: const EdgeInsets.only(top: 8),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              // LinkedIn logo (using badge icon as LinkedIn representation)
-                              Container(
-                                padding: const EdgeInsets.all(2),
-                                decoration: BoxDecoration(
-                                  color: AppColors.textSecondary.withOpacity(0.2),
-                                  borderRadius: BorderRadius.circular(3),
-                                ),
-                                child: const Text(
-                                  'in',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    color: AppColors.textSecondary,
-                                    fontWeight: FontWeight.bold,
-                                    fontFamily: 'Roboto',
-                                    letterSpacing: 0.5,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 6),
-                              Flexible(
+                  if (linkedIn.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          // LinkedIn logo (using badge icon as LinkedIn representation)
+                          Container(
+                            padding: const EdgeInsets.all(2),
+                            decoration: BoxDecoration(
+                              color: badgeBackground,
+                              borderRadius: BorderRadius.circular(3),
+                            ),
                                 child: Text(
-                                  linkedInUsername,
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    color: AppColors.textSecondary,
-                                    fontWeight: FontWeight.w400,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
+                              'in',
+                                  style: TextStyle(
+                                fontSize: 10,
+                                    color: theme.textPrimaryColor,
+                                fontWeight: FontWeight.bold,
+                                fontFamily: 'Roboto',
+                                letterSpacing: 0.5,
                               ),
-                            ],
+                            ),
                           ),
-                        );
-                      }
-                      return const SizedBox.shrink();
-                    },
-                  ),
+                          const SizedBox(width: 6),
+                          Flexible(
+                            child: Text(
+                              _extractLinkedInUsername(linkedIn),
+                                  style: TextStyle(
+                                fontSize: 12,
+                                    color: theme.textSecondaryColor,
+                                fontWeight: FontWeight.w400,
+                              ),
+                              textAlign: TextAlign.center,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                    const SizedBox.shrink(),
                   
                   const SizedBox(height: 14),
                   
                   // Tap instruction
                   Text(
                     'TAP FOR QR CODE',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
-                      color: AppColors.secondary, // Orange for accent
+                      color: theme.textPrimaryColor.withOpacity(0.85),
                       fontWeight: FontWeight.w600,
                       letterSpacing: 0.5,
                     ),
@@ -294,29 +293,21 @@ class _DigitalCardWidgetState extends State<DigitalCardWidget>
           Positioned(
             top: 16,
             left: 16,
-            child: Consumer<AuthService>(
-              builder: (context, authService, child) {
-                final profileImageUrl = authService.userModel?.profileImageUrl ?? 
-                                     authService.user?.photoURL;
-                
-                return CircleAvatar(
-                  radius: 30,
-                  backgroundColor: AppColors.primary, // Medium Blue
-                  backgroundImage: profileImageUrl != null 
-                      ? NetworkImage(profileImageUrl)
-                      : null,
-                  child: profileImageUrl == null
-                      ? Text(
-                          userName.isNotEmpty ? userName[0].toUpperCase() : 'U',
-                          style: const TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.white, // White Text
-                          ),
-                        )
-                      : null,
-                );
-              },
+            child: CircleAvatar(
+              radius: 30,
+              backgroundColor: theme.textPrimaryColor.withOpacity(0.2),
+              backgroundImage:
+                  profileImageUrl != null ? NetworkImage(profileImageUrl) : null,
+              child: profileImageUrl == null
+                  ? Text(
+                      userName.isNotEmpty ? userName[0].toUpperCase() : 'U',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: theme.textPrimaryColor,
+                      ),
+                    )
+                  : null,
             ),
           ),
           
@@ -340,7 +331,14 @@ class _DigitalCardWidgetState extends State<DigitalCardWidget>
     );
   }
 
-  Widget _buildBackCard() {
+  Widget _buildBackCard(
+    AuthService authService,
+    DigitalCardThemeData theme,
+  ) {
+    final bool isTextBright = theme.textPrimaryColor.computeLuminance() > 0.5;
+    final Color overlayBackground =
+        isTextBright ? Colors.black.withOpacity(0.35) : Colors.white.withOpacity(0.35);
+
     return Center(
       child: Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
@@ -349,27 +347,24 @@ class _DigitalCardWidgetState extends State<DigitalCardWidget>
       ),
       clipBehavior: Clip.hardEdge,
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            Color(0xFF0D47A1), // Bright Royal Blue (top-left)
-            Color(0xFF002171), // Deep Navy Blue (bottom-right)
-          ],
+          colors: theme.gradientColors,
         ),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: const Color(0xFF6B8FAE).withOpacity(0.6), // Dark blue with silverish/metallic tint
+          color: theme.borderColor.withOpacity(0.65),
           width: 1.5,
         ),
         boxShadow: [
           BoxShadow(
-            color: AppColors.primaryLight.withOpacity(0.3),
+            color: theme.shadowColor.withOpacity(0.28),
             blurRadius: 20,
             offset: const Offset(0, 8),
           ),
           BoxShadow(
-            color: const Color(0xFF6B8FAE).withOpacity(0.2),
+            color: theme.borderColor.withOpacity(0.18),
             blurRadius: 15,
             offset: const Offset(0, 4),
             spreadRadius: 1,
@@ -394,19 +389,14 @@ class _DigitalCardWidgetState extends State<DigitalCardWidget>
                   border: Border.all(color: AppColors.white, width: 1), // White border for visibility on dark gradient
                 ),
                 child: Center(
-                  child: Consumer<AuthService>(
-                    builder: (context, authService, child) {
-                      final userId = authService.user?.uid ?? '';
-                      final qrData = userId.isNotEmpty ? 'linkly://user/$userId' : 'linkly://user/unknown';
-                      
-                      return QrImageView(
-                        data: qrData,
-                        version: QrVersions.auto,
-                        size: 130,
-                        backgroundColor: Colors.white,
-                        foregroundColor: Colors.black,
-                      );
-                    },
+                  child: QrImageView(
+                    data: authService.user?.uid != null
+                        ? 'linkly://user/${authService.user!.uid}'
+                        : 'linkly://user/unknown',
+                    version: QrVersions.auto,
+                    size: 130,
+                    backgroundColor: Colors.white,
+                    foregroundColor: Colors.black,
                   ),
                 ),
               ),
@@ -417,15 +407,15 @@ class _DigitalCardWidgetState extends State<DigitalCardWidget>
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: AppColors.primaryLight, // Light Blue Background
+                  color: overlayBackground,
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Center(
+                child: Center(
                   child: Text(
                     'Tap to flip back',
                     style: TextStyle(
                       fontSize: 12,
-                      color: AppColors.white, // White Text
+                      color: theme.textPrimaryColor,
                       fontWeight: FontWeight.w600,
                     ),
                   ),

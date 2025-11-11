@@ -492,40 +492,41 @@ class _GroupsScreenState extends State<GroupsScreen> {
                           
                           // Group info
                           Expanded(
-                            child: Transform.translate(
-                              offset: const Offset(0, -12),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisAlignment: MainAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    group.name,
-                                    style: const TextStyle(
-                                      color: AppColors.textPrimary,
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                    ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  group.name,
+                                  style: const TextStyle(
+                                    color: AppColors.textPrimary,
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: -0.1,
                                   ),
-                                  const SizedBox(height: 4),
+                                ),
+                                if (group.description.trim().isNotEmpty) ...[
+                                  const SizedBox(height: 6),
                                   Text(
                                     group.description,
                                     style: TextStyle(
                                       color: AppColors.textSecondary,
                                       fontSize: 14,
+                                      fontWeight: FontWeight.w500,
                                     ),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                   ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    '${group.members.length} members',
-                                    style: TextStyle(
-                                      color: AppColors.textSecondary,
-                                      fontSize: 12,
-                                    ),
-                                  ),
                                 ],
-                              ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  '${group.members.length} member${group.members.length == 1 ? '' : 's'}',
+                                  style: TextStyle(
+                                    color: AppColors.textSecondary.withOpacity(0.9),
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ],
