@@ -20,6 +20,8 @@ import '../connections/qr_scanner_screen.dart';
 import '../../widgets/create_post_modal.dart';
 import '../../widgets/status_stories_widget.dart';
 import '../../utils/haptics.dart';
+import '../chat/chat_screen.dart';
+import '../../models/user_model.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -57,6 +59,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   @override
   void dispose() {
+    final notificationService = Provider.of<NotificationService>(context, listen: false);
+    notificationService.unregisterOnNotificationTapHandler();
     _navAnimationController.dispose();
     _pageController.dispose();
     super.dispose();
@@ -73,6 +77,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         
         // Save FCM token to user's document
         await notificationService.saveTokenToFirestore(authService.user!.uid);
+        notificationService.registerOnNotificationTapHandler(_handleNotificationNavigation);
         
         debugPrint('🔔 Notifications initialized for user: ${authService.user!.uid}');
       }
@@ -214,6 +219,57 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         ),
       ),
     );
+  }
+
+  Future<void> _handleNotificationNavigation(Map<String, dynamic> data) async {
+    if (!mounted) return;
+    if (data['type']?.toString() != 'message') {
+      return;
+    }
+
+    final senderId = data['senderId']?.toString();
+    if (senderId == null || senderId.isEmpty) {
+      return;
+    }
+
+    try {
+      UserModel userModel;
+      final senderDoc = await FirebaseFirestore.instance.collection('users').doc(senderId).get();
+
+      if (senderDoc.exists) {
+        userModel = UserModel.fromFirestore(senderDoc);
+      } else {
+        final fallbackName = data['senderName']?.toString() ?? 'Contact';
+        String fallbackUsername = fallbackName.replaceAll(' ', '').toLowerCase();
+        if (fallbackUsername.isEmpty) {
+          fallbackUsername = 'user_${DateTime.now().millisecondsSinceEpoch}';
+        }
+        userModel = UserModel(
+          uid: senderId,
+          email: '',
+          fullName: fallbackName,
+          username: fallbackUsername,
+          profileImageUrl: null,
+          company: null,
+          position: null,
+          bio: null,
+          phoneNumber: null,
+          createdAt: DateTime.now(),
+          lastSeen: DateTime.now(),
+          isOnline: false,
+        );
+      }
+
+      if (!mounted) return;
+
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => ChatScreen(user: userModel),
+        ),
+      );
+    } catch (e) {
+      debugPrint('❌ Failed to navigate to chat from notification: $e');
+    }
   }
 
   Widget _buildNavItem(

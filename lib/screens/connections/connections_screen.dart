@@ -1947,17 +1947,13 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> with SingleTicker
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final double maxWidth =
-            math.min(360.0, math.min(constraints.maxWidth, ResponsiveUtils.getCardMaxWidth(context)));
+        final double cardMaxWidth = ResponsiveUtils.getCardMaxWidth(context);
+        final double maxWidth = math.min(constraints.maxWidth, cardMaxWidth);
         final double borderRadius = ResponsiveUtils.getBorderRadius(context);
         final double widthAvailable = maxWidth;
         final bool isCompactCard = widthAvailable < 330;
-        final double spacingSmall = isCompactCard
-            ? ResponsiveUtils.getSpacing(context, small: 4)
-            : ResponsiveUtils.getSpacing(context, small: 6);
-        final double spacingMedium = isCompactCard
-            ? ResponsiveUtils.getSpacing(context, small: 8)
-            : ResponsiveUtils.getSpacing(context, small: 10);
+        final double spacingSmall = isCompactCard ? 2.0 : 4.0;
+        final double spacingMedium = isCompactCard ? 4.0 : 8.0;
         final double avatarSize = ResponsiveUtils.getAvatarSize(
           context,
           small: 58,
@@ -1972,7 +1968,7 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> with SingleTicker
         final double detailGap = math.max(4.0, maxWidth * 0.02);
         final EdgeInsets contentPadding = EdgeInsets.symmetric(
           horizontal: 16,
-          vertical: isCompactCard ? 12 : 14,
+          vertical: isCompactCard ? 8 : 12,
         );
 
         return Center(
@@ -2242,354 +2238,335 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> with SingleTicker
                         ),
                         SizedBox(height: spacingMedium),
                         Expanded(
-                          child: LayoutBuilder(
-                            builder: (context, detailsConstraints) {
-                              final bool canScroll =
-                                  detailsConstraints.maxHeight.isFinite &&
-                                      detailsConstraints.maxHeight > 0;
-                              final detailsContent = Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisAlignment: MainAxisAlignment.start,
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  FutureBuilder<String?> (
-                                    future: connection.contactEmail.trim().isNotEmpty
-                                        ? Future.value(connection.contactEmail)
-                                        : _getUserEmail(connection.contactUserId),
-                                    builder: (context, snapshot) {
-                                      final String email =
-                                          (snapshot.data ?? '').trim();
-                                      return InkWell(
-                                        onTap: email.isNotEmpty
-                                            ? () => _launchEmail(email)
-                                            : null,
-                                        borderRadius: BorderRadius.circular(4),
-                                        child: Row(
-                                          children: [
-                                            Icon(
-                                              Icons.email_outlined,
-                                              color: iconColor,
-                                              size: secondaryIconSize,
-                                            ),
-                                            SizedBox(width: spacingSmall),
-                                            Expanded(
-                                              child: Text(
-                                                email.isNotEmpty ? email : 'Email',
-                                                style: TextStyle(
-                                                  color: email.isNotEmpty
-                                                      ? primaryTextColor
-                                                      : primaryTextColor.withOpacity(0.7),
-                                                  fontSize: ResponsiveUtils.getFontSize(
-                                                    context,
-                                                    baseSize: isCompactCard ? 12 : 13,
-                                                  ),
-                                                  fontWeight: FontWeight.w400,
-                                                  letterSpacing: 0.2,
-                                                  decoration: TextDecoration.none,
-                                                ),
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                            ),
-                                          ],
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.max,
+                            children: [
+                              FutureBuilder<String?> (
+                                future: connection.contactEmail.trim().isNotEmpty
+                                    ? Future.value(connection.contactEmail)
+                                    : _getUserEmail(connection.contactUserId),
+                                builder: (context, snapshot) {
+                                  final String email =
+                                      (snapshot.data ?? '').trim();
+                                  return InkWell(
+                                    onTap: email.isNotEmpty
+                                        ? () => _launchEmail(email)
+                                        : null,
+                                    borderRadius: BorderRadius.circular(4),
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          Icons.email_outlined,
+                                          color: iconColor,
+                                          size: secondaryIconSize,
                                         ),
-                                      );
-                                    },
-                                  ),
-                                  SizedBox(height: spacingSmall),
-                                  FutureBuilder<String?> (
-                                    future: _getUserLinkedInUrl(
-                                      connection.contactUserId,
+                                        SizedBox(width: spacingSmall),
+                                        Expanded(
+                                          child: Text(
+                                            email.isNotEmpty ? email : 'Email',
+                                            style: TextStyle(
+                                              color: email.isNotEmpty
+                                                  ? primaryTextColor
+                                                  : primaryTextColor.withOpacity(0.7),
+                                              fontSize: ResponsiveUtils.getFontSize(
+                                                context,
+                                                baseSize: isCompactCard ? 12 : 13,
+                                              ),
+                                              fontWeight: FontWeight.w400,
+                                              letterSpacing: 0.2,
+                                              decoration: TextDecoration.none,
+                                            ),
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                    builder: (context, snapshot) {
-                                      final String? linkedInUrl = snapshot.data;
-                                      final bool hasLinkedIn = linkedInUrl != null &&
-                                          linkedInUrl.isNotEmpty;
+                                  );
+                                },
+                              ),
+                              SizedBox(height: spacingSmall),
+                              FutureBuilder<String?> (
+                                future: _getUserLinkedInUrl(
+                                  connection.contactUserId,
+                                ),
+                                builder: (context, snapshot) {
+                                  final String? linkedInUrl = snapshot.data;
+                                  final bool hasLinkedIn = linkedInUrl != null &&
+                                      linkedInUrl.isNotEmpty;
 
-                                      return InkWell(
-                                        onTap: hasLinkedIn
-                                            ? () => _launchLinkedIn(linkedInUrl!)
-                                            : null,
-                                        borderRadius: BorderRadius.circular(4),
-                                        child: Row(
-                                          children: [
-                                            Container(
-                                              padding: const EdgeInsets.symmetric(
-                                                horizontal: 4,
-                                                vertical: 2,
-                                              ),
-                                              decoration: BoxDecoration(
-                                                color: hasLinkedIn
-                                                    ? subtleFillColor
-                                                    : subtleFillColor.withOpacity(0.6),
-                                                borderRadius: BorderRadius.circular(3),
-                                              ),
-                                              child: Text(
-                                                'in',
-                                                style: TextStyle(
-                                                  color: hasLinkedIn
-                                                      ? primaryTextColor
-                                                      : primaryTextColor.withOpacity(0.5),
-                                                  fontSize: 10,
-                                                  fontWeight: FontWeight.w700,
-                                                  letterSpacing: 0.4,
-                                                ),
-                                              ),
-                                            ),
-                                            SizedBox(width: spacingSmall),
-                                            Text(
-                                              'LinkedIn Profile',
-                                              style: TextStyle(
-                                                color: hasLinkedIn
-                                                    ? primaryTextColor
-                                                    : primaryTextColor.withOpacity(0.7),
-                                                fontSize: ResponsiveUtils.getFontSize(
-                                                  context,
-                                                  baseSize: isCompactCard ? 12 : 13,
-                                                ),
-                                                fontWeight: FontWeight.w400,
-                                                letterSpacing: 0.2,
-                                                decoration: TextDecoration.none,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                  SizedBox(height: spacingSmall),
-                                  FutureBuilder<Map<String, dynamic>> (
-                                    future: Future.wait([
-                                      _getUserPhoneNumber(connection.contactUserId),
-                                      _getUserPrivacySettings(connection.contactUserId),
-                                      Future.value(
-                                        Provider.of<AuthService>(
-                                          context,
-                                          listen: false,
-                                        ).user?.uid ??
-                                            '',
-                                      ),
-                                    ]).then((results) async {
-                                      final String currentUserId =
-                                          results[2] as String;
-                                      final String ownerUserId =
-                                          connection.contactUserId;
-                                      final bool isConnected =
-                                          await _isUserInConnections(
-                                        ownerUserId,
-                                        currentUserId,
-                                      );
-                                      return {
-                                        'phoneNumber': results[0] as String?,
-                                        'privacySettings':
-                                            results[1] as Map<String, dynamic>,
-                                        'isConnected': isConnected,
-                                      };
-                                    }),
-                                    builder: (context, snapshot) {
-                                      if (!snapshot.hasData) {
-                                        return const SizedBox.shrink();
-                                      }
-
-                                      final String? phoneNumber =
-                                          snapshot.data!['phoneNumber'] as String?;
-                                      final Map<String, dynamic> privacySettings =
-                                          snapshot.data!['privacySettings']
-                                              as Map<String, dynamic>;
-                                      final String phoneNumberPrivacy =
-                                          privacySettings['phoneNumberPrivacy']
-                                                  as String? ??
-                                              'connections_only';
-                                      final List<String> allowedPhoneViewers =
-                                          (privacySettings['allowedPhoneViewers']
-                                                      as List?)
-                                                  ?.cast<String>() ??
-                                              <String>[];
-                                      final bool isConnected =
-                                          snapshot.data!['isConnected'] as bool? ??
-                                              false;
-
-                                      final authService = Provider.of<AuthService>(
-                                        context,
-                                        listen: false,
-                                      );
-                                      final String viewerId =
-                                          authService.user?.uid ?? '';
-
-                                      final bool shouldShow =
-                                          PrivacyUtils.shouldShowPhoneNumber(
-                                        phoneNumberPrivacy: phoneNumberPrivacy,
-                                        isConnected: isConnected,
-                                        viewerUserId: viewerId,
-                                        ownerUserId: connection.contactUserId,
-                                        allowedPhoneViewers: allowedPhoneViewers,
-                                      );
-
-                                      String? displayPhoneNumber;
-                                      if (phoneNumber != null &&
-                                          phoneNumber.isNotEmpty) {
-                                        displayPhoneNumber = phoneNumber;
-                                      } else if (connection.contactPhone != null &&
-                                          connection.contactPhone!.isNotEmpty) {
-                                        displayPhoneNumber = connection.contactPhone;
-                                      }
-
-                                      if (displayPhoneNumber == null ||
-                                          displayPhoneNumber.isEmpty) {
-                                        return const SizedBox.shrink();
-                                      }
-
-                                      final String displayText =
-                                          PrivacyUtils.getPhoneNumberDisplay(
-                                        phoneNumber: displayPhoneNumber,
-                                        phoneNumberPrivacy: phoneNumberPrivacy,
-                                        isConnected: isConnected,
-                                        viewerUserId: viewerId,
-                                        ownerUserId: connection.contactUserId,
-                                        allowedPhoneViewers: allowedPhoneViewers,
-                                        placeholder: 'Phone number hidden',
-                                      );
-
-                                      if (!shouldShow ||
-                                          displayText == 'Phone number hidden') {
-                                        return const SizedBox.shrink();
-                                      }
-
-                                      return InkWell(
-                                        onTap: () =>
-                                            _launchPhoneNumber(displayPhoneNumber!),
-                                        borderRadius: BorderRadius.circular(4),
-                                        child: Row(
-                                          children: [
-                                            Icon(
-                                              Icons.phone_outlined,
-                                              color: iconColor,
-                                              size: secondaryIconSize,
-                                            ),
-                                            SizedBox(width: spacingSmall),
-                                            Expanded(
-                                              child: Text(
-                                                displayText,
-                                                style: TextStyle(
-                                                  color: primaryTextColor,
-                                                  fontSize: ResponsiveUtils.getFontSize(
-                                                    context,
-                                                    baseSize: isCompactCard ? 12 : 13,
-                                                  ),
-                                                  fontWeight: FontWeight.w400,
-                                                  letterSpacing: 0.2,
-                                                  decoration: TextDecoration.none,
-                                                ),
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                  SizedBox(height: spacingSmall),
-                                  GestureDetector(
-                                    onTap: () => _openChat(connection),
-                                    child: Text(
-                                      'Message',
-                                      style: TextStyle(
-                                        color: const Color(0xFFFFA500),
-                                        fontSize: ResponsiveUtils.getFontSize(
-                                          context,
-                                          baseSize: isCompactCard ? 12 : 14,
-                                        ),
-                                        fontWeight: FontWeight.w600,
-                                        letterSpacing: 0.3,
-                                      ),
-                                    ),
-                                  ),
-                                  SizedBox(height: spacingMedium),
-                                  Container(
-                                    height: 1,
-                                    color: dividerColor,
-                                    margin: EdgeInsets.only(top: spacingSmall),
-                                  ),
-                                  SizedBox(height: spacingSmall),
-                                  Align(
-                                    alignment: Alignment.centerRight,
-                                    child: Text(
-                                      '${DateTime.now().day}/${DateTime.now().month}/${DateTime.now().year}',
-                                      style: TextStyle(
-                                        color: secondaryTextColor.withOpacity(0.9),
-                                        fontSize: ResponsiveUtils.getFontSize(
-                                          context,
-                                          baseSize: isCompactCard ? 10 : 11,
-                                        ),
-                                        fontWeight: FontWeight.w400,
-                                      ),
-                                    ),
-                                  ),
-                                  if (connection.groupId != null &&
-                                      connection.groupId!.isNotEmpty)
-                                    FutureBuilder<GroupModel?>(
-                                      future: GroupService.getGroup(
-                                        connection.groupId!,
-                                      ),
-                                      builder: (context, snapshot) {
-                                        if (!snapshot.hasData ||
-                                            snapshot.data == null) {
-                                          return const SizedBox.shrink();
-                                        }
-                                        return Container(
+                                  return InkWell(
+                                    onTap: hasLinkedIn
+                                        ? () => _launchLinkedIn(linkedInUrl!)
+                                        : null,
+                                    borderRadius: BorderRadius.circular(4),
+                                    child: Row(
+                                      children: [
+                                        Container(
                                           padding: const EdgeInsets.symmetric(
-                                            horizontal: 8,
-                                            vertical: 4,
+                                            horizontal: 4,
+                                            vertical: 2,
                                           ),
                                           decoration: BoxDecoration(
-                                            color: subtleFillColor,
-                                            borderRadius: BorderRadius.circular(12),
-                                            border: Border.all(
-                                              color: dividerColor,
-                                              width: 0.5,
+                                            color: hasLinkedIn
+                                                ? subtleFillColor
+                                                : subtleFillColor.withOpacity(0.6),
+                                            borderRadius: BorderRadius.circular(3),
+                                          ),
+                                          child: Text(
+                                            'in',
+                                            style: TextStyle(
+                                              color: hasLinkedIn
+                                                  ? primaryTextColor
+                                                  : primaryTextColor.withOpacity(0.5),
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.w700,
+                                              letterSpacing: 0.4,
                                             ),
                                           ),
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Icon(
-                                                Icons.group,
-                                                color: mutedIconColor,
-                                                size: groupIconSize,
-                                              ),
-                                              SizedBox(width: spacingSmall),
-                                              Text(
-                                                snapshot.data!.name,
-                                                overflow: TextOverflow.ellipsis,
-                                                style: TextStyle(
-                                                  color: secondaryTextColor,
-                                                  fontSize: ResponsiveUtils.getFontSize(
-                                                    context,
-                                                    baseSize: isCompactCard ? 11 : 12,
-                                                  ),
-                                                  fontWeight: FontWeight.w400,
-                                                  letterSpacing: 0.2,
-                                                ),
-                                              ),
-                                            ],
+                                        ),
+                                        SizedBox(width: spacingSmall),
+                                        Text(
+                                          'LinkedIn Profile',
+                                          style: TextStyle(
+                                            color: hasLinkedIn
+                                                ? primaryTextColor
+                                                : primaryTextColor.withOpacity(0.7),
+                                            fontSize: ResponsiveUtils.getFontSize(
+                                              context,
+                                              baseSize: isCompactCard ? 12 : 13,
+                                            ),
+                                            fontWeight: FontWeight.w400,
+                                            letterSpacing: 0.2,
+                                            decoration: TextDecoration.none,
                                           ),
-                                        );
-                                      },
+                                        ),
+                                      ],
                                     ),
-                                ],
-                              );
+                                  );
+                                },
+                              ),
+                              SizedBox(height: spacingSmall),
+                              FutureBuilder<Map<String, dynamic>> (
+                                future: Future.wait([
+                                  _getUserPhoneNumber(connection.contactUserId),
+                                  _getUserPrivacySettings(connection.contactUserId),
+                                  Future.value(
+                                    Provider.of<AuthService>(
+                                      context,
+                                      listen: false,
+                                    ).user?.uid ??
+                                        '',
+                                  ),
+                                ]).then((results) async {
+                                  final String currentUserId =
+                                      results[2] as String;
+                                  final String ownerUserId =
+                                      connection.contactUserId;
+                                  final bool isConnected =
+                                      await _isUserInConnections(
+                                    ownerUserId,
+                                    currentUserId,
+                                  );
+                                  return {
+                                    'phoneNumber': results[0] as String?,
+                                    'privacySettings':
+                                        results[1] as Map<String, dynamic>,
+                                    'isConnected': isConnected,
+                                  };
+                                }),
+                                builder: (context, snapshot) {
+                                  if (!snapshot.hasData) {
+                                    return const SizedBox.shrink();
+                                  }
 
-                              if (!canScroll) {
-                                return detailsContent;
-                              }
+                                  final String? phoneNumber =
+                                      snapshot.data!['phoneNumber'] as String?;
+                                  final Map<String, dynamic> privacySettings =
+                                      snapshot.data!['privacySettings']
+                                          as Map<String, dynamic>;
+                                  final String phoneNumberPrivacy =
+                                      privacySettings['phoneNumberPrivacy']
+                                              as String? ??
+                                          'connections_only';
+                                  final List<String> allowedPhoneViewers =
+                                      (privacySettings['allowedPhoneViewers']
+                                                  as List?)
+                                              ?.cast<String>() ??
+                                          <String>[];
+                                  final bool isConnected =
+                                      snapshot.data!['isConnected'] as bool? ??
+                                          false;
 
-                              return ClipRect(
-                                child: SingleChildScrollView(
-                                  physics: const ClampingScrollPhysics(),
-                                  padding: EdgeInsets.zero,
-                                  child: detailsContent,
+                                  final authService = Provider.of<AuthService>(
+                                    context,
+                                    listen: false,
+                                  );
+                                  final String viewerId =
+                                      authService.user?.uid ?? '';
+
+                                  final bool shouldShow =
+                                      PrivacyUtils.shouldShowPhoneNumber(
+                                    phoneNumberPrivacy: phoneNumberPrivacy,
+                                    isConnected: isConnected,
+                                    viewerUserId: viewerId,
+                                    ownerUserId: connection.contactUserId,
+                                    allowedPhoneViewers: allowedPhoneViewers,
+                                  );
+
+                                  String? displayPhoneNumber;
+                                  if (phoneNumber != null &&
+                                      phoneNumber.isNotEmpty) {
+                                    displayPhoneNumber = phoneNumber;
+                                  } else if (connection.contactPhone != null &&
+                                      connection.contactPhone!.isNotEmpty) {
+                                    displayPhoneNumber = connection.contactPhone;
+                                  }
+
+                                  if (displayPhoneNumber == null ||
+                                      displayPhoneNumber.isEmpty) {
+                                    return const SizedBox.shrink();
+                                  }
+
+                                  final String displayText =
+                                      PrivacyUtils.getPhoneNumberDisplay(
+                                    phoneNumber: displayPhoneNumber,
+                                    phoneNumberPrivacy: phoneNumberPrivacy,
+                                    isConnected: isConnected,
+                                    viewerUserId: viewerId,
+                                    ownerUserId: connection.contactUserId,
+                                    allowedPhoneViewers: allowedPhoneViewers,
+                                    placeholder: 'Phone number hidden',
+                                  );
+
+                                  if (!shouldShow ||
+                                      displayText == 'Phone number hidden') {
+                                    return const SizedBox.shrink();
+                                  }
+
+                                  return InkWell(
+                                    onTap: () =>
+                                        _launchPhoneNumber(displayPhoneNumber!),
+                                    borderRadius: BorderRadius.circular(4),
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          Icons.phone_outlined,
+                                          color: iconColor,
+                                          size: secondaryIconSize,
+                                        ),
+                                        SizedBox(width: spacingSmall),
+                                        Expanded(
+                                          child: Text(
+                                            displayText,
+                                            style: TextStyle(
+                                              color: primaryTextColor,
+                                              fontSize: ResponsiveUtils.getFontSize(
+                                                context,
+                                                baseSize: isCompactCard ? 12 : 13,
+                                              ),
+                                              fontWeight: FontWeight.w400,
+                                              letterSpacing: 0.2,
+                                              decoration: TextDecoration.none,
+                                            ),
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                },
+                              ),
+                              SizedBox(height: spacingSmall),
+                              GestureDetector(
+                                onTap: () => _openChat(connection),
+                                child: Text(
+                                  'Message',
+                                  style: TextStyle(
+                                    color: const Color(0xFFFFA500),
+                                    fontSize: ResponsiveUtils.getFontSize(
+                                      context,
+                                      baseSize: isCompactCard ? 12 : 14,
+                                    ),
+                                    fontWeight: FontWeight.w600,
+                                    letterSpacing: 0.3,
+                                  ),
                                 ),
-                              );
-                            },
+                              ),
+                              SizedBox(height: spacingSmall),
+                              Container(
+                                height: 1,
+                                color: dividerColor,
+                                margin: EdgeInsets.only(top: spacingSmall),
+                              ),
+                              SizedBox(height: spacingSmall),
+                              Align(
+                                alignment: Alignment.centerRight,
+                                child: Text(
+                                  '${DateTime.now().day}/${DateTime.now().month}/${DateTime.now().year}',
+                                  style: TextStyle(
+                                    color: secondaryTextColor.withOpacity(0.9),
+                                    fontSize: ResponsiveUtils.getFontSize(
+                                      context,
+                                      baseSize: isCompactCard ? 10 : 11,
+                                    ),
+                                    fontWeight: FontWeight.w400,
+                                  ),
+                                ),
+                              ),
+                              if (connection.groupId != null &&
+                                  connection.groupId!.isNotEmpty)
+                                FutureBuilder<GroupModel?>(
+                                  future: GroupService.getGroup(
+                                    connection.groupId!,
+                                  ),
+                                  builder: (context, snapshot) {
+                                    if (!snapshot.hasData ||
+                                        snapshot.data == null) {
+                                      return const SizedBox.shrink();
+                                    }
+                                    return Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 4,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: subtleFillColor,
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(
+                                          color: dividerColor,
+                                          width: 0.5,
+                                        ),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            Icons.group,
+                                            color: mutedIconColor,
+                                            size: groupIconSize,
+                                          ),
+                                          SizedBox(width: spacingSmall),
+                                          Text(
+                                            snapshot.data!.name,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                              color: secondaryTextColor,
+                                              fontSize: ResponsiveUtils.getFontSize(
+                                                context,
+                                                baseSize: isCompactCard ? 11 : 12,
+                                              ),
+                                              fontWeight: FontWeight.w400,
+                                              letterSpacing: 0.2,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  },
+                                ),
+                            ],
                           ),
                         ),
                       ],
@@ -3333,54 +3310,31 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> with SingleTicker
 
   void _openChat(ConnectionModel connection) {
     // Create a UserModel from ConnectionModel for the chat
+    final fallbackName = connection.contactName.trim().isEmpty ? 'Contact' : connection.contactName;
+    String generatedUsername = fallbackName.toLowerCase().replaceAll(' ', '');
+    if (generatedUsername.isEmpty) {
+      generatedUsername = 'user_${connection.contactUserId.hashCode}';
+    }
     final user = UserModel(
       uid: connection.contactUserId,
       email: connection.contactEmail,
-      fullName: connection.contactName,
-      username: connection.contactName.toLowerCase().replaceAll(' ', ''), // Generate username from name
-      profileImageUrl: null, // You can add profile image URL to ConnectionModel if needed
+      fullName: fallbackName,
+      username: generatedUsername,
+      profileImageUrl: null,
       company: connection.contactCompany,
-      position: null, // You can add position to ConnectionModel if needed
+      position: null,
       bio: null,
+      phoneNumber: null,
       createdAt: connection.createdAt,
       lastSeen: DateTime.now(),
       isOnline: true,
     );
-
-    // Mock messages for demonstration
-    final mockMessages = [
-      MessageModel(
-        id: '1',
-        senderId: connection.contactUserId,
-        receiverId: 'current_user',
-        text: 'Hello! Nice to meet you.',
-        timestamp: DateTime.now().subtract(const Duration(hours: 2)),
-        messageType: 'text',
-      ),
-      MessageModel(
-        id: '2',
-        senderId: 'current_user',
-        receiverId: connection.contactUserId,
-        text: 'Hi! Great to connect with you.',
-        timestamp: DateTime.now().subtract(const Duration(hours: 1, minutes: 30)),
-        messageType: 'text',
-      ),
-      MessageModel(
-        id: '3',
-        senderId: connection.contactUserId,
-        receiverId: 'current_user',
-        text: 'Looking forward to working together!',
-        timestamp: DateTime.now().subtract(const Duration(minutes: 30)),
-        messageType: 'text',
-      ),
-    ];
 
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => ChatScreen(
           user: user,
-          initialMessages: mockMessages,
         ),
       ),
     );

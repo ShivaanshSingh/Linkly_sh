@@ -19,6 +19,8 @@ class NotificationService extends ChangeNotifier {
   final Set<String> _seenNotificationDocIds = <String>{};
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _userNotifSub;
   bool _skipInitialNotificationBatch = false;
+  Future<void> Function(Map<String, dynamic> data)? _onNotificationTapHandler;
+  Map<String, dynamic>? _pendingNotificationTap;
   
   // Performance optimization: Debounce notifyListeners
   Timer? _debounceTimer;
@@ -128,7 +130,17 @@ class NotificationService extends ChangeNotifier {
 
   void _onNotificationTapped(NotificationResponse response) {
     debugPrint('📱 Notification tapped: ${response.payload}');
-    // Handle notification tap - navigate to chat or specific screen
+    if (response.payload == null || response.payload!.isEmpty) {
+      return;
+    }
+    try {
+      final dynamic decoded = jsonDecode(response.payload!);
+      if (decoded is Map<String, dynamic>) {
+        _handleNotificationNavigation(Map<String, dynamic>.from(decoded));
+      }
+    } catch (e) {
+      debugPrint('❌ Error parsing notification payload: $e');
+    }
   }
 
   void _setupMessageHandlers() {
@@ -197,6 +209,9 @@ class NotificationService extends ChangeNotifier {
   void _handleBackgroundMessage(RemoteMessage message) {
     // Handle navigation or other actions when app is opened from notification
     debugPrint('📱 Handling background message: ${message.data}');
+    if (message.data.isNotEmpty) {
+      _handleNotificationNavigation(Map<String, dynamic>.from(message.data));
+    }
   }
 
   // Set current user ID for better notification filtering
@@ -421,6 +436,39 @@ class NotificationService extends ChangeNotifier {
       debugPrint('📱 Local notification shown: ${notificationData['title']}');
     } catch (e) {
       debugPrint('❌ Error showing local notification: $e');
+    }
+  }
+
+  void registerOnNotificationTapHandler(Future<void> Function(Map<String, dynamic> data) handler) {
+    _onNotificationTapHandler = handler;
+    if (_pendingNotificationTap != null) {
+      final pending = _pendingNotificationTap!;
+      _pendingNotificationTap = null;
+      handler(pending);
+    }
+  }
+
+  void unregisterOnNotificationTapHandler() {
+    _onNotificationTapHandler = null;
+  }
+
+  Future<void> _emitNotificationTap(Map<String, dynamic> data) async {
+    final handler = _onNotificationTapHandler;
+    if (handler != null) {
+      try {
+        await handler(data);
+      } catch (e) {
+        debugPrint('❌ Error executing notification tap handler: $e');
+      }
+    } else {
+      _pendingNotificationTap = data;
+    }
+  }
+
+  void _handleNotificationNavigation(Map<String, dynamic> data) {
+    final type = data['type']?.toString();
+    if (type == 'message') {
+      _emitNotificationTap(data);
     }
   }
 
