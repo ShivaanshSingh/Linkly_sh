@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'dart:ui';
 import '../../services/auth_service.dart';
 import '../../constants/app_colors.dart';
 import '../../constants/digital_card_themes.dart';
@@ -49,9 +52,238 @@ class _SettingsScreenState extends State<SettingsScreen> {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
+      isScrollControlled: true,
       builder: (sheetContext) {
         final currentThemeId = authService.digitalCardTheme;
+        final screenHeight = MediaQuery.of(context).size.height;
 
+        return ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: screenHeight * 0.85,
+          ),
+          child: Container(
+            decoration: BoxDecoration(
+              color: AppColors.grey900,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.4),
+                  blurRadius: 20,
+                  offset: const Offset(0, -10),
+                ),
+              ],
+            ),
+            child: SafeArea(
+              top: false,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Drag handle
+                  Padding(
+                    padding: const EdgeInsets.only(top: 12, bottom: 8),
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: AppColors.grey700,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  // Header
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                    child: Row(
+                      children: [
+                        const Expanded(
+                          child: Text(
+                            'Choose Digital Card Theme',
+                            style: TextStyle(
+                              color: AppColors.textPrimary,
+                              fontSize: 20,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: -0.3,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close, color: AppColors.textSecondary, size: 22),
+                          onPressed: () => Navigator.of(sheetContext).pop(),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  // Scrollable themes list
+                  Flexible(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: DigitalCardThemes.themes.map((theme) {
+                          final isSelected = theme.id == currentThemeId;
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: _ThemeCard(
+                              theme: theme,
+                              isSelected: isSelected,
+                              onTap: () async {
+                                Navigator.of(sheetContext).pop();
+                                if (!isSelected) {
+                                  await authService.updateDigitalCardTheme(theme.id);
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text('Digital card theme set to ${theme.name}'),
+                                        backgroundColor: AppColors.primary,
+                                        duration: const Duration(seconds: 2),
+                                      ),
+                                    );
+                                  }
+                                }
+                              },
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showHelpFAQDialog(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (sheetContext) {
+        final screenHeight = MediaQuery.of(context).size.height;
+        return ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: screenHeight * 0.85),
+          child: Container(
+            decoration: BoxDecoration(
+              color: AppColors.grey900,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.4),
+                  blurRadius: 20,
+                  offset: const Offset(0, -10),
+                ),
+              ],
+            ),
+            child: SafeArea(
+              top: false,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(top: 12, bottom: 8),
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: AppColors.grey700,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                    child: Row(
+                      children: [
+                        const Expanded(
+                          child: Text(
+                            'Help & FAQ',
+                            style: TextStyle(
+                              color: AppColors.textPrimary,
+                              fontSize: 20,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: -0.3,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close, color: AppColors.textSecondary, size: 22),
+                          onPressed: () => Navigator.of(sheetContext).pop(),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Flexible(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _FAQItem(
+                            question: 'How do I create a digital card?',
+                            answer: 'Go to Settings > Digital Card to customize your digital business card. You can choose themes, add your information, and share it with others.',
+                          ),
+                          const SizedBox(height: 16),
+                          _FAQItem(
+                            question: 'How do I connect with other users?',
+                            answer: 'You can search for users in the Connections tab, scan their QR code, or accept connection requests from others.',
+                          ),
+                          const SizedBox(height: 16),
+                          _FAQItem(
+                            question: 'How do I share my digital card?',
+                            answer: 'Open your digital card from the home screen and tap the share button. You can share via QR code, link, or vCard format.',
+                          ),
+                          const SizedBox(height: 16),
+                          _FAQItem(
+                            question: 'How do I update my profile?',
+                            answer: 'Go to Settings > Edit Profile to update your information, change your profile picture, and manage your privacy settings.',
+                          ),
+                          const SizedBox(height: 16),
+                          _FAQItem(
+                            question: 'Can I customize my digital card theme?',
+                            answer: 'Yes! Go to Settings > Digital Card Theme to choose from multiple beautiful themes that match your style.',
+                          ),
+                          const SizedBox(height: 16),
+                          _FAQItem(
+                            question: 'How do status updates work?',
+                            answer: 'Status updates are visible for 24 hours. You can create a new status from the Status screen by tapping the "+" button or "Your Status" option.',
+                          ),
+                          const SizedBox(height: 16),
+                          _FAQItem(
+                            question: 'Is my data secure?',
+                            answer: 'Yes, we take your privacy seriously. All data is encrypted and stored securely. You can manage your privacy settings in the Settings screen.',
+                          ),
+                          const SizedBox(height: 16),
+                          _FAQItem(
+                            question: 'How do I delete my account?',
+                            answer: 'Please contact our support team at support@vynco.app for assistance with account deletion. We\'ll process your request within 7 business days.',
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showContactSupportDialog(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
         return Container(
           decoration: BoxDecoration(
             color: AppColors.grey900,
@@ -67,85 +299,286 @@ class _SettingsScreenState extends State<SettingsScreen> {
           child: SafeArea(
             top: false,
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              padding: const EdgeInsets.all(24),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: AppColors.grey700,
-                      borderRadius: BorderRadius.circular(2),
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      margin: const EdgeInsets.only(bottom: 16),
+                      decoration: BoxDecoration(
+                        color: AppColors.grey700,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Choose Digital Card Theme',
-                    style: TextStyle(
-                      color: AppColors.textPrimary,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
+                  Row(
+                    children: [
+                      const Expanded(
+                        child: Text(
+                          'Contact Support',
+                          style: TextStyle(
+                            color: AppColors.textPrimary,
+                            fontSize: 20,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: -0.3,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close, color: AppColors.textSecondary, size: 22),
+                        onPressed: () => Navigator.of(sheetContext).pop(),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  _ContactOption(
+                    icon: Icons.email,
+                    title: 'Email Support',
+                    subtitle: 'support@vynco.app',
+                    onTap: () async {
+                      final Uri emailUri = Uri(
+                        scheme: 'mailto',
+                        path: 'support@vynco.app',
+                        query: 'subject=Vynco Support Request',
+                      );
+                      if (await canLaunchUrl(emailUri)) {
+                        await launchUrl(emailUri);
+                      } else {
+                        if (sheetContext.mounted) {
+                          Clipboard.setData(const ClipboardData(text: 'support@vynco.app'));
+                          ScaffoldMessenger.of(sheetContext).showSnackBar(
+                            const SnackBar(
+                              content: Text('Email address copied to clipboard'),
+                              backgroundColor: AppColors.primary,
+                            ),
+                          );
+                        }
+                      }
+                    },
                   ),
                   const SizedBox(height: 12),
-                  ...DigitalCardThemes.themes.map((theme) {
-                    final isSelected = theme.id == currentThemeId;
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: ListTile(
-                        onTap: () async {
-                          Navigator.of(sheetContext).pop();
-                          if (!isSelected) {
-                            await authService.updateDigitalCardTheme(theme.id);
-                            if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text('Digital card theme set to ${theme.name}'),
-                                  backgroundColor: AppColors.primary,
-                                  duration: const Duration(seconds: 2),
-                                ),
-                              );
-                            }
-                          }
-                        },
-                        contentPadding: EdgeInsets.zero,
-                        leading: Container(
-                          width: 48,
-                          height: 28,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(12),
-                            gradient: LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: theme.gradientColors,
-                            ),
-                            border: Border.all(
-                              color: theme.borderColor.withOpacity(0.6),
-                              width: 1,
+                  _ContactOption(
+                    icon: Icons.copy,
+                    title: 'Copy Email Address',
+                    subtitle: 'Tap to copy support@vynco.app',
+                    onTap: () {
+                      Clipboard.setData(const ClipboardData(text: 'support@vynco.app'));
+                      Navigator.of(sheetContext).pop();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Email address copied to clipboard'),
+                          backgroundColor: AppColors.primary,
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 24),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppColors.grey50.withOpacity(0.3),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: AppColors.primary.withOpacity(0.2),
+                        width: 1,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.info_outline,
+                          color: AppColors.primary,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            'We typically respond within 24-48 hours during business days.',
+                            style: TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 13,
                             ),
                           ),
                         ),
-                        title: Text(
-                          theme.name,
-                          style: const TextStyle(
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showAboutDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 400),
+            decoration: BoxDecoration(
+              color: AppColors.grey900,
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.4),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(24),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        const Color(0xFF1F295B).withOpacity(0.9),
+                        const Color(0xFF283B89).withOpacity(0.85),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(
+                      color: Colors.white.withOpacity(0.2),
+                      width: 1.5,
+                    ),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 80,
+                          height: 80,
+                          decoration: BoxDecoration(
+                            color: AppColors.primary,
+                            borderRadius: BorderRadius.circular(20),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppColors.primary.withOpacity(0.4),
+                                blurRadius: 15,
+                                offset: const Offset(0, 5),
+                              ),
+                            ],
+                          ),
+                          child: const Icon(
+                            Icons.business_center,
+                            color: Colors.white,
+                            size: 40,
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        const Text(
+                          'Vynco',
+                          style: TextStyle(
                             color: AppColors.textPrimary,
+                            fontSize: 28,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.5,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Digital Business Card & Networking App',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 14,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
-                        trailing: isSelected
-                            ? const Icon(
-                                Icons.check_circle,
-                                color: AppColors.secondary,
-                              )
-                            : const Icon(
-                                Icons.circle_outlined,
-                                color: AppColors.grey600,
+                        const SizedBox(height: 24),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: AppColors.grey50.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            'Version 1.0.0',
+                            style: TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        Text(
+                          'Vynco helps you create and share your digital business card, connect with professionals, and build your network effortlessly.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 13,
+                            height: 1.5,
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            _AboutLinkButton(
+                              icon: Icons.privacy_tip,
+                              label: 'Privacy Policy',
+                              onTap: () {
+                                Navigator.of(dialogContext).pop();
+                                context.push('/privacy');
+                              },
+                            ),
+                            const SizedBox(width: 16),
+                            _AboutLinkButton(
+                              icon: Icons.description,
+                              label: 'Terms of Service',
+                              onTap: () {
+                                Navigator.of(dialogContext).pop();
+                                context.push('/terms');
+                              },
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 24),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            onPressed: () => Navigator.of(dialogContext).pop(),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primary,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
                               ),
-                      ),
-                    );
-                  }).toList(),
-                ],
+                            ),
+                            child: const Text(
+                              'Close',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ),
             ),
           ),
@@ -347,21 +780,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 icon: Icons.help,
                 title: 'Help & FAQ',
                 onTap: () {
-                  // TODO: Navigate to help
+                  _showHelpFAQDialog(context);
                 },
               ),
               _SettingsTile(
                 icon: Icons.contact_support,
                 title: 'Contact Support',
                 onTap: () {
-                  // TODO: Navigate to contact support
+                  _showContactSupportDialog(context);
                 },
               ),
               _SettingsTile(
                 icon: Icons.info,
                 title: 'About',
                 onTap: () {
-                  // TODO: Show about dialog
+                  _showAboutDialog(context);
                 },
               ),
             ],
@@ -579,5 +1012,421 @@ class _RadioSettingsTile extends StatelessWidget {
     );
   }
 }
+
+class _FAQItem extends StatelessWidget {
+  final String question;
+  final String answer;
+
+  const _FAQItem({
+    required this.question,
+    required this.answer,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          question,
+          style: const TextStyle(
+            color: AppColors.textPrimary,
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+            letterSpacing: -0.2,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          answer,
+          style: TextStyle(
+            color: AppColors.textSecondary,
+            fontSize: 13,
+            height: 1.5,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ContactOption extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  const _ContactOption({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppColors.grey50.withOpacity(0.2),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: AppColors.primary.withOpacity(0.2),
+              width: 1,
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  icon,
+                  color: AppColors.primary,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        color: AppColors.textPrimary,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(
+                Icons.chevron_right,
+                color: AppColors.textSecondary,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AboutLinkButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  const _AboutLinkButton({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
+            decoration: BoxDecoration(
+              color: AppColors.grey50.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: AppColors.primary.withOpacity(0.2),
+                width: 1,
+              ),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  icon,
+                  color: AppColors.primary,
+                  size: 16,
+                ),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ThemeCard extends StatelessWidget {
+  final DigitalCardThemeData theme;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _ThemeCard({
+    required this.theme,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: theme.gradientColors,
+            ),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isSelected
+                  ? AppColors.primary
+                  : theme.borderColor.withOpacity(0.6),
+              width: isSelected ? 2.5 : 1.5,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: isSelected
+                    ? AppColors.primary.withOpacity(0.4)
+                    : Colors.black.withOpacity(0.2),
+                blurRadius: isSelected ? 20 : 10,
+                offset: Offset(0, isSelected ? 8 : 4),
+              ),
+            ],
+          ),
+          child: Stack(
+            children: [
+              // Pattern overlay
+              Positioned(
+                top: -20,
+                right: -20,
+                child: Container(
+                  width: 100,
+                  height: 100,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(50),
+                  ),
+                ),
+              ),
+              Positioned(
+                bottom: -30,
+                left: -30,
+                child: Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(40),
+                  ),
+                ),
+              ),
+              // Content
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            theme.name,
+                            style: TextStyle(
+                              color: theme.textPrimaryColor,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: -0.2,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (isSelected)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary,
+                              borderRadius: BorderRadius.circular(12),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: AppColors.primary.withOpacity(0.4),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: const [
+                                Icon(
+                                  Icons.check_circle,
+                                  color: Colors.white,
+                                  size: 14,
+                                ),
+                                SizedBox(width: 4),
+                                Text(
+                                  'Active',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    // Preview card
+                    Container(
+                      height: 80,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: theme.gradientColors,
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: theme.borderColor.withOpacity(0.8),
+                          width: 1.5,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: theme.shadowColor.withOpacity(0.3),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Stack(
+                        children: [
+                          // Pattern overlay on preview
+                          Positioned(
+                            top: -10,
+                            right: -10,
+                            child: Container(
+                              width: 60,
+                              height: 60,
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.15),
+                                borderRadius: BorderRadius.circular(30),
+                              ),
+                            ),
+                          ),
+                          Positioned(
+                            bottom: -15,
+                            left: -15,
+                            child: Container(
+                              width: 50,
+                              height: 50,
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.15),
+                                borderRadius: BorderRadius.circular(25),
+                              ),
+                            ),
+                          ),
+                          // Preview content
+                          Center(
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Container(
+                                  width: 32,
+                                  height: 32,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.3),
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                  child: Icon(
+                                    Icons.person,
+                                    color: theme.textPrimaryColor,
+                                    size: 18,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Container(
+                                      width: 80,
+                                      height: 8,
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withOpacity(0.4),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Container(
+                                      width: 60,
+                                      height: 6,
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withOpacity(0.3),
+                                        borderRadius: BorderRadius.circular(3),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+
 
 

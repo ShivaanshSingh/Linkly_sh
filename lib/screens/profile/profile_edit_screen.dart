@@ -648,6 +648,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
           borderRadius: BorderRadius.circular(12),
         ),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
             Icon(icon, size: 32, color: AppColors.primary),
             const SizedBox(height: 8),
@@ -739,10 +740,16 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
             builder: (context) {
               try {
                 return SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.only(
+              left: 16,
+              right: 16,
+              top: 16,
+              bottom: 16 + MediaQuery.of(context).padding.bottom + 110,
+            ),
             child: Form(
               key: _formKey,
               child: Column(
+                mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   // Profile Picture Section
@@ -831,6 +838,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                         border: Border.all(color: Colors.red.withOpacity(0.3)),
                       ),
                       child: Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
                             Icons.error_outline,
@@ -846,6 +854,8 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                                 fontSize: 12,
                                 fontWeight: FontWeight.w500,
                               ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                         ],
@@ -863,6 +873,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                         border: Border.all(color: Colors.blue.withOpacity(0.3)),
                       ),
                       child: Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
                           SizedBox(
                             width: 16,
@@ -873,12 +884,16 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                             ),
                           ),
                           const SizedBox(width: 8),
-                          Text(
-                            'Checking username availability...',
-                            style: TextStyle(
-                              color: Colors.blue,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
+                          Expanded(
+                            child: Text(
+                              'Checking username availability...',
+                              style: TextStyle(
+                                color: Colors.blue,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                         ],
@@ -896,6 +911,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                         border: Border.all(color: Colors.orange.withOpacity(0.3)),
                       ),
                       child: Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
                             Icons.warning_outlined,
@@ -911,6 +927,8 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                                 fontSize: 12,
                                 fontWeight: FontWeight.w500,
                               ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                         ],
@@ -1011,6 +1029,9 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                     onPressed: _isLoading ? null : _saveProfile,
                     isLoading: _isLoading,
                   ),
+                  
+                  // Extra bottom spacing to prevent overflow
+                  SizedBox(height: MediaQuery.of(context).padding.bottom + 30),
                 ],
               ),
             ),
@@ -1051,6 +1072,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
 
   Widget _buildProfilePictureSection() {
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
         // Profile Picture
         GestureDetector(
@@ -1165,6 +1187,7 @@ class _PhonePrivacySection extends StatelessWidget {
     debugPrint('🔍 _PhonePrivacySection build: privacy=$phoneNumberPrivacy, connections=${connections.length}, isLoading=$isLoadingConnections');
     
     return Column(
+      mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
@@ -1183,6 +1206,9 @@ class _PhonePrivacySection extends StatelessWidget {
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
             child: Container(
+              constraints: const BoxConstraints(
+                minHeight: 0,
+              ),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
@@ -1206,6 +1232,7 @@ class _PhonePrivacySection extends StatelessWidget {
                 ],
               ),
               child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   _RadioPrivacyTile(
                     icon: Icons.people,
@@ -1239,6 +1266,7 @@ class _PhonePrivacySection extends StatelessWidget {
                     Padding(
                       padding: const EdgeInsets.all(16),
                       child: Column(
+                        mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
@@ -1279,34 +1307,42 @@ class _PhonePrivacySection extends StatelessWidget {
                               ),
                             ),
                             const SizedBox(height: 12),
-                            ...connections.where((connection) {
-                              // Filter out any connections with null/empty IDs
-                              final userId = connection['id'];
-                              return userId != null && userId is String && userId.isNotEmpty;
-                            }).map((connection) {
-                              final userId = connection['id'] as String;
-                              final userName = connection['name'] as String? ?? 'Unknown';
-                              final isSelected = allowedPhoneViewers.contains(userId);
+                            ConstrainedBox(
+                              constraints: const BoxConstraints(maxHeight: 200),
+                              child: SingleChildScrollView(
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: connections.where((connection) {
+                                    // Filter out any connections with null/empty IDs
+                                    final userId = connection['id'];
+                                    return userId != null && userId is String && userId.isNotEmpty;
+                                  }).map((connection) {
+                                    final userId = connection['id'] as String;
+                                    final userName = connection['name'] as String? ?? 'Unknown';
+                                    final isSelected = allowedPhoneViewers.contains(userId);
 
-                              return CheckboxListTile(
-                                dense: true,
-                                contentPadding: EdgeInsets.zero,
-                                title: Text(
-                                  userName,
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: AppColors.textPrimary,
-                                  ),
+                                    return CheckboxListTile(
+                                      dense: true,
+                                      contentPadding: EdgeInsets.zero,
+                                      title: Text(
+                                        userName,
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          color: AppColors.textPrimary,
+                                        ),
+                                      ),
+                                      value: isSelected,
+                                      onChanged: (value) {
+                                        onToggleConnection(userId);
+                                      },
+                                      controlAffinity: ListTileControlAffinity.leading,
+                                      activeColor: AppColors.primary,
+                                      checkColor: Colors.white,
+                                    );
+                                  }).toList(),
                                 ),
-                                value: isSelected,
-                                onChanged: (value) {
-                                  onToggleConnection(userId);
-                                },
-                                controlAffinity: ListTileControlAffinity.leading,
-                                activeColor: AppColors.primary,
-                                checkColor: Colors.white,
-                              );
-                            }).toList(),
+                              ),
+                            ),
                           ],
                         ],
                       ),
@@ -1343,6 +1379,9 @@ class _RadioPrivacyTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final isSelected = value == groupValue;
     return ListTile(
+      dense: true,
+      isThreeLine: false,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       leading: Icon(
         icon,
         color: isSelected ? AppColors.primary : AppColors.textSecondary,
@@ -1356,6 +1395,8 @@ class _RadioPrivacyTile extends StatelessWidget {
       ),
       subtitle: Text(
         subtitle,
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
         style: TextStyle(
           color: AppColors.textSecondary,
           fontSize: 12,

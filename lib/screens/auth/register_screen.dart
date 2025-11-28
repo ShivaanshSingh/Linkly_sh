@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
+import 'dart:ui';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../services/auth_service.dart';
@@ -247,172 +248,223 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.white,
-      appBar: AppBar(
-        backgroundColor: AppColors.white,
-        elevation: 0,
-        surfaceTintColor: AppColors.white,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios, color: AppColors.grey600, size: 20),
-          onPressed: () => context.go('/login'),
-        ),
-        title: Text(
-          _getStepTitle(),
-          style: const TextStyle(
-            color: AppColors.grey700,
-            fontSize: 16,
-            fontWeight: FontWeight.w500,
-            letterSpacing: -0.5,
+      backgroundColor: AppColors.grey900,
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              const Color(0xFF0F1B3D),
+              const Color(0xFF1A2B5C),
+              const Color(0xFF283B89),
+            ],
           ),
         ),
-        centerTitle: true,
-      ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Progress indicator
-            Container(
-              padding: const EdgeInsets.fromLTRB(32, 16, 32, 24),
-              child: Column(
-                children: [
-                  Row(
-                    children: List.generate(_totalSteps, (index) {
-                      return Expanded(
-                        child: Container(
-                          height: 3,
-                          margin: EdgeInsets.only(
-                            right: index < _totalSteps - 1 ? 6 : 0,
+        child: SafeArea(
+          child: Column(
+            children: [
+              // AppBar
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.arrow_back_ios, color: AppColors.textPrimary, size: 20),
+                      onPressed: () => context.go('/login'),
+                    ),
+                    Expanded(
+                      child: Text(
+                        _getStepTitle(),
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: -0.5,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 40), // Balance the back button
+                  ],
+                ),
+              ),
+              
+              // Progress indicator
+              Container(
+                padding: const EdgeInsets.fromLTRB(32, 16, 32, 24),
+                child: Column(
+                  children: [
+                    Row(
+                      children: List.generate(_totalSteps, (index) {
+                        return Expanded(
+                          child: Container(
+                            height: 3,
+                            margin: EdgeInsets.only(
+                              right: index < _totalSteps - 1 ? 6 : 0,
+                            ),
+                            decoration: BoxDecoration(
+                              color: index <= _currentStep 
+                                  ? AppColors.primary 
+                                  : AppColors.grey50.withOpacity(0.3),
+                              borderRadius: BorderRadius.circular(1.5),
+                            ),
                           ),
+                        );
+                      }),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Step ${_currentStep + 1} of $_totalSteps',
+                      style: TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w400,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              
+              // Form content with glass effect
+              Expanded(
+                child: Center(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(24),
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                        child: Container(
                           decoration: BoxDecoration(
-                            color: index <= _currentStep 
-                                ? AppColors.primary 
-                                : AppColors.grey100,
-                            borderRadius: BorderRadius.circular(1.5),
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                const Color(0xFF1F295B).withOpacity(0.6),
+                                const Color(0xFF283B89).withOpacity(0.5),
+                              ],
+                            ),
+                            borderRadius: BorderRadius.circular(24),
+                            border: Border.all(
+                              color: Colors.white.withOpacity(0.2),
+                              width: 1.5,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.blue.withOpacity(0.15),
+                                blurRadius: 20,
+                                offset: const Offset(0, 10),
+                              ),
+                            ],
+                          ),
+                          padding: const EdgeInsets.all(32),
+                          child: Form(
+                            key: _formKey,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                // Step content
+                                _buildStepContent(),
+                                
+                                const SizedBox(height: 48),
+                                
+                                // Navigation buttons
+                                _buildNavigationButtons(),
+                                
+                                const SizedBox(height: 24),
+                                
+                                // Google sign up (only on first step)
+                                if (_currentStep == 0) ...[
+                                  Row(
+                                    children: [
+                                      Expanded(child: Divider(color: Colors.white.withOpacity(0.3), height: 1)),
+                                      Padding(
+                                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                                        child: Text(
+                                          'OR',
+                                          style: TextStyle(
+                                            color: AppColors.textSecondary,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w400,
+                                            letterSpacing: 1,
+                                          ),
+                                        ),
+                                      ),
+                                      Expanded(child: Divider(color: Colors.white.withOpacity(0.3), height: 1)),
+                                    ],
+                                  ),
+                                  
+                                  const SizedBox(height: 24),
+                                  
+                                  OutlinedButton.icon(
+                                    onPressed: _signUpWithGoogle,
+                                    icon: const Icon(Icons.g_mobiledata, size: 20, color: AppColors.textPrimary),
+                                    label: const Text(
+                                      'Continue with Google',
+                                      style: TextStyle(
+                                        color: AppColors.textPrimary,
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w500,
+                                        letterSpacing: -0.2,
+                                      ),
+                                    ),
+                                    style: OutlinedButton.styleFrom(
+                                      padding: const EdgeInsets.symmetric(vertical: 14),
+                                      side: BorderSide(color: Colors.white.withOpacity(0.3), width: 1),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      backgroundColor: Colors.white.withOpacity(0.1),
+                                    ),
+                                  ),
+                                ],
+                                
+                                const SizedBox(height: 32),
+                                
+                                // Sign in link
+                                if (_currentStep == 0)
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Text(
+                                        'Already have an account? ',
+                                        style: TextStyle(
+                                          color: AppColors.textSecondary,
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w400,
+                                        ),
+                                      ),
+                                      TextButton(
+                                        onPressed: () => context.go('/login'),
+                                        style: TextButton.styleFrom(
+                                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                                        ),
+                                        child: const Text(
+                                          'Log In',
+                                          style: TextStyle(
+                                            color: AppColors.primary,
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 14,
+                                            letterSpacing: -0.2,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                              ],
+                            ),
                           ),
                         ),
-                      );
-                    }),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Step ${_currentStep + 1} of $_totalSteps',
-                    style: const TextStyle(
-                      color: AppColors.grey500,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w400,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            
-            // Form content
-            Expanded(
-              child: Center(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(horizontal: 32),
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // Step content
-                        _buildStepContent(),
-                        
-                        const SizedBox(height: 48),
-                        
-                        // Navigation buttons
-                        _buildNavigationButtons(),
-                        
-                        const SizedBox(height: 24),
-                        
-                        // Google sign up (only on first step)
-                        if (_currentStep == 0) ...[
-                          Row(
-                            children: [
-                              const Expanded(child: Divider(color: AppColors.grey100, height: 1)),
-                              Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 20),
-                                child: Text(
-                                  'OR',
-                                  style: TextStyle(
-                                    color: AppColors.grey400,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w400,
-                                    letterSpacing: 1,
-                                  ),
-                                ),
-                              ),
-                              const Expanded(child: Divider(color: AppColors.grey100, height: 1)),
-                            ],
-                          ),
-                          
-                          const SizedBox(height: 24),
-                          
-                          OutlinedButton.icon(
-                            onPressed: _signUpWithGoogle,
-                            icon: const Icon(Icons.g_mobiledata, size: 20, color: AppColors.grey600),
-                            label: const Text(
-                              'Continue with Google',
-                              style: TextStyle(
-                                color: AppColors.grey600,
-                                fontSize: 15,
-                                fontWeight: FontWeight.w400,
-                                letterSpacing: -0.2,
-                              ),
-                            ),
-                            style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                              side: const BorderSide(color: AppColors.grey100, width: 1),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              backgroundColor: AppColors.white,
-                            ),
-                          ),
-                        ],
-                        
-                        const SizedBox(height: 32),
-                        
-                        // Sign in link
-                        if (_currentStep == 0)
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                'Already have an account? ',
-                                style: TextStyle(
-                                  color: AppColors.grey400,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w400,
-                                ),
-                              ),
-                              TextButton(
-                                onPressed: () => context.go('/login'),
-                                style: TextButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-                                ),
-                                child: const Text(
-                                  'Log In',
-                                  style: TextStyle(
-                                    color: AppColors.primary,
-                                    fontWeight: FontWeight.w500,
-                                    fontSize: 14,
-                                    letterSpacing: -0.2,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                      ],
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -448,17 +500,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
           'Create Account',
           style: TextStyle(
             fontSize: 28,
-            fontWeight: FontWeight.w600,
-            color: AppColors.grey700,
+            fontWeight: FontWeight.w700,
+            color: AppColors.textPrimary,
             letterSpacing: -0.8,
           ),
         ),
         const SizedBox(height: 8),
-        const Text(
+        Text(
           'Join Vynco and unlock your business potential.',
           style: TextStyle(
             fontSize: 15,
-            color: AppColors.grey500,
+            color: AppColors.textSecondary,
             fontWeight: FontWeight.w400,
             letterSpacing: -0.2,
           ),
@@ -669,17 +721,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
           'Personal Information',
           style: TextStyle(
             fontSize: 24,
-            fontWeight: FontWeight.w600,
-            color: AppColors.grey700,
+            fontWeight: FontWeight.w700,
+            color: AppColors.textPrimary,
             letterSpacing: -0.6,
           ),
         ),
         const SizedBox(height: 8),
-        const Text(
+        Text(
           'Tell us a bit about yourself.',
           style: TextStyle(
             fontSize: 15,
-            color: AppColors.grey500,
+            color: AppColors.textSecondary,
             fontWeight: FontWeight.w400,
             letterSpacing: -0.2,
           ),
@@ -844,9 +896,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: AppColors.white,
+            color: Colors.white.withOpacity(0.1),
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: AppColors.grey100, width: 1),
+            border: Border.all(color: Colors.white.withOpacity(0.2), width: 1),
           ),
           child: Row(
             children: [
@@ -858,12 +910,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   });
                 },
                 activeColor: AppColors.primary,
+                checkColor: Colors.white,
+                fillColor: WidgetStateProperty.resolveWith<Color?>((Set<WidgetState> states) {
+                  if (states.contains(WidgetState.selected)) {
+                    return AppColors.primary;
+                  }
+                  return Colors.white.withOpacity(0.2);
+                }),
               ),
               Expanded(
                 child: RichText(
                   text: TextSpan(
-                    style: const TextStyle(
-                      color: AppColors.grey500,
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
                       fontSize: 13,
                       fontWeight: FontWeight.w400,
                       letterSpacing: -0.1,
@@ -874,7 +933,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         text: 'Terms of Service',
                         style: const TextStyle(
                           color: AppColors.primary,
-                          fontWeight: FontWeight.w500,
+                          fontWeight: FontWeight.w600,
                         ),
                         recognizer: TapGestureRecognizer()
                           ..onTap = () => context.push('/terms'),
@@ -884,7 +943,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         text: 'Privacy Policy',
                         style: const TextStyle(
                           color: AppColors.primary,
-                          fontWeight: FontWeight.w500,
+                          fontWeight: FontWeight.w600,
                         ),
                         recognizer: TapGestureRecognizer()
                           ..onTap = () => context.push('/privacy'),
@@ -905,22 +964,22 @@ class _RegisterScreenState extends State<RegisterScreen> {
       children: [
         if (_currentStep > 0) ...[
           Expanded(
-            child: OutlinedButton(
+              child: OutlinedButton(
               onPressed: _previousStep,
               style: OutlinedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 14),
-                side: const BorderSide(color: AppColors.grey100, width: 1),
+                side: BorderSide(color: Colors.white.withOpacity(0.3), width: 1),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
-                backgroundColor: AppColors.white,
+                backgroundColor: Colors.white.withOpacity(0.1),
               ),
               child: const Text(
                 'Back',
                 style: TextStyle(
-                  color: AppColors.grey600,
+                  color: AppColors.textPrimary,
                   fontSize: 15,
-                  fontWeight: FontWeight.w500,
+                  fontWeight: FontWeight.w600,
                   letterSpacing: -0.2,
                 ),
               ),

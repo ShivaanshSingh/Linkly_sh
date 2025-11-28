@@ -305,8 +305,8 @@ class _NavButton extends StatelessWidget {
                   curve: Curves.easeOutBack,
                   padding: EdgeInsets.all(
                     selected
-                        ? (isCompact ? 7 : 8)
-                        : (isCompact ? 5 : 6),
+                        ? (isCompact ? 6 : 7)
+                        : (isCompact ? 4 : 5),
                   ),
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
@@ -324,31 +324,39 @@ class _NavButton extends StatelessWidget {
                         : null,
                   ),
                   child: AnimatedScale(
-                    scale: selected ? 1.08 : 0.96,
+                    scale: selected ? 1.06 : 0.94,
                     duration: const Duration(milliseconds: 260),
                     curve: Curves.easeOut,
                     child: Icon(
                       selected ? destination.activeIcon : destination.icon,
                       color: selected ? AppColors.white : AppColors.grey200,
                       size: selected
-                          ? (isCompact ? 24 : 26)
-                          : (isCompact ? 21 : 23),
+                          ? (isCompact ? 22 : 24)
+                          : (isCompact ? 20 : 22),
                     ),
                   ),
                 ),
-                SizedBox(height: isCompact ? 6 : 8),
-                AnimatedDefaultTextStyle(
-                  duration: const Duration(milliseconds: 260),
-                  curve: Curves.easeInOut,
-                  style: TextStyle(
-                    fontSize: selected
-                        ? (isCompact ? 12.5 : 13)
-                        : (isCompact ? 11.5 : 12),
-                    fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-                    letterSpacing: 0.3,
-                    color: selected ? AppColors.white : AppColors.grey300,
+                SizedBox(height: isCompact ? 4 : 5),
+                Flexible(
+                  child: AnimatedDefaultTextStyle(
+                    duration: const Duration(milliseconds: 260),
+                    curve: Curves.easeInOut,
+                    style: TextStyle(
+                      fontSize: selected
+                          ? (isCompact ? 11.5 : 12)
+                          : (isCompact ? 10.5 : 11),
+                      fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                      letterSpacing: 0.2,
+                      color: selected ? AppColors.white : AppColors.grey300,
+                      height: 1.1,
+                    ),
+                    child: Text(
+                      destination.label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                    ),
                   ),
-                  child: Text(destination.label),
                 ),
               ],
             ),

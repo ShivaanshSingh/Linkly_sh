@@ -42,10 +42,10 @@ class CustomTextField extends StatelessWidget {
         Text(
           label,
           style: const TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-            color: AppColors.grey600,
-            letterSpacing: -0.3,
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: AppColors.textMuted,
+            letterSpacing: -0.2,
           ),
         ),
         const SizedBox(height: 8),
