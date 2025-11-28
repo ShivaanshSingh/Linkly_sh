@@ -1,4 +1,4 @@
-# Linkly - Digital Business Card & Networking App
+# Vynco - Digital Business Card & Networking App
 
 A comprehensive Flutter application for digital business cards and professional networking, built with Firebase backend.
 
@@ -61,7 +61,7 @@ flutter pub get
 
 #### Create Firebase Project
 1. Go to [Firebase Console](https://console.firebase.google.com/)
-2. Create a new project named "Linkly"
+2. Create a new project named "Vynco"
 3. Enable Authentication, Firestore, Storage, and Cloud Messaging
 
 #### Configure Firebase for Flutter

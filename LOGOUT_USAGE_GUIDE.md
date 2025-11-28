@@ -1,8 +1,8 @@
 # 🚪 Logout Feature - Quick User Guide
 
-## How to Log Out from Linkly
+## How to Log Out from Vynco
 
-Your Linkly app now has **3 convenient ways** to log out! 
+Your Vynco app now has **3 convenient ways** to log out! 
 
 ---
 
@@ -103,7 +103,7 @@ A: Yes, logging out requires an internet connection to properly sign you out fro
 ### Home Screen Logout
 ```
 ┌─────────────────────────┐
-│ Linkly          🚪      │  ← Tap here
+│ Vynco          🚪      │  ← Tap here
 ├─────────────────────────┤
 │                         │
 │   Your Feed Here        │
@@ -139,5 +139,5 @@ A: Yes, logging out requires an internet connection to properly sign you out fro
 
 Your logout feature is **fully functional** and ready to use. Choose whichever method is most convenient for you!
 
-**Happy networking with Linkly!** 🎉
+**Happy networking with Vynco!** 🎉
 

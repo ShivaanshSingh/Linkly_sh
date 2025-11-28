@@ -15,7 +15,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   final List<OnboardingData> _onboardingData = [
     OnboardingData(
-      title: 'Welcome to Linkly',
+      title: 'Welcome to Vynco',
       description: 'Create your digital business card and connect with professionals effortlessly.',
       icon: Icons.business_center,
       color: AppColors.primary,

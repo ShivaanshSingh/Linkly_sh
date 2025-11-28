@@ -154,7 +154,7 @@ applicationId = "com.linkly.app"
 
 - **App Name**: Update in `android/app/src/main/AndroidManifest.xml`:
   ```xml
-  android:label="Linkly"
+  android:label="Vynco"
   ```
 
 - **App Icon**: Make sure your app icon is properly configured (already set in pubspec.yaml)

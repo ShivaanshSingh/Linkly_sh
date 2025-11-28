@@ -1,9 +1,9 @@
-# How to Replace Flutter Logo with Linkly Logo
+# How to Replace Flutter Logo with Vynco Logo
 
 ## Current Situation
-The app currently uses the default Flutter logo as the app icon. You want to replace it with the Linkly logo design that appears in the splash screen.
+The app currently uses the default Flutter logo as the app icon. You want to replace it with the Vynco logo design that appears in the splash screen.
 
-## Linkly Logo Design (from splash screen)
+## Vynco Logo Design (from splash screen)
 - **Background**: White rounded rectangle with shadow
 - **Icon**: Link icon (Icons.link) in primary blue color
 - **Primary Color**: #0175C2
@@ -22,11 +22,11 @@ The app currently uses the default Flutter logo as the app icon. You want to rep
    flutter_launcher_icons:
      android: "launcher_icon"
      ios: true
-     image_path: "assets/icons/linkly_logo.png"
+     image_path: "assets/icons/vynco_logo.png"
      min_sdk_android: 21
      web:
        generate: true
-       image_path: "assets/icons/linkly_logo.png"
+       image_path: "assets/icons/vynco_logo.png"
        background_color: "#0175C2"
        theme_color: "#0175C2"
    ```
@@ -39,7 +39,7 @@ The app currently uses the default Flutter logo as the app icon. You want to rep
 
 ### Option 2: Manual Icon Creation
 
-1. **Create the Linkly logo image:**
+1. **Create the Vynco logo image:**
    - Use the same design as splash screen
    - White background with rounded corners
    - Blue link icon in the center
@@ -57,7 +57,7 @@ The app currently uses the default Flutter logo as the app icon. You want to rep
 
 ### Option 3: Use Online Icon Generator
 
-1. Create your Linkly logo design
+1. Create your Vynco logo design
 2. Use online tools like:
    - https://appicon.co/
    - https://icon.kitchen/

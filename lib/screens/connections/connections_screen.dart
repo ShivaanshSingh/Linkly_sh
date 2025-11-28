@@ -2920,7 +2920,7 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> with SingleTicker
                           createdAt: DateTime.now(),
                           updatedAt: DateTime.now(),
                           color: '#0466C8',
-                          qrCode: 'linkly://group/${groupId}',
+                          qrCode: 'vynco://group/${groupId}',
                           inviteCode: groupId,
                         ));
 

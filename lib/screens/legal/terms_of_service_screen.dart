@@ -25,11 +25,11 @@ class TermsOfServiceScreen extends StatelessWidget {
             children: const [
               _Heading('1. Introduction'),
               _Body(
-                  'Welcome to Linkly. By creating an account or using our services, you agree to these Terms of Service. Please read them carefully.'),
+                  'Welcome to Vynco. By creating an account or using our services, you agree to these Terms of Service. Please read them carefully.'),
 
               _Heading('2. Eligibility'),
               _Body(
-                  'You must be at least 13 years old (or the minimum age required by law in your country) to use Linkly. By using Linkly, you represent that you meet this requirement.'),
+                  'You must be at least 13 years old (or the minimum age required by law in your country) to use Vynco. By using Vynco, you represent that you meet this requirement.'),
 
               _Heading('3. Your Account'),
               _Body(
@@ -37,11 +37,11 @@ class TermsOfServiceScreen extends StatelessWidget {
 
               _Heading('4. Acceptable Use'),
               _Body(
-                  'You agree not to misuse Linkly, including but not limited to: posting unlawful content, impersonating others, scraping our services, or attempting to disrupt or compromise security.'),
+                  'You agree not to misuse Vynco, including but not limited to: posting unlawful content, impersonating others, scraping our services, or attempting to disrupt or compromise security.'),
 
               _Heading('5. Content and Licenses'),
               _Body(
-                  'You retain ownership of the content you post. By posting content on Linkly, you grant us a non‑exclusive, worldwide, royalty‑free license to host and display it for the purpose of operating and improving our services.'),
+                  'You retain ownership of the content you post. By posting content on Vynco, you grant us a non‑exclusive, worldwide, royalty‑free license to host and display it for the purpose of operating and improving our services.'),
 
               _Heading('6. Prohibited Content'),
               _Body(
@@ -49,27 +49,27 @@ class TermsOfServiceScreen extends StatelessWidget {
 
               _Heading('7. Third‑Party Services'),
               _Body(
-                  'Linkly may integrate with third‑party services (e.g., authentication, storage, analytics). Your use of those services is governed by their respective terms and privacy policies.'),
+                  'Vynco may integrate with third‑party services (e.g., authentication, storage, analytics). Your use of those services is governed by their respective terms and privacy policies.'),
 
               _Heading('8. Termination'),
               _Body(
-                  'We may suspend or terminate your access to Linkly at any time if you violate these Terms or if required by law. You may stop using Linkly at any time.'),
+                  'We may suspend or terminate your access to Vynco at any time if you violate these Terms or if required by law. You may stop using Vynco at any time.'),
 
               _Heading('9. Disclaimers'),
               _Body(
-                  'Linkly is provided “as is” without warranties of any kind. We do not guarantee uninterrupted or error‑free service.'),
+                  'Vynco is provided “as is” without warranties of any kind. We do not guarantee uninterrupted or error‑free service.'),
 
               _Heading('10. Limitation of Liability'),
               _Body(
-                  'To the maximum extent permitted by law, Linkly and its affiliates are not liable for any indirect, incidental, special, consequential, or punitive damages, or any loss of data or profits.'),
+                  'To the maximum extent permitted by law, Vynco and its affiliates are not liable for any indirect, incidental, special, consequential, or punitive damages, or any loss of data or profits.'),
 
               _Heading('11. Changes to these Terms'),
               _Body(
-                  'We may update these Terms from time to time. When we do, we will update the “Last updated” date below. Continued use of Linkly after changes means you accept the updated Terms.'),
+                  'We may update these Terms from time to time. When we do, we will update the “Last updated” date below. Continued use of Vynco after changes means you accept the updated Terms.'),
 
               _Heading('12. Contact'),
               _Body(
-                  'Questions about these Terms? Contact support at support@linkly.app.'),
+                  'Questions about these Terms? Contact support at support@vynco.app.'),
 
               SizedBox(height: 16),
               Text(

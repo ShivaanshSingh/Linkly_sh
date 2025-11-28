@@ -1,5 +1,5 @@
-name: linkly
-description: "Linkly - Digital Business Card & Networking App"
+name: vynco
+description: "Vynco - Digital Business Card & Networking App"
 publish_to: 'none'
 
 version: 1.0.0+1
@@ -82,11 +82,11 @@ flutter:
 flutter_launcher_icons:
   android: "launcher_icon"
   ios: true
-  image_path: "assets/icons/linkly_logo.png"
+  image_path: "assets/icons/vynco_logo.png"
   min_sdk_android: 21
   web:
     generate: true
-    image_path: "assets/icons/linkly_logo.png"
+    image_path: "assets/icons/vynco_logo.png"
     background_color: "#0175C2"
     theme_color: "#0175C2"
   

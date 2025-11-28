@@ -34,8 +34,8 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
     try {
       await Haptics.scanSuccess();
       // Check if it's a group QR code
-      if (qrData.startsWith('linkly://group/')) {
-        final inviteCode = qrData.replaceFirst('linkly://group/', '');
+      if (qrData.startsWith('vynco://group/')) {
+        final inviteCode = qrData.replaceFirst('vynco://group/', '');
         await _joinGroup(inviteCode);
         return;
       }
@@ -43,7 +43,7 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
       // Handle user connection QR code (fast-path)
       Map<String, dynamic>? user;
       String? scannedUserId;
-      if (qrData.startsWith('linkly://user/')) {
+      if (qrData.startsWith('vynco://user/')) {
         scannedUserId = qrData.split('/').last;
         // Fetch user details from Firestore
         final userDoc = await FirebaseFirestore.instance.collection('users').doc(scannedUserId).get();

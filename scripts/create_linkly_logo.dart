@@ -6,16 +6,16 @@ import 'package:flutter/services.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await createLinklyLogo();
+  await createVyncoLogo();
 }
 
-Future<void> createLinklyLogo() async {
-  print('🎨 Creating Linkly logo...');
+Future<void> createVyncoLogo() async {
+  print('🎨 Creating Vynco logo...');
   
   // Create a 1024x1024 logo (high resolution for all platforms)
   const size = 1024;
   
-  final image = await _generateLinklyLogo(size);
+  final image = await _generateVyncoLogo(size);
   
   // Create assets directory if it doesn't exist
   final assetsDir = Directory('assets/icons');
@@ -24,14 +24,14 @@ Future<void> createLinklyLogo() async {
   }
   
   // Save the logo
-  final file = File('assets/icons/linkly_logo.png');
+  final file = File('assets/icons/vynco_logo.png');
   await file.writeAsBytes(image);
   
-  print('✅ Linkly logo created at: ${file.path}');
+  print('✅ Vynco logo created at: ${file.path}');
   print('📱 Now you can run: flutter pub run flutter_launcher_icons');
 }
 
-Future<Uint8List> _generateLinklyLogo(int size) async {
+Future<Uint8List> _generateVyncoLogo(int size) async {
   final recorder = ui.PictureRecorder();
   final canvas = Canvas(recorder);
   

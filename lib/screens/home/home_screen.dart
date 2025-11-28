@@ -527,7 +527,7 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
         surfaceTintColor: AppColors.white,
         automaticallyImplyLeading: false,
         title: const Text(
-          'Linkly',
+          'Vynco',
           style: TextStyle(
             color: AppColors.textPrimary, // Bright White Text
             fontWeight: FontWeight.bold,
@@ -1987,9 +1987,9 @@ class _HomeDashboardState extends State<HomeDashboard> with TickerProviderStateM
 
 👤 Name: $userName
 📧 Email: $userEmail
-🔗 Profile: linkly://user/$userId
+🔗 Profile: vynco://user/$userId
 
-Download Linkly to connect with me digitally!
+Download Vynco to connect with me digitally!
 ''';
     
     Share.share(
@@ -2026,7 +2026,7 @@ EMAIL:$userEmail
 ${userPhone.isNotEmpty ? 'TEL:$userPhone' : ''}
 ${userCompany.isNotEmpty ? 'ORG:$userCompany' : ''}
 ${userPosition.isNotEmpty ? 'TITLE:$userPosition' : ''}
-URL:linkly://user/${user?.uid ?? ''}
+URL:vynco://user/${user?.uid ?? ''}
 END:VCARD''';
     
     // Share the vCard
@@ -2612,7 +2612,7 @@ class ShareModal extends StatelessWidget {
                     onTap: () {
                       Navigator.pop(context);
                       final shareText = 'Check out this post by ${post.userName}: "${post.content}"';
-                      Share.share(shareText, subject: 'Shared from Linkly');
+                      Share.share(shareText, subject: 'Shared from Vynco');
                     },
                   ),
                   _ShareOption(
@@ -2621,7 +2621,7 @@ class ShareModal extends StatelessWidget {
                     onTap: () {
                       Navigator.pop(context);
                       final shareText = 'Check out this post by ${post.userName}: "${post.content}"';
-                      Share.share(shareText, subject: 'Shared from Linkly');
+                      Share.share(shareText, subject: 'Shared from Vynco');
                     },
                   ),
                   _ShareOption(
@@ -2630,7 +2630,7 @@ class ShareModal extends StatelessWidget {
                     onTap: () {
                       Navigator.pop(context);
                       final shareText = 'Check out this post by ${post.userName}: "${post.content}"';
-                      Share.share(shareText, subject: 'Shared from Linkly');
+                      Share.share(shareText, subject: 'Shared from Vynco');
                     },
                   ),
                 ],

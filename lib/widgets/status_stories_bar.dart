@@ -57,7 +57,7 @@ class _AddStatusStory extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           const Text(
-            'Your Story',
+            'Your Status',
             style: TextStyle(
               fontSize: 12,
               color: AppColors.grey600,

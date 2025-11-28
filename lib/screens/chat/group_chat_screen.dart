@@ -289,7 +289,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                   ),
                   const SizedBox(height: 12),
                   QrImageView(
-                    data: widget.group.qrCode ?? 'linkly://group/${widget.group.inviteCode}',
+                    data: widget.group.qrCode ?? 'vynco://group/${widget.group.inviteCode}',
                     version: QrVersions.auto,
                     size: 150,
                     backgroundColor: Colors.white,

@@ -455,7 +455,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         ),
         const SizedBox(height: 8),
         const Text(
-          'Join Linkly and unlock your business potential.',
+          'Join Vynco and unlock your business potential.',
           style: TextStyle(
             fontSize: 15,
             color: AppColors.grey500,

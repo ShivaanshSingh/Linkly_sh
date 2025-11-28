@@ -189,7 +189,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 8),
                 const Text(
-                  'Welcome back to Linkly',
+                  'Welcome back to Vynco',
                   style: TextStyle(
                     fontSize: 16,
                     color: AppColors.textSecondary,

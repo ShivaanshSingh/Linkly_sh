@@ -1,4 +1,4 @@
-// Firestore Security Rules for Linkly App
+// Firestore Security Rules for Vynco App
 // Copy and paste this into Firebase Console > Firestore Database > Rules
 
 rules_version = '2';

@@ -391,8 +391,8 @@ class _DigitalCardWidgetState extends State<DigitalCardWidget>
                 child: Center(
                   child: QrImageView(
                     data: authService.user?.uid != null
-                        ? 'linkly://user/${authService.user!.uid}'
-                        : 'linkly://user/unknown',
+                        ? 'vynco://user/${authService.user!.uid}'
+                        : 'vynco://user/unknown',
                     version: QrVersions.auto,
                     size: 130,
                     backgroundColor: Colors.white,

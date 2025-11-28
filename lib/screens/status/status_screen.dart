@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../constants/app_colors.dart';
 import '../../services/auth_service.dart';
 import '../../services/status_service.dart';
 import '../../models/status_model.dart';
 import 'create_status_screen.dart';
+import 'status_viewer_screen.dart';
 
 class StatusScreen extends StatefulWidget {
   const StatusScreen({super.key});
@@ -44,7 +46,19 @@ class _StatusScreenState extends State<StatusScreen> {
             fontWeight: FontWeight.bold,
           ),
         ),
-        // Removed the + action button as requested
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.add_circle_outline, color: AppColors.primary),
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => const CreateStatusScreen(),
+                ),
+              );
+            },
+            tooltip: 'Create new status',
+          ),
+        ],
       ),
       body: Consumer<AuthService>(
         builder: (context, authService, child) {
@@ -54,120 +68,145 @@ class _StatusScreenState extends State<StatusScreen> {
             );
           }
 
+          // Combine own statuses and connection statuses
           return StreamBuilder<List<StatusModel>>(
             stream: _statusService.getUserStatuses(authService.user!.uid),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(
-                  child: CircularProgressIndicator(),
-                );
-              }
+            builder: (context, ownStatusesSnapshot) {
+              return StreamBuilder<List<StatusModel>>(
+                stream: _statusService.getStatuses(authService.user!.uid),
+                builder: (context, connectionStatusesSnapshot) {
+                  if (ownStatusesSnapshot.connectionState == ConnectionState.waiting ||
+                      connectionStatusesSnapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(
+                      child: CircularProgressIndicator(),
+                    );
+                  }
 
-              if (snapshot.hasError) {
-                return Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.error_outline,
-                        size: 64,
-                        color: AppColors.grey400,
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'Error loading statuses',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.grey900,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        snapshot.error.toString(),
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: AppColors.grey600,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
-                  ),
-                );
-              }
+                  // Combine and deduplicate statuses
+                  final ownStatuses = ownStatusesSnapshot.data ?? [];
+                  final connectionStatuses = connectionStatusesSnapshot.data ?? [];
+                  final allStatuses = <StatusModel>[];
+                  final seenIds = <String>{};
+                  
+                  // Add own statuses first
+                  for (final status in ownStatuses) {
+                    if (!seenIds.contains(status.id)) {
+                      allStatuses.add(status);
+                      seenIds.add(status.id);
+                    }
+                  }
+                  
+                  // Add connection statuses
+                  for (final status in connectionStatuses) {
+                    if (!seenIds.contains(status.id)) {
+                      allStatuses.add(status);
+                      seenIds.add(status.id);
+                    }
+                  }
+                  
+                  // Sort by creation time
+                  allStatuses.sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
-              final statuses = snapshot.data ?? [];
+                  // Group statuses by user for stories display
+                  final Map<String, List<StatusModel>> groupedStatuses = {};
+                  for (final status in allStatuses) {
+                    if (!groupedStatuses.containsKey(status.userId)) {
+                      groupedStatuses[status.userId] = [];
+                    }
+                    groupedStatuses[status.userId]!.add(status);
+                  }
+                  
+                  // Sort each user's statuses
+                  groupedStatuses.forEach((userId, userStatuses) {
+                    userStatuses.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+                  });
+                  
+                  // Get unique users (first status of each user)
+                  final uniqueUsers = groupedStatuses.values.map((statuses) => statuses.first).toList();
+                  uniqueUsers.sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
-              if (statuses.isEmpty) {
-                return Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.visibility_off,
-                        size: 64,
-                        color: AppColors.grey400,
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'No statuses yet',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.grey900,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Share what you\'re up to!',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: AppColors.grey600,
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      ElevatedButton.icon(
-                        onPressed: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (context) => const CreateStatusScreen(),
+                  if (allStatuses.isEmpty) {
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.visibility_off,
+                            size: 64,
+                            color: AppColors.grey400,
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'No statuses yet',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.grey900,
                             ),
-                          );
-                        },
-                        icon: const Icon(Icons.add),
-                        label: const Text('Create Status'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          foregroundColor: AppColors.white,
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Share what you\'re up to!',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: AppColors.grey600,
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                          ElevatedButton.icon(
+                            onPressed: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (context) => const CreateStatusScreen(),
+                                ),
+                              );
+                            },
+                            icon: const Icon(Icons.add),
+                            label: const Text('Create Status'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primary,
+                              foregroundColor: AppColors.white,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+
+                  return Column(
+                    children: [
+                      // Stories bar at the top (Instagram style)
+                      _buildStoriesBar(context, uniqueUsers, groupedStatuses, authService.user!.uid),
+                      
+                      // Status list below
+                      Expanded(
+                        child: ListView.builder(
+                          padding: const EdgeInsets.all(16),
+                          physics: const BouncingScrollPhysics(),
+                          itemCount: allStatuses.length,
+                          itemBuilder: (context, index) {
+                            final status = allStatuses[index];
+                            return TweenAnimationBuilder<double>(
+                              tween: Tween(begin: 0.95, end: 1.0),
+                              duration: const Duration(milliseconds: 220),
+                              curve: Curves.easeOut,
+                              builder: (context, scale, child) {
+                                return AnimatedOpacity(
+                                  duration: const Duration(milliseconds: 220),
+                                  opacity: 1.0,
+                                  child: Transform.scale(
+                                    scale: scale,
+                                    alignment: Alignment.topCenter,
+                                    child: child,
+                                  ),
+                                );
+                              },
+                              child: _buildStatusCard(status),
+                            );
+                          },
                         ),
                       ),
                     ],
-                  ),
-                );
-              }
-
-              return ListView.builder(
-                padding: const EdgeInsets.all(16),
-                physics: const BouncingScrollPhysics(),
-                itemCount: statuses.length,
-                itemBuilder: (context, index) {
-                  final status = statuses[index];
-                  return TweenAnimationBuilder<double>(
-                    tween: Tween(begin: 0.95, end: 1.0),
-                    duration: const Duration(milliseconds: 220),
-                    curve: Curves.easeOut,
-                    builder: (context, scale, child) {
-                      return AnimatedOpacity(
-                        duration: const Duration(milliseconds: 220),
-                        opacity: 1.0,
-                        child: Transform.scale(
-                          scale: scale,
-                          alignment: Alignment.topCenter,
-                          child: child,
-                        ),
-                      );
-                    },
-                    child: _buildStatusCard(status),
                   );
                 },
               );
@@ -401,5 +440,230 @@ class _StatusScreenState extends State<StatusScreen> {
     } else {
       return 'in ${difference.inDays}d';
     }
+  }
+
+  Widget _buildStoriesBar(
+    BuildContext context,
+    List<StatusModel> uniqueUsers,
+    Map<String, List<StatusModel>> groupedStatuses,
+    String currentUserId,
+  ) {
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final String displayName = authService.userModel?.fullName ?? 
+                               authService.user?.displayName ?? 
+                               'User';
+    final String? photoUrl = authService.userModel?.profileImageUrl ?? 
+                            authService.user?.photoURL;
+    final ownStatuses = groupedStatuses[currentUserId] ?? [];
+
+    return Container(
+      height: 100,
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        itemCount: uniqueUsers.length + 1, // +1 for "Add Status" button
+        itemBuilder: (context, index) {
+          if (index == 0) {
+            // Your Status button - shows own statuses or allows creating new one
+            final hasOwnStatuses = ownStatuses.isNotEmpty;
+            
+            return Container(
+              width: 80,
+              margin: const EdgeInsets.only(right: 12),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.start,
+                children: [
+                  GestureDetector(
+                    onTap: () {
+                      if (hasOwnStatuses) {
+                        // View own statuses
+                        _openStoryViewer(context, ownStatuses, 0);
+                      } else {
+                        // Create new status
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => const CreateStatusScreen(),
+                          ),
+                        );
+                      }
+                    },
+                    child: Container(
+                      width: 70,
+                      height: 70,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: hasOwnStatuses ? AppColors.primary : AppColors.grey300,
+                          width: hasOwnStatuses ? 3 : 2,
+                        ),
+                      ),
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          ClipOval(
+                            child: photoUrl != null && photoUrl.isNotEmpty
+                                ? CachedNetworkImage(
+                                    imageUrl: photoUrl,
+                                    fit: BoxFit.cover,
+                                    placeholder: (context, url) => _buildDefaultAvatar(displayName),
+                                    errorWidget: (context, url, error) => _buildDefaultAvatar(displayName),
+                                  )
+                                : _buildDefaultAvatar(displayName),
+                          ),
+                          if (!hasOwnStatuses)
+                            Positioned(
+                              right: 0,
+                              bottom: 0,
+                              child: Container(
+                                width: 22,
+                                height: 22,
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.9),
+                                  shape: BoxShape.circle,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.15),
+                                      blurRadius: 4,
+                                    ),
+                                  ],
+                                ),
+                                child: const Icon(
+                                  Icons.add,
+                                  size: 16,
+                                  color: AppColors.primary,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  const Text(
+                    'Your Status',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: AppColors.grey600,
+                    ),
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            );
+          }
+
+          final userStatus = uniqueUsers[index - 1];
+          // Skip own status as it's already shown first
+          if (userStatus.userId == currentUserId) {
+            return const SizedBox.shrink();
+          }
+          
+          final userStatuses = groupedStatuses[userStatus.userId] ?? [];
+          final hasNewStatus = _hasNewStatus(userStatus);
+
+          return Container(
+            width: 80,
+            margin: const EdgeInsets.only(right: 12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.start,
+              children: [
+                GestureDetector(
+                  onTap: () => _openStoryViewer(context, userStatuses, 0),
+                    child: Container(
+                      width: 70,
+                      height: 70,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: hasNewStatus ? AppColors.primary : AppColors.grey300,
+                          width: hasNewStatus ? 3 : 2,
+                        ),
+                      ),
+                    child: ClipOval(
+                      child: userStatus.userProfileImageUrl != null
+                          ? CachedNetworkImage(
+                              imageUrl: userStatus.userProfileImageUrl!,
+                              fit: BoxFit.cover,
+                              placeholder: (context, url) => _buildDefaultAvatar(userStatus.userName),
+                              errorWidget: (context, url, error) => _buildDefaultAvatar(userStatus.userName),
+                            )
+                          : _buildDefaultAvatar(userStatus.userName),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  _getDisplayName(userStatus.userName),
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: AppColors.grey600,
+                  ),
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildDefaultAvatar(String userName) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.primary,
+        shape: BoxShape.circle,
+      ),
+      child: Center(
+        child: Text(
+          userName.isNotEmpty ? userName[0].toUpperCase() : 'U',
+          style: const TextStyle(
+            color: AppColors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 24,
+          ),
+        ),
+      ),
+    );
+  }
+
+  bool _hasNewStatus(StatusModel status) {
+    final now = DateTime.now();
+    final twoHoursAgo = now.subtract(const Duration(hours: 2));
+    return status.createdAt.isAfter(twoHoursAgo);
+  }
+
+  String _getDisplayName(String userName) {
+    if (userName.length <= 8) return userName;
+    return '${userName.substring(0, 8)}...';
+  }
+
+  void _openStoryViewer(BuildContext context, List<StatusModel> statuses, int initialIndex) {
+    if (statuses.isEmpty) return;
+    
+    // Mark status as viewed when opening
+    final authService = Provider.of<AuthService>(context, listen: false);
+    if (authService.user?.uid != null) {
+      for (final status in statuses) {
+        _statusService.markStatusAsViewed(status.id, authService.user!.uid);
+      }
+    }
+    
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => StatusViewerScreen(
+          statuses: statuses,
+          initialIndex: initialIndex,
+        ),
+        fullscreenDialog: true,
+      ),
+    );
   }
 }

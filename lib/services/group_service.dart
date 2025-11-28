@@ -27,7 +27,7 @@ class GroupService {
     try {
       // Generate invite code
       final inviteCode = _generateInviteCode();
-      final qrCode = 'linkly://group/$inviteCode';
+      final qrCode = 'vynco://group/$inviteCode';
       
       final groupData = {
         'name': name,

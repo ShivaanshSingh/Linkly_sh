@@ -7,12 +7,12 @@ import 'package:flutter/rendering.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Generate app icons with the Linkly logo design
+  // Generate app icons with the Vynco logo design
   await generateAppIcons();
 }
 
 Future<void> generateAppIcons() async {
-  print('🎨 Generating Linkly app icons...');
+  print('🎨 Generating Vynco app icons...');
   
   // Define icon sizes for different platforms
   final iconSizes = [
@@ -32,7 +32,7 @@ Future<void> generateAppIcons() async {
     
     print('📱 Generating $name (${size}x$size)...');
     
-    final image = await _generateLinklyIcon(size);
+    final image = await _generateVyncoIcon(size);
     
     // Save the icon
     final directory = Directory('assets/icons/generated');
@@ -53,7 +53,7 @@ Future<void> generateAppIcons() async {
   print('   3. Run flutter pub get and rebuild your app');
 }
 
-Future<Uint8List> _generateLinklyIcon(int size) async {
+Future<Uint8List> _generateVyncoIcon(int size) async {
   final recorder = ui.PictureRecorder();
   final canvas = Canvas(recorder);
   

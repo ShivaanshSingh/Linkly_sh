@@ -211,7 +211,7 @@ class _SplashScreenState extends State<SplashScreen>
                     const SizedBox(height: 30),
                     // App name - static after animation
                     const Text(
-                      'Linkly',
+                      'Vynco',
                       style: TextStyle(
                         fontSize: 32,
                         fontWeight: FontWeight.bold,
@@ -277,7 +277,7 @@ class _SplashScreenState extends State<SplashScreen>
                           child: Transform.scale(
                             scale: _titleScaleAnimation.value,
                             child: const Text(
-                              'Linkly',
+                              'Vynco',
                               style: TextStyle(
                                 fontSize: 32,
                                 fontWeight: FontWeight.bold,

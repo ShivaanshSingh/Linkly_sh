@@ -72,13 +72,13 @@ void main() async {
     firebaseInitialized = false;
   }
   
-  runApp(LinklyApp(firebaseInitialized: firebaseInitialized));
+  runApp(VyncoApp(firebaseInitialized: firebaseInitialized));
 }
 
-class LinklyApp extends StatelessWidget {
+class VyncoApp extends StatelessWidget {
   final bool firebaseInitialized;
   
-  const LinklyApp({super.key, required this.firebaseInitialized});
+  const VyncoApp({super.key, required this.firebaseInitialized});
 
   @override
   Widget build(BuildContext context) {
@@ -126,7 +126,7 @@ class _RouterWrapperState extends State<_RouterWrapper> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp.router(
-      title: 'Linkly',
+      title: 'Vynco',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.darkTheme,
       darkTheme: AppTheme.darkTheme,

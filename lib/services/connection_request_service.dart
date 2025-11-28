@@ -278,8 +278,8 @@ class ConnectionRequestService {
   // Get user by QR code data
   Future<Map<String, dynamic>?> getUserByQRCode(String qrData) async {
     try {
-      // QR code data format: "linkly://user/{userId}" or "{username}"
-      if (qrData.startsWith('linkly://user/')) {
+      // QR code data format: "vynco://user/{userId}" or "{username}"
+      if (qrData.startsWith('vynco://user/')) {
         final userId = qrData.split('/').last;
         final user = await _firestore.collection('users').doc(userId).get();
         

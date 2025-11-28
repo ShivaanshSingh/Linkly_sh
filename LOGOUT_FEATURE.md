@@ -1,7 +1,7 @@
 # Logout Feature Documentation
 
 ## Overview
-The Linkly app now has a comprehensive logout feature with multiple access points and enhanced user experience.
+The Vynco app now has a comprehensive logout feature with multiple access points and enhanced user experience.
 
 ## Features
 
@@ -20,7 +20,7 @@ Users can log out from three different locations:
 
 #### C. Home Screen - App Bar  
 - Location: Home dashboard → Top-right logout icon
-- Branded app bar with "Linkly" title
+- Branded app bar with "Vynco" title
 - Quick access from main screen
 
 ### 2. **Enhanced User Experience**
@@ -99,7 +99,7 @@ AppBar(
   backgroundColor: AppColors.white,
   elevation: 0,
   automaticallyImplyLeading: false,
-  title: const Text('Linkly'),
+  title: const Text('Vynco'),
   actions: [
     Consumer<AuthService>(
       builder: (context, authService, child) {

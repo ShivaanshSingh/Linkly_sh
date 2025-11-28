@@ -1,6 +1,6 @@
-# Firebase Setup Guide for Linkly
+# Firebase Setup Guide for Vynco
 
-This guide will help you set up Firebase for the Linkly Flutter application.
+This guide will help you set up Firebase for the Vynco Flutter application.
 
 ## 🔥 Step 1: Create Firebase Project
 

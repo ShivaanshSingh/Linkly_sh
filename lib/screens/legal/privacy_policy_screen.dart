@@ -25,7 +25,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
             children: const [
               _Heading('1. Overview'),
               _Body(
-                  'This Privacy Policy explains how Linkly collects, uses, and protects your information when you use our services.'),
+                  'This Privacy Policy explains how Vynco collects, uses, and protects your information when you use our services.'),
 
               _Heading('2. Information We Collect'),
               _Body(
@@ -33,7 +33,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
 
               _Heading('3. How We Use Information'),
               _Body(
-                  'We use your information to operate Linkly, personalize your experience, connect you with other users, secure our services, and comply with legal obligations.'),
+                  'We use your information to operate Vynco, personalize your experience, connect you with other users, secure our services, and comply with legal obligations.'),
 
               _Heading('4. Sharing of Information'),
               _Body(
@@ -53,7 +53,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
 
               _Heading('8. Children’s Privacy'),
               _Body(
-                  'Linkly is not intended for children under 13. If we learn that we have collected personal data from a child under 13, we will take steps to delete it.'),
+                  'Vynco is not intended for children under 13. If we learn that we have collected personal data from a child under 13, we will take steps to delete it.'),
 
               _Heading('9. International Transfers'),
               _Body(
@@ -61,11 +61,11 @@ class PrivacyPolicyScreen extends StatelessWidget {
 
               _Heading('10. Changes to this Policy'),
               _Body(
-                  'We may update this Privacy Policy from time to time. Continued use of Linkly after changes means you accept the updated Policy.'),
+                  'We may update this Privacy Policy from time to time. Continued use of Vynco after changes means you accept the updated Policy.'),
 
               _Heading('11. Contact Us'),
               _Body(
-                  'If you have questions about this Policy, contact us at privacy@linkly.app.'),
+                  'If you have questions about this Policy, contact us at privacy@vynco.app.'),
 
               SizedBox(height: 16),
               Text(
