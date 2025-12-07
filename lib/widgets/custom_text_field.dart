@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:ui';
 import '../constants/app_colors.dart';
+import '../utils/responsive_utils.dart';
 
 class CustomTextField extends StatelessWidget {
   final TextEditingController controller;
@@ -41,16 +42,16 @@ class CustomTextField extends StatelessWidget {
       children: [
         Text(
           label,
-          style: const TextStyle(
-            fontSize: 14,
+          style: TextStyle(
+            fontSize: ResponsiveUtils.getFontSize(context, baseSize: 14),
             fontWeight: FontWeight.w600,
             color: AppColors.textMuted,
             letterSpacing: -0.2,
           ),
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: ResponsiveUtils.getSpacing(context, small: 8, medium: 10, large: 12)),
         ClipRRect(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(ResponsiveUtils.getBorderRadius(context, base: 8)),
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
             child: Container(
@@ -68,7 +69,7 @@ class CustomTextField extends StatelessWidget {
                           const Color(0xFF1A1F3A).withOpacity(0.3),
                         ],
                 ),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(ResponsiveUtils.getBorderRadius(context, base: 8)),
                 border: Border.all(
                   color: enabled
                       ? Colors.white.withOpacity(0.2)
@@ -85,7 +86,7 @@ class CustomTextField extends StatelessWidget {
                 maxLines: maxLines,
                 enabled: enabled,
                 style: TextStyle(
-                  fontSize: 15,
+                  fontSize: ResponsiveUtils.getFontSize(context, baseSize: 15),
                   color: enabled ? AppColors.textPrimary : AppColors.textSecondary,
                   fontWeight: FontWeight.w400,
                   letterSpacing: -0.2,
@@ -94,7 +95,7 @@ class CustomTextField extends StatelessWidget {
                   hintText: hint,
                   hintStyle: TextStyle(
                     color: AppColors.textSecondary.withOpacity(0.7),
-                    fontSize: 15,
+                    fontSize: ResponsiveUtils.getFontSize(context, baseSize: 15),
                     fontWeight: FontWeight.w400,
                     letterSpacing: -0.2,
                   ),
@@ -102,40 +103,41 @@ class CustomTextField extends StatelessWidget {
                       ? Icon(
                           prefixIcon,
                           color: AppColors.textPrimary.withOpacity(0.7),
-                          size: 20,
+                          size: ResponsiveUtils.getIconSize(context, baseSize: 20),
                         )
                       : null,
                   suffixIcon: suffixIcon,
                   filled: true,
                   fillColor: Colors.transparent,
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(ResponsiveUtils.getBorderRadius(context, base: 8)),
                     borderSide: BorderSide.none,
                   ),
                   enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(ResponsiveUtils.getBorderRadius(context, base: 8)),
                     borderSide: BorderSide.none,
                   ),
                   focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(ResponsiveUtils.getBorderRadius(context, base: 8)),
                     borderSide: BorderSide(
                       color: focusedBorderColor ?? AppColors.primary.withOpacity(0.5),
                       width: 1.5,
                     ),
                   ),
                   errorBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(ResponsiveUtils.getBorderRadius(context, base: 8)),
                     borderSide: const BorderSide(color: AppColors.error, width: 1),
                   ),
                   focusedErrorBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(ResponsiveUtils.getBorderRadius(context, base: 8)),
                     borderSide: const BorderSide(color: AppColors.error, width: 1.5),
                   ),
                   disabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(ResponsiveUtils.getBorderRadius(context, base: 8)),
                     borderSide: BorderSide.none,
                   ),
-                  contentPadding: const EdgeInsets.symmetric(
+                  contentPadding: ResponsiveUtils.getSymmetricPadding(
+                    context,
                     horizontal: 16,
                     vertical: 14,
                   ),

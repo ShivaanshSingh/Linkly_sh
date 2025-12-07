@@ -140,5 +140,75 @@ class ResponsiveUtils {
     }
     return base * 1.1;
   }
+  
+  /// Get responsive EdgeInsets.all padding
+  static EdgeInsets getAllPadding(BuildContext context, {double base = 16}) {
+    final width = MediaQuery.of(context).size.width;
+    if (width < mobileBreakpoint) {
+      return EdgeInsets.all(base * 0.75);
+    } else if (width < tabletBreakpoint) {
+      return EdgeInsets.all(base);
+    }
+    return EdgeInsets.all(base * 1.25);
+  }
+  
+  /// Get responsive EdgeInsets.symmetric padding
+  static EdgeInsets getSymmetricPadding(
+    BuildContext context, {
+    double horizontal = 16,
+    double vertical = 12,
+  }) {
+    final width = MediaQuery.of(context).size.width;
+    if (width < mobileBreakpoint) {
+      return EdgeInsets.symmetric(
+        horizontal: horizontal * 0.75,
+        vertical: vertical * 0.75,
+      );
+    } else if (width < tabletBreakpoint) {
+      return EdgeInsets.symmetric(horizontal: horizontal, vertical: vertical);
+    }
+    return EdgeInsets.symmetric(
+      horizontal: horizontal * 1.25,
+      vertical: vertical * 1.25,
+    );
+  }
+  
+  /// Get responsive EdgeInsets.only padding
+  static EdgeInsets getOnlyPadding(
+    BuildContext context, {
+    double? left,
+    double? top,
+    double? right,
+    double? bottom,
+  }) {
+    final width = MediaQuery.of(context).size.width;
+    final multiplier = width < mobileBreakpoint ? 0.75 : (width < tabletBreakpoint ? 1.0 : 1.25);
+    
+    return EdgeInsets.only(
+      left: (left ?? 0) * multiplier,
+      top: (top ?? 0) * multiplier,
+      right: (right ?? 0) * multiplier,
+      bottom: (bottom ?? 0) * multiplier,
+    );
+  }
+  
+  /// Get responsive screen width percentage
+  static double getWidthPercentage(BuildContext context, double percentage) {
+    return MediaQuery.of(context).size.width * (percentage / 100);
+  }
+  
+  /// Get responsive screen height percentage
+  static double getHeightPercentage(BuildContext context, double percentage) {
+    return MediaQuery.of(context).size.height * (percentage / 100);
+  }
+  
+  /// Get responsive container width (with max constraint)
+  static double getContainerWidth(BuildContext context, {double? maxWidth}) {
+    final width = MediaQuery.of(context).size.width;
+    if (maxWidth != null && width > maxWidth) {
+      return maxWidth;
+    }
+    return width;
+  }
 }
 

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../services/auth_service.dart';
 import '../../constants/app_colors.dart';
+import '../../utils/responsive_utils.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key});
@@ -90,11 +91,11 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           icon: const Icon(Icons.arrow_back, color: AppColors.primary),
           onPressed: () => context.pop(),
         ),
-        title: const Text(
+        title: Text(
           'Forgot Password',
           style: TextStyle(
             color: AppColors.primary,
-            fontSize: 18,
+            fontSize: ResponsiveUtils.getFontSize(context, baseSize: 18),
             fontWeight: FontWeight.w600,
           ),
         ),
@@ -102,31 +103,31 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       ),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
+          padding: ResponsiveUtils.getAllPadding(context, base: 24),
           child: Form(
             key: _formKey,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const SizedBox(height: 16),
-                const Text(
+                SizedBox(height: ResponsiveUtils.getSpacing(context, small: 16, medium: 20, large: 24)),
+                Text(
                   'Reset your password',
                   style: TextStyle(
-                    fontSize: 24,
+                    fontSize: ResponsiveUtils.getFontSize(context, baseSize: 24),
                     fontWeight: FontWeight.bold,
                     color: AppColors.textPrimary,
                   ),
                 ),
-                const SizedBox(height: 8),
-                const Text(
+                SizedBox(height: ResponsiveUtils.getSpacing(context, small: 8, medium: 10, large: 12)),
+                Text(
                   'Enter the email associated with your account and we\'ll send you a secure link to reset your password.',
                   style: TextStyle(
-                    fontSize: 14,
+                    fontSize: ResponsiveUtils.getFontSize(context, baseSize: 14),
                     color: AppColors.textSecondary,
                     height: 1.5,
                   ),
                 ),
-                const SizedBox(height: 32),
+                SizedBox(height: ResponsiveUtils.getSpacing(context, small: 32, medium: 36, large: 40)),
                 TextFormField(
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
@@ -158,25 +159,25 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.primary,
                           foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          padding: ResponsiveUtils.getSymmetricPadding(context, horizontal: 0, vertical: 14),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(ResponsiveUtils.getBorderRadius(context, base: 12)),
                           ),
                         ),
                         child: authService.isLoading
-                            ? const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
+                            ? SizedBox(
+                                width: ResponsiveUtils.getIconSize(context, baseSize: 20),
+                                height: ResponsiveUtils.getIconSize(context, baseSize: 20),
+                                child: const CircularProgressIndicator(
                                   strokeWidth: 2,
                                   valueColor: AlwaysStoppedAnimation<Color>(
                                       Colors.white),
                                 ),
                               )
-                            : const Text(
+                            : Text(
                                 'Send Reset Email',
                                 style: TextStyle(
-                                  fontSize: 16,
+                                  fontSize: ResponsiveUtils.getFontSize(context, baseSize: 16),
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
@@ -184,6 +185,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                     );
                   },
                 ),
+                SizedBox(height: ResponsiveUtils.getSpacing(context, small: 24, medium: 28, large: 32)),
               ],
             ),
           ),

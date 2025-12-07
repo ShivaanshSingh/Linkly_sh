@@ -9,6 +9,7 @@ import '../../services/auth_service.dart';
 import '../../constants/app_colors.dart';
 import '../../widgets/custom_button.dart';
 import '../../widgets/custom_text_field.dart';
+import '../../utils/responsive_utils.dart';
 
 class ProfileEditScreen extends StatefulWidget {
   const ProfileEditScreen({super.key});
@@ -593,19 +594,19 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
     showModalBottomSheet(
       context: context,
       builder: (context) => Container(
-        padding: const EdgeInsets.all(20),
+        padding: ResponsiveUtils.getAllPadding(context, base: 20),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
               'Select Image Source',
               style: TextStyle(
-                fontSize: 18,
+                fontSize: ResponsiveUtils.getFontSize(context, baseSize: 18),
                 fontWeight: FontWeight.bold,
                 color: AppColors.grey900,
               ),
             ),
-            const SizedBox(height: 20),
+            SizedBox(height: ResponsiveUtils.getSpacing(context, small: 20, medium: 24, large: 28)),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
@@ -642,20 +643,20 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.all(20),
+        padding: ResponsiveUtils.getAllPadding(context, base: 20),
         decoration: BoxDecoration(
           color: AppColors.grey100,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(ResponsiveUtils.getBorderRadius(context, base: 12)),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 32, color: AppColors.primary),
-            const SizedBox(height: 8),
+            Icon(icon, size: ResponsiveUtils.getIconSize(context, baseSize: 32), color: AppColors.primary),
+            SizedBox(height: ResponsiveUtils.getSpacing(context, small: 8, medium: 10, large: 12)),
             Text(
               label,
               style: TextStyle(
-                fontSize: 14,
+                fontSize: ResponsiveUtils.getFontSize(context, baseSize: 14),
                 fontWeight: FontWeight.w500,
                 color: AppColors.grey700,
               ),
@@ -741,10 +742,10 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
               try {
                 return SingleChildScrollView(
             padding: EdgeInsets.only(
-              left: 16,
-              right: 16,
-              top: 16,
-              bottom: 16 + MediaQuery.of(context).padding.bottom + 110,
+              left: ResponsiveUtils.getHorizontalPadding(context),
+              right: ResponsiveUtils.getHorizontalPadding(context),
+              top: ResponsiveUtils.getVerticalPadding(context),
+              bottom: ResponsiveUtils.getVerticalPadding(context) + MediaQuery.of(context).padding.bottom + ResponsiveUtils.getSpacing(context, small: 110, medium: 120, large: 130),
             ),
             child: Form(
               key: _formKey,
@@ -755,7 +756,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                   // Profile Picture Section
                   _buildProfilePictureSection(),
                   
-                  const SizedBox(height: 32),
+                  SizedBox(height: ResponsiveUtils.getSpacing(context, small: 32, medium: 36, large: 40)),
                   
                   // Form Fields
                   CustomTextField(
@@ -772,7 +773,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                     },
                   ),
                   
-                  const SizedBox(height: 16),
+                  SizedBox(height: ResponsiveUtils.getSpacing(context, small: 16, medium: 18, large: 20)),
                   
                   CustomTextField(
                     controller: _emailController,
@@ -788,7 +789,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                     },
                   ),
                   
-                  const SizedBox(height: 16),
+                  SizedBox(height: ResponsiveUtils.getSpacing(context, small: 16, medium: 18, large: 20)),
                   
                   // Username field with validation
                   CustomTextField(
@@ -830,11 +831,11 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                   // Username error message
                   if (_usernameError != null)
                     Container(
-                      margin: const EdgeInsets.only(top: 8),
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      margin: EdgeInsets.only(top: ResponsiveUtils.getSpacing(context, small: 8, medium: 10, large: 12)),
+                      padding: ResponsiveUtils.getSymmetricPadding(context, horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
                         color: Colors.red.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(6),
+                        borderRadius: BorderRadius.circular(ResponsiveUtils.getBorderRadius(context, base: 6)),
                         border: Border.all(color: Colors.red.withOpacity(0.3)),
                       ),
                       child: Row(
@@ -843,15 +844,15 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                           Icon(
                             Icons.error_outline,
                             color: Colors.red,
-                            size: 16,
+                            size: ResponsiveUtils.getIconSize(context, baseSize: 16),
                           ),
-                          const SizedBox(width: 8),
+                          SizedBox(width: ResponsiveUtils.getSpacing(context, small: 8, medium: 10, large: 12)),
                           Expanded(
                             child: Text(
                               _usernameError!,
                               style: TextStyle(
                                 color: Colors.red,
-                                fontSize: 12,
+                                fontSize: ResponsiveUtils.getFontSize(context, baseSize: 12),
                                 fontWeight: FontWeight.w500,
                               ),
                               maxLines: 2,
@@ -865,31 +866,31 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                   // Username checking indicator
                   if (_isCheckingUsername)
                     Container(
-                      margin: const EdgeInsets.only(top: 8),
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      margin: EdgeInsets.only(top: ResponsiveUtils.getSpacing(context, small: 8, medium: 10, large: 12)),
+                      padding: ResponsiveUtils.getSymmetricPadding(context, horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
                         color: Colors.blue.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(6),
+                        borderRadius: BorderRadius.circular(ResponsiveUtils.getBorderRadius(context, base: 6)),
                         border: Border.all(color: Colors.blue.withOpacity(0.3)),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           SizedBox(
-                            width: 16,
-                            height: 16,
+                            width: ResponsiveUtils.getIconSize(context, baseSize: 16),
+                            height: ResponsiveUtils.getIconSize(context, baseSize: 16),
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
                               valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
                             ),
                           ),
-                          const SizedBox(width: 8),
+                          SizedBox(width: ResponsiveUtils.getSpacing(context, small: 8, medium: 10, large: 12)),
                           Expanded(
                             child: Text(
                               'Checking username availability...',
                               style: TextStyle(
                                 color: Colors.blue,
-                                fontSize: 12,
+                                fontSize: ResponsiveUtils.getFontSize(context, baseSize: 12),
                                 fontWeight: FontWeight.w500,
                               ),
                               maxLines: 1,
@@ -903,11 +904,11 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                   // Username change limit warning
                   if (_hasChangedUsername)
                     Container(
-                      margin: const EdgeInsets.only(top: 8),
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      margin: EdgeInsets.only(top: ResponsiveUtils.getSpacing(context, small: 8, medium: 10, large: 12)),
+                      padding: ResponsiveUtils.getSymmetricPadding(context, horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
                         color: Colors.orange.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(6),
+                        borderRadius: BorderRadius.circular(ResponsiveUtils.getBorderRadius(context, base: 6)),
                         border: Border.all(color: Colors.orange.withOpacity(0.3)),
                       ),
                       child: Row(
@@ -916,15 +917,15 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                           Icon(
                             Icons.warning_outlined,
                             color: Colors.orange,
-                            size: 16,
+                            size: ResponsiveUtils.getIconSize(context, baseSize: 16),
                           ),
-                          const SizedBox(width: 8),
+                          SizedBox(width: ResponsiveUtils.getSpacing(context, small: 8, medium: 10, large: 12)),
                           Expanded(
                             child: Text(
                               'You can only change your username once. Choose carefully!',
                               style: TextStyle(
                                 color: Colors.orange,
-                                fontSize: 12,
+                                fontSize: ResponsiveUtils.getFontSize(context, baseSize: 12),
                                 fontWeight: FontWeight.w500,
                               ),
                               maxLines: 2,
@@ -935,7 +936,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                       ),
                     ),
                   
-                  const SizedBox(height: 16),
+                  SizedBox(height: ResponsiveUtils.getSpacing(context, small: 16, medium: 18, large: 20)),
                   
                   CustomTextField(
                     controller: _companyController,
@@ -944,7 +945,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                     prefixIcon: Icons.business,
                   ),
                   
-                  const SizedBox(height: 16),
+                  SizedBox(height: ResponsiveUtils.getSpacing(context, small: 16, medium: 18, large: 20)),
                   
                   CustomTextField(
                     controller: _positionController,
@@ -953,7 +954,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                     prefixIcon: Icons.work,
                   ),
                   
-                  const SizedBox(height: 16),
+                  SizedBox(height: ResponsiveUtils.getSpacing(context, small: 16, medium: 18, large: 20)),
                   
                   CustomTextField(
                     controller: _phoneController,
@@ -962,7 +963,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                     prefixIcon: Icons.phone,
                   ),
                   
-                  const SizedBox(height: 24),
+                  SizedBox(height: ResponsiveUtils.getSpacing(context, small: 24, medium: 28, large: 32)),
                   
                   // Phone Number Privacy Section
                   Builder(
@@ -1001,7 +1002,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                     },
                   ),
                   
-                  const SizedBox(height: 16),
+                  SizedBox(height: ResponsiveUtils.getSpacing(context, small: 16, medium: 18, large: 20)),
                   
                   CustomTextField(
                     controller: _bioController,
@@ -1011,7 +1012,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                     maxLines: 3,
                   ),
                   
-                  const SizedBox(height: 16),
+                  SizedBox(height: ResponsiveUtils.getSpacing(context, small: 16, medium: 18, large: 20)),
                   
                   CustomTextField(
                     controller: _linkedinController,
@@ -1021,7 +1022,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                     keyboardType: TextInputType.url,
                   ),
                   
-                  const SizedBox(height: 32),
+                  SizedBox(height: ResponsiveUtils.getSpacing(context, small: 32, medium: 36, large: 40)),
                   
                   // Save Button
                   CustomButton(
@@ -1031,7 +1032,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                   ),
                   
                   // Extra bottom spacing to prevent overflow
-                  SizedBox(height: MediaQuery.of(context).padding.bottom + 30),
+                  SizedBox(height: MediaQuery.of(context).padding.bottom + ResponsiveUtils.getSpacing(context, small: 30, medium: 36, large: 40)),
                 ],
               ),
             ),
@@ -1071,6 +1072,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
   }
 
   Widget _buildProfilePictureSection() {
+    final avatarSize = ResponsiveUtils.getAvatarSize(context, small: 100, medium: 120, large: 140);
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -1080,8 +1082,8 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
           child: Stack(
             children: [
               Container(
-                width: 120,
-                height: 120,
+                width: avatarSize,
+                height: avatarSize,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   border: Border.all(
@@ -1110,17 +1112,17 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                 bottom: 0,
                 right: 0,
                 child: Container(
-                  width: 36,
-                  height: 36,
+                  width: ResponsiveUtils.getIconSize(context, baseSize: 36),
+                  height: ResponsiveUtils.getIconSize(context, baseSize: 36),
                   decoration: BoxDecoration(
                     color: AppColors.primary,
                     shape: BoxShape.circle,
                     border: Border.all(color: AppColors.white, width: 2),
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.camera_alt,
                     color: AppColors.white,
-                    size: 20,
+                    size: ResponsiveUtils.getIconSize(context, baseSize: 20),
                   ),
                 ),
               ),
@@ -1128,12 +1130,12 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
           ),
         ),
         
-        const SizedBox(height: 12),
+        SizedBox(height: ResponsiveUtils.getSpacing(context, small: 12, medium: 14, large: 16)),
         
         Text(
           'Tap to change photo',
           style: TextStyle(
-            fontSize: 14,
+            fontSize: ResponsiveUtils.getFontSize(context, baseSize: 14),
             color: AppColors.grey600,
           ),
         ),
@@ -1191,18 +1193,21 @@ class _PhonePrivacySection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.only(left: 16, bottom: 8),
+          padding: EdgeInsets.only(
+            left: ResponsiveUtils.getHorizontalPadding(context),
+            bottom: ResponsiveUtils.getSpacing(context, small: 8, medium: 10, large: 12),
+          ),
           child: Text(
             'Phone Number Privacy',
-            style: const TextStyle(
-              fontSize: 14,
+            style: TextStyle(
+              fontSize: ResponsiveUtils.getFontSize(context, baseSize: 14),
               fontWeight: FontWeight.w600,
               color: AppColors.grey500,
             ),
           ),
         ),
         ClipRRect(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(ResponsiveUtils.getBorderRadius(context, base: 12)),
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
             child: Container(
@@ -1218,7 +1223,7 @@ class _PhonePrivacySection extends StatelessWidget {
                     const Color(0xFF283B89).withOpacity(0.5),
                   ],
                 ),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(ResponsiveUtils.getBorderRadius(context, base: 12)),
                 border: Border.all(
                   color: Colors.white.withOpacity(0.2),
                   width: 1,
@@ -1264,7 +1269,7 @@ class _PhonePrivacySection extends StatelessWidget {
                       color: Colors.white.withOpacity(0.1),
                     ),
                     Padding(
-                      padding: const EdgeInsets.all(16),
+                      padding: ResponsiveUtils.getAllPadding(context, base: 16),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1272,16 +1277,16 @@ class _PhonePrivacySection extends StatelessWidget {
                           Text(
                             'Select Connections',
                             style: TextStyle(
-                              fontSize: 14,
+                              fontSize: ResponsiveUtils.getFontSize(context, baseSize: 14),
                               fontWeight: FontWeight.w600,
                               color: AppColors.textPrimary,
                             ),
                           ),
-                          const SizedBox(height: 8),
+                          SizedBox(height: ResponsiveUtils.getSpacing(context, small: 8, medium: 10, large: 12)),
                           if (isLoadingConnections)
-                            const Padding(
-                              padding: EdgeInsets.symmetric(vertical: 16),
-                              child: Center(
+                            Padding(
+                              padding: ResponsiveUtils.getSymmetricPadding(context, horizontal: 0, vertical: 16),
+                              child: const Center(
                                 child: CircularProgressIndicator(
                                   color: AppColors.primary,
                                 ),
@@ -1289,11 +1294,11 @@ class _PhonePrivacySection extends StatelessWidget {
                             )
                           else if (connections.isEmpty)
                             Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              padding: ResponsiveUtils.getSymmetricPadding(context, horizontal: 0, vertical: 16),
                               child: Text(
                                 'No connections available',
                                 style: TextStyle(
-                                  fontSize: 12,
+                                  fontSize: ResponsiveUtils.getFontSize(context, baseSize: 12),
                                   color: AppColors.textSecondary,
                                 ),
                               ),
@@ -1302,11 +1307,11 @@ class _PhonePrivacySection extends StatelessWidget {
                             Text(
                               '${allowedPhoneViewers.length} of ${connections.length} connection(s) selected',
                               style: TextStyle(
-                                fontSize: 12,
+                                fontSize: ResponsiveUtils.getFontSize(context, baseSize: 12),
                                 color: AppColors.textSecondary,
                               ),
                             ),
-                            const SizedBox(height: 12),
+                            SizedBox(height: ResponsiveUtils.getSpacing(context, small: 12, medium: 14, large: 16)),
                             ConstrainedBox(
                               constraints: const BoxConstraints(maxHeight: 200),
                               child: SingleChildScrollView(
@@ -1327,7 +1332,7 @@ class _PhonePrivacySection extends StatelessWidget {
                                       title: Text(
                                         userName,
                                         style: TextStyle(
-                                          fontSize: 14,
+                                          fontSize: ResponsiveUtils.getFontSize(context, baseSize: 14),
                                           color: AppColors.textPrimary,
                                         ),
                                       ),
@@ -1381,16 +1386,18 @@ class _RadioPrivacyTile extends StatelessWidget {
     return ListTile(
       dense: true,
       isThreeLine: false,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      contentPadding: ResponsiveUtils.getSymmetricPadding(context, horizontal: 16, vertical: 8),
       leading: Icon(
         icon,
         color: isSelected ? AppColors.primary : AppColors.textSecondary,
+        size: ResponsiveUtils.getIconSize(context, baseSize: 24),
       ),
       title: Text(
         title,
         style: TextStyle(
           color: isSelected ? AppColors.primary : AppColors.textPrimary,
           fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+          fontSize: ResponsiveUtils.getFontSize(context, baseSize: 15),
         ),
       ),
       subtitle: Text(
@@ -1399,7 +1406,7 @@ class _RadioPrivacyTile extends StatelessWidget {
         overflow: TextOverflow.ellipsis,
         style: TextStyle(
           color: AppColors.textSecondary,
-          fontSize: 12,
+          fontSize: ResponsiveUtils.getFontSize(context, baseSize: 12),
         ),
       ),
       trailing: Radio<String>(

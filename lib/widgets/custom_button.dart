@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
+import '../utils/responsive_utils.dart';
 
 class CustomButton extends StatelessWidget {
   final String text;
@@ -27,9 +28,19 @@ class CustomButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final buttonHeight = height ?? (isSmall 
+        ? ResponsiveUtils.getButtonHeight(context) * 0.72 
+        : ResponsiveUtils.getButtonHeight(context));
+    final iconSize = isSmall 
+        ? ResponsiveUtils.getIconSize(context, baseSize: 16)
+        : ResponsiveUtils.getIconSize(context, baseSize: 20);
+    final fontSize = isSmall 
+        ? ResponsiveUtils.getFontSize(context, baseSize: 12)
+        : ResponsiveUtils.getFontSize(context, baseSize: 16);
+    
     return SizedBox(
       width: width ?? double.infinity,
-      height: height ?? (isSmall ? 36 : 50),
+      height: buttonHeight,
       child: ElevatedButton(
         onPressed: isLoading ? null : onPressed,
         style: ElevatedButton.styleFrom(
@@ -37,15 +48,15 @@ class CustomButton extends StatelessWidget {
           foregroundColor: textColor ?? AppColors.white,
           elevation: 2,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(ResponsiveUtils.getBorderRadius(context, base: 8)),
           ),
           disabledBackgroundColor: AppColors.grey300,
           disabledForegroundColor: AppColors.grey500,
         ),
         child: isLoading
             ? SizedBox(
-                width: isSmall ? 16 : 20,
-                height: isSmall ? 16 : 20,
+                width: iconSize,
+                height: iconSize,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
                   valueColor: AlwaysStoppedAnimation<Color>(AppColors.white),
@@ -55,13 +66,13 @@ class CustomButton extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   if (icon != null) ...[
-                    Icon(icon, size: isSmall ? 16 : 20),
-                    const SizedBox(width: 8),
+                    Icon(icon, size: iconSize),
+                    SizedBox(width: ResponsiveUtils.getSpacing(context, small: 8, medium: 10, large: 12)),
                   ],
                   Text(
                     text,
                     style: TextStyle(
-                      fontSize: isSmall ? 12 : 16,
+                      fontSize: fontSize,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
