@@ -51,7 +51,7 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyDi5Z3g1Mpt1y7KsPLHowmWmWwW73pnn9k',
-    appId: '1:651351206557:android:7565ff2e20876787e7c274',
+    appId: '1:651351206557:android:7565ff2e20876787e7c274', // NOTE: This will change after adding new package to Firebase - see instructions below
     messagingSenderId: '651351206557',
     projectId: 'linklly-9525b',
     storageBucket: 'linklly-9525b.firebasestorage.app',
@@ -63,7 +63,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '651351206557',
     projectId: 'linklly-9525b',
     storageBucket: 'linklly-9525b.firebasestorage.app',
-    iosBundleId: 'com.example.linkly',
+    iosBundleId: 'com.vynco.app',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
@@ -72,7 +72,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '651351206557',
     projectId: 'linklly-9525b',
     storageBucket: 'linklly-9525b.firebasestorage.app',
-    iosBundleId: 'com.example.linkly',
+    iosBundleId: 'com.vynco.app',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(

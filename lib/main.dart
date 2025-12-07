@@ -14,6 +14,7 @@ import 'screens/splash_screen.dart';
 import 'screens/onboarding_screen.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/auth/register_screen.dart';
+import 'screens/auth/forgot_password_screen.dart';
 import 'screens/home/home_screen.dart';
 import 'screens/profile/profile_setup_screen.dart';
 import 'screens/profile/profile_edit_screen.dart';
@@ -153,6 +154,7 @@ GoRouter _createRouter(AuthService authService) {
       final bool isAuthRoute =
           currentPath == '/login' ||
           currentPath == '/register' ||
+          currentPath == '/forgot-password' ||
           currentPath == '/onboarding' ||
           currentPath == '/terms' ||
           currentPath == '/privacy';
@@ -202,6 +204,10 @@ GoRouter _createRouter(AuthService authService) {
     GoRoute(
       path: '/login',
       builder: (context, state) => const LoginScreen(),
+    ),
+    GoRoute(
+      path: '/forgot-password',
+      builder: (context, state) => const ForgotPasswordScreen(),
     ),
     GoRoute(
       path: '/register',

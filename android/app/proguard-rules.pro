@@ -34,7 +34,7 @@
 }
 
 # Keep custom model classes (if you have any)
--keep class com.example.linkly.models.** { *; }
+-keep class com.vynco.app.models.** { *; }
 
 # Gson (if used)
 -keepattributes Signature

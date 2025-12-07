@@ -264,7 +264,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           const SizedBox(height: 16),
                           _FAQItem(
                             question: 'How do I delete my account?',
-                            answer: 'Please contact our support team at support@vynco.app for assistance with account deletion. We\'ll process your request within 7 business days.',
+                            answer: 'Please contact our support team at vynco.help@gmail.com for assistance with account deletion. We\'ll process your request within 7 business days.',
                           ),
                         ],
                       ),
@@ -340,18 +340,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   _ContactOption(
                     icon: Icons.email,
                     title: 'Email Support',
-                    subtitle: 'support@vynco.app',
+                    subtitle: 'vynco.help@gmail.com',
                     onTap: () async {
                       final Uri emailUri = Uri(
                         scheme: 'mailto',
-                        path: 'support@vynco.app',
+                        path: 'vynco.help@gmail.com',
                         query: 'subject=Vynco Support Request',
                       );
                       if (await canLaunchUrl(emailUri)) {
                         await launchUrl(emailUri);
                       } else {
                         if (sheetContext.mounted) {
-                          Clipboard.setData(const ClipboardData(text: 'support@vynco.app'));
+                          Clipboard.setData(const ClipboardData(text: 'vynco.help@gmail.com'));
                           ScaffoldMessenger.of(sheetContext).showSnackBar(
                             const SnackBar(
                               content: Text('Email address copied to clipboard'),
@@ -366,9 +366,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   _ContactOption(
                     icon: Icons.copy,
                     title: 'Copy Email Address',
-                    subtitle: 'Tap to copy support@vynco.app',
+                    subtitle: 'Tap to copy vynco.help@gmail.com',
                     onTap: () {
-                      Clipboard.setData(const ClipboardData(text: 'support@vynco.app'));
+                      Clipboard.setData(const ClipboardData(text: 'vynco.help@gmail.com'));
                       Navigator.of(sheetContext).pop();
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
@@ -587,6 +587,292 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  void _showAccountDeletionDialog(BuildContext context) {
+    // Hosted account deletion information page
+    const accountDeletionUrl = 'https://sites.google.com/view/vynco-deletionpage/home';
+    
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (sheetContext) {
+        final screenHeight = MediaQuery.of(context).size.height;
+        return ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: screenHeight * 0.85),
+          child: Container(
+            decoration: BoxDecoration(
+              color: AppColors.grey900,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.4),
+                  blurRadius: 20,
+                  offset: const Offset(0, -10),
+                ),
+              ],
+            ),
+            child: SafeArea(
+              top: false,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(top: 12, bottom: 8),
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: AppColors.grey700,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.warning_amber_rounded,
+                                color: AppColors.error,
+                                size: 24,
+                              ),
+                              const SizedBox(width: 12),
+                              const Expanded(
+                                child: Text(
+                                  'Delete Account',
+                                  style: TextStyle(
+                                    color: AppColors.textPrimary,
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: -0.3,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close, color: AppColors.textSecondary, size: 22),
+                          onPressed: () => Navigator.of(sheetContext).pop(),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Flexible(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: AppColors.error.withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: AppColors.error.withOpacity(0.3),
+                                width: 1.5,
+                              ),
+                            ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Icon(
+                                  Icons.error_outline,
+                                  color: AppColors.error,
+                                  size: 24,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'This action cannot be undone',
+                                        style: TextStyle(
+                                          color: AppColors.error,
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Text(
+                                        'Permanently deleting your account will remove all your data, connections, posts, messages, and content. This action is irreversible.',
+                                        style: TextStyle(
+                                          color: AppColors.textSecondary,
+                                          fontSize: 13,
+                                          height: 1.5,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                          Text(
+                            'How to Delete Your Account',
+                            style: TextStyle(
+                              color: AppColors.textPrimary,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: -0.2,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            'To delete your Vynco account, you need to contact our support team. They will verify your identity and process your deletion request within 7 business days.',
+                            style: TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 14,
+                              height: 1.5,
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                          _AccountDeletionOption(
+                            icon: Icons.language,
+                            title: 'View Account Deletion Page',
+                            subtitle: 'Read detailed information about account deletion',
+                            onTap: () async {
+                              final Uri url = Uri.parse(accountDeletionUrl);
+                              try {
+                                final launched = await launchUrl(
+                                  url,
+                                  mode: LaunchMode.externalApplication,
+                                );
+                                if (!launched && sheetContext.mounted) {
+                                  ScaffoldMessenger.of(sheetContext).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Could not open the account deletion page'),
+                                      backgroundColor: AppColors.error,
+                                    ),
+                                  );
+                                }
+                              } catch (_) {
+                                if (sheetContext.mounted) {
+                                  ScaffoldMessenger.of(sheetContext).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Could not open the account deletion page'),
+                                      backgroundColor: AppColors.error,
+                                    ),
+                                  );
+                                }
+                              }
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          _AccountDeletionOption(
+                            icon: Icons.email,
+                            title: 'Email Support',
+                            subtitle: 'vynco.help@gmail.com',
+                            onTap: () async {
+                              final Uri emailUri = Uri(
+                                scheme: 'mailto',
+                                path: 'vynco.help@gmail.com',
+                                query: 'subject=Account Deletion Request&body=I would like to permanently delete my Vynco account and all associated data.%0D%0A%0D%0AEmail: [Your registered email address]',
+                              );
+                              if (await canLaunchUrl(emailUri)) {
+                                await launchUrl(emailUri);
+                                if (sheetContext.mounted) {
+                                  Navigator.of(sheetContext).pop();
+                                }
+                              } else {
+                                if (sheetContext.mounted) {
+                                  Clipboard.setData(const ClipboardData(text: 'vynco.help@gmail.com'));
+                                  ScaffoldMessenger.of(sheetContext).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Email address copied to clipboard'),
+                                      backgroundColor: AppColors.primary,
+                                    ),
+                                  );
+                                }
+                              }
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          _AccountDeletionOption(
+                            icon: Icons.copy,
+                            title: 'Copy Support Email',
+                            subtitle: 'Tap to copy vynco.help@gmail.com',
+                            onTap: () {
+                              Clipboard.setData(const ClipboardData(text: 'vynco.help@gmail.com'));
+                              Navigator.of(sheetContext).pop();
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Email address copied to clipboard'),
+                                  backgroundColor: AppColors.primary,
+                                ),
+                              );
+                            },
+                          ),
+                          const SizedBox(height: 24),
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: AppColors.grey50.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: AppColors.primary.withOpacity(0.2),
+                                width: 1,
+                              ),
+                            ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Icon(
+                                  Icons.info_outline,
+                                  color: AppColors.primary,
+                                  size: 20,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Important Information',
+                                        style: TextStyle(
+                                          color: AppColors.textPrimary,
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Text(
+                                        'After submitting your deletion request, your account will be marked for deletion within 24-48 hours. We will hold your data for up to 30 days to process the request and comply with legal and security requirements, after which it will be permanently deleted from our systems.',
+                                        style: TextStyle(
+                                          color: AppColors.textSecondary,
+                                          fontSize: 12,
+                                          height: 1.4,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   void _showLogoutDialog(BuildContext context, AuthService authService) {
     showDialog(
       context: context,
@@ -788,6 +1074,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 title: 'Contact Support',
                 onTap: () {
                   _showContactSupportDialog(context);
+                },
+              ),
+              _SettingsTile(
+                icon: Icons.delete_forever,
+                title: 'Delete Account',
+                textColor: AppColors.error,
+                onTap: () {
+                  _showAccountDeletionDialog(context);
                 },
               ),
               _SettingsTile(
@@ -1057,6 +1351,87 @@ class _ContactOption extends StatelessWidget {
   final VoidCallback onTap;
 
   const _ContactOption({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppColors.grey50.withOpacity(0.2),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: AppColors.primary.withOpacity(0.2),
+              width: 1,
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  icon,
+                  color: AppColors.primary,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        color: AppColors.textPrimary,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(
+                Icons.chevron_right,
+                color: AppColors.textSecondary,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AccountDeletionOption extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  const _AccountDeletionOption({
     required this.icon,
     required this.title,
     required this.subtitle,

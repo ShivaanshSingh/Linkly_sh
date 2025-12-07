@@ -65,7 +65,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
 
               _Heading('11. Contact Us'),
               _Body(
-                  'If you have questions about this Policy, contact us at privacy@vynco.app.'),
+                  'If you have questions about this Policy, contact us at vynco.help@gmail.com.'),
 
               SizedBox(height: 16),
               Text(

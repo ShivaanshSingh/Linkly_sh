@@ -69,7 +69,7 @@ class TermsOfServiceScreen extends StatelessWidget {
 
               _Heading('12. Contact'),
               _Body(
-                  'Questions about these Terms? Contact support at support@vynco.app.'),
+                  'Questions about these Terms? Contact support at vynco.help@gmail.com.'),
 
               SizedBox(height: 16),
               Text(
