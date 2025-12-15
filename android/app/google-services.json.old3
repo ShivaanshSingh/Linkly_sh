@@ -15,6 +15,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "651351206557-t4r9vuh7kq09timunl49j7jm9hblas1f.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.linkly",
+            "certificate_hash": "3d53b2aff8471fef610b3c71361961fc34a862ad"
+          }
+        },
+        {
           "client_id": "651351206557-js9ir0prhqr6qct7u24i8k5hgtpgfps1.apps.googleusercontent.com",
           "client_type": 3
         }
@@ -50,14 +58,6 @@
         }
       },
       "oauth_client": [
-        {
-          "client_id": "651351206557-291livaon5okg9ksr096nc797otupovf.apps.googleusercontent.com",
-          "client_type": 1,
-          "android_info": {
-            "package_name": "com.vynco.app",
-            "certificate_hash": "2154e8f267a4d96a52326607aa65039452025b8a"
-          }
-        },
         {
           "client_id": "651351206557-k9sb1rtregr0tmq1uvr2fkla328uvpbj.apps.googleusercontent.com",
           "client_type": 1,

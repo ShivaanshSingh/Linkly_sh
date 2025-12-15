@@ -42,11 +42,15 @@ class AuthService extends ChangeNotifier {
         _auth = FirebaseAuth.instance;
         _googleSignIn = GoogleSignIn(
           scopes: ['email', 'profile'],
+          // serverClientId is required for getting ID token for Firebase Auth
+          serverClientId: '651351206557-js9ir0prhqr6qct7u24i8k5hgtpgfps1.apps.googleusercontent.com',
         );
+        debugPrint('✅ GoogleSignIn initialized with serverClientId');
         _firestore = FirebaseFirestore.instance;
         _isFirebaseAvailable = true;
         _auth!.authStateChanges().listen(_onAuthStateChanged);
         debugPrint('✅ AuthService initialized with REAL Firebase authentication');
+        debugPrint('✅ Google Sign-In configured with scopes: email, profile');
         debugPrint('✅ Users will be created in Firebase Console');
         debugPrint('✅ Only registered users can sign in');
       } catch (e) {
@@ -432,79 +436,136 @@ class AuthService extends ChangeNotifier {
     
     try {
       _setLoading(true);
-      debugPrint('Signing in with Google');
+      debugPrint('🔵 Starting Google Sign-In process...');
       
       // Trigger the authentication flow
-      final GoogleSignInAccount? googleUser = await _googleSignIn!.signIn();
+      debugPrint('🔵 Requesting Google Sign-In account...');
+      debugPrint('🔵 GoogleSignIn configuration - serverClientId: ${_googleSignIn?.serverClientId ?? "not set"}');
+      GoogleSignInAccount? googleUser;
+      try {
+        googleUser = await _googleSignIn!.signIn();
+      } catch (signInError) {
+        debugPrint('❌ Error during GoogleSignIn.signIn(): $signInError');
+        debugPrint('❌ Error type: ${signInError.runtimeType}');
+        rethrow;
+      }
       if (googleUser == null) {
-        debugPrint('Google sign-in was cancelled by user');
+        debugPrint('⚠️ Google sign-in was cancelled by user');
         return null;
       }
       
+      debugPrint('✅ Google account selected: ${googleUser.email}');
+      
       // Obtain the auth details from the request
+      debugPrint('🔵 Obtaining authentication tokens from Google...');
       final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
       
       // Check if we have the required tokens
       if (googleAuth.accessToken == null || googleAuth.idToken == null) {
-        throw Exception('Failed to get authentication tokens from Google');
+        debugPrint('❌ Missing authentication tokens - accessToken: ${googleAuth.accessToken != null}, idToken: ${googleAuth.idToken != null}');
+        throw Exception('Failed to get authentication tokens from Google. Please ensure Google Sign-In is properly configured.');
       }
       
+      debugPrint('✅ Authentication tokens obtained successfully');
+      
       // Create a new credential
+      debugPrint('🔵 Creating Firebase credential...');
       final credential = GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken!,
         idToken: googleAuth.idToken!,
       );
       
       // Sign in to Firebase with the Google credential
+      debugPrint('🔵 Signing in to Firebase with Google credential...');
       final userCredential = await _auth!.signInWithCredential(credential);
       
-      // Create or update user document in Firestore
-      if (userCredential.user != null) {
-        final userDocRef = _firestore!.collection('users').doc(userCredential.user!.uid);
-        final userDoc = await userDocRef.get();
-        
-        // Only update if document doesn't exist or doesn't have username
-        if (!userDoc.exists || userDoc.data()?['username'] == null || (userDoc.data()?['username'] as String).isEmpty) {
-          await userDocRef.set({
-            'uid': userCredential.user!.uid,
-            'email': userCredential.user!.email ?? '',
-            'fullName': userCredential.user!.displayName ?? 'Google User',
-            'profileImageUrl': userCredential.user!.photoURL,
-            'phoneNumberPrivacy': 'connections_only', // Default privacy setting
-            'allowedPhoneViewers': [], // Empty list by default
-            'socialLinks': {},
-            'createdAt': FieldValue.serverTimestamp(),
-            'lastSeen': FieldValue.serverTimestamp(),
-            'isOnline': true,
-          }, SetOptions(merge: true));
-        } else {
-          // Update only non-username fields if username already exists
-          await userDocRef.update({
-            'email': userCredential.user!.email ?? '',
-            'fullName': userCredential.user!.displayName ?? 'Google User',
-            'profileImageUrl': userCredential.user!.photoURL,
-            'lastSeen': FieldValue.serverTimestamp(),
-            'isOnline': true,
-          });
-        }
-        
-        // Reload user model to check username status
-        await _loadUserModel();
+      if (userCredential.user == null) {
+        debugPrint('❌ Firebase sign-in succeeded but user is null');
+        throw Exception('Authentication succeeded but user data is missing. Please try again.');
       }
       
-      debugPrint('Google sign in successful for: ${userCredential.user?.email}');
-      return userCredential;
-    } catch (e) {
-      debugPrint('Google sign in error: $e');
-      if (e.toString().contains('sign_in_failed')) {
-        throw Exception('Google sign-in failed. Please try again');
-      } else if (e.toString().contains('PigeonUserDetails')) {
-        throw Exception('Authentication service error. Please try again');
+      debugPrint('✅ Firebase authentication successful for: ${userCredential.user?.email}');
+      
+      // Create or update user document in Firestore
+      debugPrint('🔵 Updating user document in Firestore...');
+      final userDocRef = _firestore!.collection('users').doc(userCredential.user!.uid);
+      final userDoc = await userDocRef.get();
+      
+      // Only update if document doesn't exist or doesn't have username
+      if (!userDoc.exists || userDoc.data()?['username'] == null || (userDoc.data()?['username'] as String).isEmpty) {
+        await userDocRef.set({
+          'uid': userCredential.user!.uid,
+          'email': userCredential.user!.email ?? '',
+          'fullName': userCredential.user!.displayName ?? 'Google User',
+          'profileImageUrl': userCredential.user!.photoURL,
+          'phoneNumberPrivacy': 'connections_only', // Default privacy setting
+          'allowedPhoneViewers': [], // Empty list by default
+          'socialLinks': {},
+          'createdAt': FieldValue.serverTimestamp(),
+          'lastSeen': FieldValue.serverTimestamp(),
+          'isOnline': true,
+        }, SetOptions(merge: true));
+        debugPrint('✅ User document created/updated in Firestore');
       } else {
+        // Update only non-username fields if username already exists
+        await userDocRef.update({
+          'email': userCredential.user!.email ?? '',
+          'fullName': userCredential.user!.displayName ?? 'Google User',
+          'profileImageUrl': userCredential.user!.photoURL,
+          'lastSeen': FieldValue.serverTimestamp(),
+          'isOnline': true,
+        });
+        debugPrint('✅ User document updated in Firestore');
+      }
+      
+      // Reload user model to check username status
+      debugPrint('🔵 Reloading user model...');
+      await _loadUserModel();
+      
+      debugPrint('✅ Google sign in successful for: ${userCredential.user?.email}');
+      return userCredential;
+    } catch (e, stackTrace) {
+      debugPrint('❌ Google sign in error: $e');
+      debugPrint('❌ Error type: ${e.runtimeType}');
+      debugPrint('❌ Stack trace: $stackTrace');
+      
+      // Provide more specific error messages based on error type
+      final errorString = e.toString().toLowerCase();
+      final errorMessage = e.toString();
+      
+      // Check for specific error codes
+      if (errorString.contains('sign_in_failed') || errorString.contains('sign_in_canceled')) {
+        debugPrint('❌ Google Sign-In failed - likely configuration issue');
+        // Check if it's a developer error (SHA certificate issue)
+        if (errorString.contains('10:') || errorString.contains('developer_error') || errorString.contains('12500')) {
+          throw Exception('Google Sign-In configuration error: SHA certificate fingerprint mismatch. Please ensure the app SHA-1 certificate is added to Firebase Console for package name com.vynco.app.');
+        }
+        throw Exception('Google sign-in failed. Please ensure the app is properly configured in Firebase Console.');
+      } else if (errorString.contains('network') || errorString.contains('connection')) {
+        debugPrint('❌ Network error during Google Sign-In');
+        throw Exception('Network error. Please check your internet connection and try again.');
+      } else if (errorString.contains('pigeonuserdetails') || errorString.contains('platform')) {
+        debugPrint('❌ Platform/authentication service error');
+        throw Exception('Authentication service error. Please try again.');
+      } else if (errorString.contains('10:') || errorString.contains('developer_error') || errorString.contains('12500')) {
+        debugPrint('❌ Developer error - likely missing OAuth client or SHA certificate');
+        throw Exception('Google Sign-In configuration error: SHA certificate fingerprint mismatch. Please ensure the app SHA-1 certificate is added to Firebase Console for package name com.vynco.app.');
+      } else if (errorString.contains('invalid_credential') || errorString.contains('credential')) {
+        debugPrint('❌ Invalid credential error');
+        throw Exception('Authentication failed. Please try signing in again.');
+      } else {
+        // Preserve original error for debugging but provide user-friendly message
+        debugPrint('❌ Unexpected error: $e');
+        // Extract the actual error message if it's wrapped
+        if (errorMessage.contains('Exception: ')) {
+          final actualError = errorMessage.split('Exception: ').last.trim();
+          throw Exception(actualError);
+        }
         rethrow;
       }
     } finally {
       _setLoading(false);
+      debugPrint('🔵 Google Sign-In process completed');
     }
   }
 

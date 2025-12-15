@@ -167,7 +167,13 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
-          onPressed: () => context.pop(),
+          onPressed: () async {
+            final authService = Provider.of<AuthService>(context, listen: false);
+            await authService.signOut();
+            if (mounted) {
+              context.go('/login');
+            }
+          },
         ),
         title: const Text(
           'Personal Information',
@@ -460,7 +466,13 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                   children: [
                     Expanded(
                       child: OutlinedButton(
-                        onPressed: _isLoading ? null : () => context.pop(),
+                        onPressed: _isLoading ? null : () async {
+                          final authService = Provider.of<AuthService>(context, listen: false);
+                          await authService.signOut();
+                          if (mounted) {
+                            context.go('/login');
+                          }
+                        },
                         style: OutlinedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           side: BorderSide(color: AppColors.grey300),
